@@ -4,15 +4,267 @@ const WebSocket = require("ws");
 const PORT = process.env.PORT || 8080;
 const HOST = "0.0.0.0";
 
-const rooms = new Map();
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("OK");
+    return;
+  }
 
-const html = `<!DOCTYPE html>
+  res.writeHead(200, {
+    "Content-Type": "text/html; charset=utf-8",
+  });
+
+  res.end(HTML);
+});
+
+const wss = new WebSocket.Server({ server });
+
+let nextId = 1;
+const clients = new Map();
+
+function send(ws, data) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(data));
+  }
+}
+
+function broadcast(data, except = null) {
+  for (const client of clients.values()) {
+    if (client.ws !== except) {
+      send(client.ws, data);
+    }
+  }
+}
+
+wss.on("connection", (ws) => {
+  const id = String(nextId++);
+
+  const client = {
+    id,
+    ws,
+    role: null,
+    room: "bota",
+  };
+
+  clients.set(id, client);
+
+  send(ws, {
+    type: "welcome",
+    id,
+  });
+
+  ws.on("message", (raw) => {
+    let msg;
+
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+
+    // -----------------------------
+    // 役割設定
+    // -----------------------------
+    if (msg.type === "join") {
+      client.role = msg.role === "host" ? "host" : "viewer";
+      client.room = msg.room || "bota";
+
+      console.log(
+        `[JOIN] ${id} role=${client.role} room=${client.room}`
+      );
+
+      if (client.role === "host") {
+        send(ws, {
+          type: "status",
+          text: "配信者として接続しました",
+        });
+
+        // 既にいる視聴者を通知
+        for (const other of clients.values()) {
+          if (
+            other.id !== client.id &&
+            other.room === client.room &&
+            other.role === "viewer"
+          ) {
+            send(ws, {
+              type: "viewer-joined",
+              viewerId: other.id,
+            });
+          }
+        }
+      }
+
+      if (client.role === "viewer") {
+        send(ws, {
+          type: "status",
+          text: "視聴者として接続しました",
+        });
+
+        // 配信者へ視聴者参加を通知
+        for (const other of clients.values()) {
+          if (
+            other.room === client.room &&
+            other.role === "host"
+          ) {
+            send(other.ws, {
+              type: "viewer-joined",
+              viewerId: client.id,
+            });
+          }
+        }
+      }
+
+      updateRoomStatus(client.room);
+      return;
+    }
+
+    // -----------------------------
+    // WebRTCシグナリング
+    // -----------------------------
+    if (msg.type === "signal") {
+      const targetId = msg.target;
+      const target = clients.get(targetId);
+
+      if (!target) {
+        console.log("[SIGNAL] target not found:", targetId);
+        return;
+      }
+
+      if (target.room !== client.room) {
+        return;
+      }
+
+      send(target.ws, {
+        type: "signal",
+        from: client.id,
+        signal: msg.signal,
+      });
+
+      return;
+    }
+
+    // -----------------------------
+    // 配信開始
+    // -----------------------------
+    if (msg.type === "stream-started") {
+      for (const other of clients.values()) {
+        if (
+          other.room === client.room &&
+          other.role === "viewer"
+        ) {
+          send(other.ws, {
+            type: "stream-started",
+          });
+        }
+      }
+
+      return;
+    }
+
+    // -----------------------------
+    // 配信停止
+    // -----------------------------
+    if (msg.type === "stream-stopped") {
+      for (const other of clients.values()) {
+        if (
+          other.room === client.room &&
+          other.role === "viewer"
+        ) {
+          send(other.ws, {
+            type: "stream-stopped",
+          });
+        }
+      }
+
+      return;
+    }
+  });
+
+  ws.on("close", () => {
+    console.log(`[CLOSE] ${id}`);
+
+    const room = client.room;
+    const role = client.role;
+
+    clients.delete(id);
+
+    if (role === "host") {
+      for (const other of clients.values()) {
+        if (
+          other.room === room &&
+          other.role === "viewer"
+        ) {
+          send(other.ws, {
+            type: "host-left",
+          });
+        }
+      }
+    }
+
+    if (role === "viewer") {
+      for (const other of clients.values()) {
+        if (
+          other.room === room &&
+          other.role === "host"
+        ) {
+          send(other.ws, {
+            type: "viewer-left",
+            viewerId: id,
+          });
+        }
+      }
+    }
+
+    updateRoomStatus(room);
+  });
+});
+
+function updateRoomStatus(room) {
+  let host = false;
+  let viewers = 0;
+
+  for (const client of clients.values()) {
+    if (client.room !== room) continue;
+
+    if (client.role === "host") {
+      host = true;
+    }
+
+    if (client.role === "viewer") {
+      viewers++;
+    }
+  }
+
+  for (const client of clients.values()) {
+    if (client.room === room) {
+      send(client.ws, {
+        type: "room-status",
+        live: host,
+        viewers,
+      });
+    }
+  }
+}
+
+server.listen(PORT, HOST, () => {
+  console.log("=================================");
+  console.log("Bota Live Server");
+  console.log(`PORT: ${PORT}`);
+  console.log("Server started!");
+  console.log("=================================");
+});
+
+
+const HTML = `
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-content="width=device-width,initial-scale=1,maximum-scale=1">
-
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1.0,user-scalable=no"
+>
 <title>Bota Live</title>
 
 <style>
@@ -22,879 +274,524 @@ content="width=device-width,initial-scale=1,maximum-scale=1">
 
 body {
   margin: 0;
-  background: #090909;
+  padding: 0;
+  background: #080808;
   color: white;
-  font-family: Arial, "Noto Sans JP", sans-serif;
-}
-
-button,
-input {
-  font: inherit;
-}
-
-#login {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.loginBox {
-  width: 100%;
-  max-width: 400px;
-  background: #181818;
-  padding: 25px;
-  border-radius: 20px;
-}
-
-.loginBox h1 {
-  text-align: center;
-}
-
-.loginBox input {
-  width: 100%;
-  margin: 7px 0;
-  padding: 14px;
-  border: 1px solid #444;
-  border-radius: 10px;
-  background: #222;
-  color: white;
-}
-
-.loginBox button {
-  width: 100%;
-  margin-top: 10px;
-  padding: 14px;
-  border: 0;
-  border-radius: 10px;
-  background: #ff2876;
-  color: white;
-  font-weight: bold;
+  font-family:
+    Arial,
+    "Noto Sans JP",
+    sans-serif;
 }
 
 #app {
-  display: none;
+  width: 100%;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+h1 {
+  text-align: center;
+  margin: 10px 0 20px;
+}
+
+.card {
   max-width: 700px;
-  margin: auto;
-}
-
-header {
-  height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 15px;
+  margin: 0 auto;
   background: #151515;
+  border-radius: 18px;
+  padding: 18px;
 }
 
-.logo {
-  font-size: 21px;
+button {
+  width: 100%;
+  padding: 16px;
+  margin: 7px 0;
+  border: 0;
+  border-radius: 12px;
+  font-size: 17px;
   font-weight: bold;
 }
 
-.logo span {
-  color: #ff2876;
+.hostButton {
+  background: #635bff;
+  color: white;
 }
 
-.status {
-  color: #aaa;
-  font-size: 12px;
-  text-align: right;
+.viewerButton {
+  background: #2f9e44;
+  color: white;
 }
 
-.videoArea {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 9 / 16;
-  max-height: 72vh;
-  background: #151515;
-  overflow: hidden;
+.stopButton {
+  background: #d6336c;
+  color: white;
+}
+
+.audioButton {
+  background: #f59f00;
+  color: black;
 }
 
 video {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: #111;
+  max-height: 65vh;
+  background: #000;
+  border-radius: 14px;
+  object-fit: contain;
+  display: block;
 }
 
-#localVideo,
-#remoteVideo {
-  display: none;
+#localVideo {
+  transform: scaleX(-1);
 }
 
-.placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  color: #aaa;
+.status {
+  margin: 12px 0;
+  padding: 12px;
+  background: #202020;
+  border-radius: 10px;
+  text-align: center;
 }
 
 .live {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  padding: 6px 12px;
-  background: #ff1744;
-  border-radius: 20px;
-  font-weight: bold;
-  display: none;
-}
-
-.viewers {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  padding: 6px 12px;
-  background: #0009;
-  border-radius: 20px;
-}
-
-.debug {
-  padding: 8px 12px;
-  background: #191919;
-  color: #80ff80;
-  font-size: 11px;
-  word-break: break-all;
-}
-
-.info {
-  padding: 14px;
-  background: #111;
-}
-
-.title {
-  font-size: 19px;
+  color: #00ff66;
   font-weight: bold;
 }
 
-.roomName {
-  color: #888;
+.wait {
+  color: #aaa;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.small {
+  color: #aaa;
   font-size: 13px;
-  margin-top: 4px;
+  text-align: center;
+  margin-top: 10px;
 }
 
-.chat {
-  height: 180px;
-  overflow-y: auto;
+#log {
+  margin-top: 15px;
   padding: 10px;
-  background: #0d0d0d;
-}
-
-.message {
-  margin: 7px 0;
-  font-size: 14px;
-}
-
-.name {
-  color: #ff72a7;
-  font-weight: bold;
-}
-
-.controls {
-  display: flex;
-  gap: 7px;
-  padding: 10px;
-  background: #111;
-  overflow-x: auto;
-}
-
-.controls button {
-  flex: 1;
-  min-width: 95px;
-  padding: 11px;
-  border: 0;
+  background: #050505;
   border-radius: 10px;
-  background: #292929;
-  color: white;
-}
-
-.controls .start {
-  background: #ff2876;
-}
-
-.controls .gift {
-  background: #ff9700;
-}
-
-.chatForm {
-  display: flex;
-  gap: 7px;
-  padding: 10px;
-  background: #111;
-}
-
-.chatForm input {
-  flex: 1;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #444;
-  border-radius: 10px;
-  background: #222;
-  color: white;
-}
-
-.chatForm button {
-  border: 0;
-  border-radius: 10px;
-  padding: 0 15px;
-  background: #ff2876;
-  color: white;
-}
-
-.giftAnimation {
-  position: fixed;
-  left: 50%;
-  top: 40%;
-  transform: translate(-50%, -50%);
-  font-size: 45px;
-  z-index: 50;
-  animation: gift 1s forwards;
-  pointer-events: none;
-}
-
-@keyframes gift {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(.3);
-  }
-
-  30% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.2);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -80%) scale(1);
-  }
+  font-size: 12px;
+  color: #00ff66;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 </style>
 </head>
 
 <body>
 
-<div id="login">
-
-  <div class="loginBox">
-
-    <h1>💗 Bota Live</h1>
-
-    <input
-      id="nameInput"
-      placeholder="あなたの名前"
-    >
-
-    <input
-      id="roomInput"
-      placeholder="ルーム名"
-      value="bota"
-    >
-
-    <button onclick="enterRoom()">
-      入室する
-    </button>
-
-  </div>
-
-</div>
-
 <div id="app">
 
-<header>
+  <div class="card">
 
-  <div class="logo">
-    Bota <span>Live</span>
-  </div>
+    <h1>🎥 Bota Live</h1>
 
-  <div
-    class="status"
-    id="status"
-  >
-    接続中...
-  </div>
+    <div id="roleSelect">
 
-</header>
+      <div class="status">
+        役割を選んでください
+      </div>
 
-<div class="videoArea">
+      <button
+        class="hostButton"
+        onclick="startHost()"
+      >
+        🎥 配信者として開始
+      </button>
 
-  <video
-    id="localVideo"
-    autoplay
-    muted
-    playsinline
-  ></video>
+      <button
+        class="viewerButton"
+        onclick="startViewer()"
+      >
+        👀 視聴者として見る
+      </button>
 
-  <video
-    id="remoteVideo"
-    autoplay
-    playsinline
-  ></video>
-
-  <div
-    class="placeholder"
-    id="placeholder"
-  >
-
-    <div style="font-size:50px">
-      📺
     </div>
 
-    <div id="placeholderText">
-      配信を待っています
+
+    <div id="liveArea" class="hidden">
+
+      <div id="status" class="status">
+        接続中...
+      </div>
+
+      <video
+        id="localVideo"
+        autoplay
+        playsinline
+        muted
+        class="hidden"
+      ></video>
+
+      <video
+        id="remoteVideo"
+        autoplay
+        playsinline
+        class="hidden"
+      ></video>
+
+      <button
+        id="audioButton"
+        class="audioButton hidden"
+        onclick="enableAudio()"
+      >
+        🔊 音声をONにする
+      </button>
+
+      <button
+        id="stopButton"
+        class="stopButton"
+        onclick="stopLive()"
+      >
+        ⛔ 終了
+      </button>
+
+      <div id="info" class="small"></div>
+
+      <div id="log"></div>
+
     </div>
 
   </div>
 
-  <div
-    class="live"
-    id="liveBadge"
-  >
-    🔴 LIVE
-  </div>
-
-  <div class="viewers">
-    👤
-    <span id="viewerCount">
-      0
-    </span>
-  </div>
-
 </div>
 
-<div
-  class="debug"
-  id="debug"
->
-  WebRTC: 待機中
-</div>
-
-<div class="info">
-
-  <div class="title">
-    Bota Live 配信
-  </div>
-
-  <div class="roomName">
-    ルーム：
-    <span id="roomLabel"></span>
-  </div>
-
-</div>
-
-<div
-  class="chat"
-  id="chat"
-></div>
-
-<div class="chatForm">
-
-  <input
-    id="message"
-    placeholder="コメントを入力"
-  >
-
-  <button onclick="sendChat()">
-    送信
-  </button>
-
-</div>
-
-<div class="controls">
-
-  <button
-    class="start"
-    id="startButton"
-    onclick="startLive()"
-  >
-    🎥 配信開始
-  </button>
-
-  <button onclick="toggleCamera()">
-    📷 カメラ
-  </button>
-
-  <button onclick="toggleMic()">
-    🎤 マイク
-  </button>
-
-  <button
-    class="gift"
-    onclick="sendGift()"
-  >
-    🎁 ギフト
-  </button>
-
-</div>
-
-</div>
 
 <script>
 
-let socket = null;
-
-let roomId = "";
-
-let userName = "";
-
-let isHost = false;
-
-let isLive = false;
+let ws = null;
+let myId = null;
+let myRole = null;
 
 let localStream = null;
 
-const peers = {};
+let viewerConnections = new Map();
 
-const pendingCandidates = {};
+let viewerPeer = null;
+let viewerId = null;
 
-const rtcConfig = {
+let pendingCandidates = [];
 
-  iceServers: [
+const room = "bota";
 
-    {
-      urls:
-        "stun:stun.l.google.com:19302"
-    }
+const localVideo =
+  document.getElementById("localVideo");
 
-  ]
+const remoteVideo =
+  document.getElementById("remoteVideo");
 
-};
+const statusBox =
+  document.getElementById("status");
 
-function $(id) {
+const info =
+  document.getElementById("info");
 
-  return document.getElementById(id);
+const logBox =
+  document.getElementById("log");
 
+function log(text) {
+  console.log(text);
+
+  logBox.textContent +=
+    text + "\\n";
+
+  logBox.scrollTop =
+    logBox.scrollHeight;
 }
 
-function debug(message) {
 
-  console.log(
-    "Bota Live:",
-    message
-  );
+function setStatus(text, live = false) {
 
-  $("debug").textContent =
-    "WebRTC: " + message;
+  statusBox.textContent = text;
 
+  statusBox.className =
+    "status " +
+    (live ? "live" : "wait");
 }
 
-function enterRoom() {
 
-  userName =
-    $("nameInput")
-      .value
-      .trim() || "匿名";
+function connectSocket() {
 
-  roomId =
-    $("roomInput")
-      .value
-      .trim() || "bota";
+  return new Promise((resolve, reject) => {
 
-  $("login").style.display =
-    "none";
+    const protocol =
+      location.protocol === "https:"
+        ? "wss:"
+        : "ws:";
 
-  $("app").style.display =
-    "block";
-
-  $("roomLabel").textContent =
-    roomId;
-
-  connect();
-
-}
-
-function connect() {
-
-  const protocol =
-    location.protocol === "https:"
-      ? "wss:"
-      : "ws:";
-
-  socket =
-    new WebSocket(
+    ws = new WebSocket(
       protocol +
       "//" +
       location.host
     );
 
-  socket.onopen = () => {
+    ws.onopen = () => {
 
-    $("status").textContent =
-      isHost
-        ? "配信者"
-        : "接続中";
+      log("WebSocket接続OK");
 
-    debug(
-      "WebSocket接続OK"
-    );
-
-    socket.send(
-      JSON.stringify({
-
-        type: "join",
-
-        roomId: roomId,
-
-        name: userName
-
-      })
-    );
-  };
-
-  socket.onerror = () => {
-
-    debug(
-      "WebSocketエラー"
-    );
-  };
-
-  socket.onclose = () => {
-
-    debug(
-      "WebSocket切断"
-    );
-
-  };
-
-  socket.onmessage =
-    async event => {
-
-      const data =
-        JSON.parse(
-          event.data
-        );
-
-      console.log(
-        "受信:",
-        data
-      );
-
-      if (
-        data.type === "joined"
-      ) {
-
-        isHost =
-          data.isHost;
-
-        $("viewerCount")
-          .textContent =
-          data.count;
-
-        $("status")
-          .textContent =
-          isHost
-            ? "配信者"
-            : "視聴者";
-
-        debug(
-          isHost
-            ? "配信者として入室"
-            : "視聴者として入室"
-        );
-
-        return;
-      }
-
-      if (
-        data.type ===
-        "viewerCount"
-      ) {
-
-        $("viewerCount")
-          .textContent =
-          data.count;
-
-        return;
-      }
-
-      if (
-        data.type ===
-        "viewerJoined"
-      ) {
-
-        debug(
-          "視聴者接続要求を受信"
-        );
-
-        if (
-          isHost &&
-          isLive
-        ) {
-
-          await createOffer(
-            data.viewerId
-          );
-        }
-
-        return;
-      }
-
-      if (
-        data.type === "live"
-      ) {
-
-        $("liveBadge")
-          .style.display =
-          data.active
-            ? "block"
-            : "none";
-
-        if (data.active) {
-
-          $("placeholderText")
-            .textContent =
-            "配信中";
-
-        } else {
-
-          $("placeholderText")
-            .textContent =
-            "配信を待っています";
-        }
-
-        debug(
-          data.active
-            ? "配信中"
-            : "待機中"
-        );
-
-        return;
-      }
-
-      if (
-        data.type === "offer"
-      ) {
-
-        debug(
-          "Offer受信"
-        );
-
-        await receiveOffer(
-          data
-        );
-
-        return;
-      }
-
-      if (
-        data.type === "answer"
-      ) {
-
-        debug(
-          "Answer受信"
-        );
-
-        await receiveAnswer(
-          data
-        );
-
-        return;
-      }
-
-      if (
-        data.type ===
-        "candidate"
-      ) {
-
-        await receiveCandidate(
-          data
-        );
-
-        return;
-      }
-
-      if (
-        data.type === "chat"
-      ) {
-
-        addChat(
-          data.name,
-          data.message
-        );
-
-        return;
-      }
-
-      if (
-        data.type === "gift"
-      ) {
-
-        showGift(
-          data.name
-        );
-
-        return;
-      }
-
+      resolve();
     };
 
+    ws.onerror = () => {
+
+      log("WebSocket ERROR");
+
+      reject();
+    };
+
+    ws.onclose = () => {
+
+      log("WebSocket切断");
+    };
+
+    ws.onmessage = async (event) => {
+
+      try {
+
+        const msg =
+          JSON.parse(event.data);
+
+        await handleMessage(msg);
+
+      } catch (e) {
+
+        console.error(e);
+
+        log(
+          "message error: " +
+          e.message
+        );
+      }
+    };
+
+  });
 }
 
-async function startLive() {
 
-  if (localStream) {
+function send(data) {
 
-    return;
+  if (
+    ws &&
+    ws.readyState === WebSocket.OPEN
+  ) {
 
+    ws.send(
+      JSON.stringify(data)
+    );
   }
+}
+
+
+async function startHost() {
+
+  myRole = "host";
+
+  document
+    .getElementById("roleSelect")
+    .classList.add("hidden");
+
+  document
+    .getElementById("liveArea")
+    .classList.remove("hidden");
+
+  setStatus(
+    "配信者として接続中..."
+  );
 
   try {
 
-    debug(
-      "カメラ・マイク取得中..."
+    await connectSocket();
+
+    send({
+      type: "join",
+      role: "host",
+      room
+    });
+
+    log("配信者として参加");
+
+    await startCamera();
+
+    setStatus(
+      "配信中",
+      true
     );
 
-    localStream =
-      await navigator
-        .mediaDevices
-        .getUserMedia({
+    send({
+      type: "stream-started"
+    });
 
-          video: true,
+  } catch (e) {
 
-          audio: true
-
-        });
-
-    $("localVideo")
-      .srcObject =
-      localStream;
-
-    $("localVideo")
-      .style.display =
-      "block";
-
-    $("remoteVideo")
-      .style.display =
-      "none";
-
-    $("placeholder")
-      .style.display =
-      "none";
-
-    $("liveBadge")
-      .style.display =
-      "block";
-
-    $("startButton")
-      .textContent =
-      "🔴 配信中";
-
-    isLive = true;
-
-    debug(
-      "カメラ・マイクOK"
+    log(
+      "配信開始エラー: " +
+      e.message
     );
 
-    socket.send(
-      JSON.stringify({
-
-        type: "live",
-
-        roomId: roomId,
-
-        active: true
-
-      })
+    setStatus(
+      "カメラを開始できません"
     );
-
-  } catch (error) {
-
-    console.error(error);
-
-    debug(
-      "カメラ・マイク取得失敗"
-    );
-
-    alert(
-      "カメラとマイクを許可してください。"
-    );
-
   }
-
 }
 
-async function createPeer(
-  viewerId
-) {
 
-  debug(
-    "PeerConnection作成"
+async function startViewer() {
+
+  myRole = "viewer";
+
+  document
+    .getElementById("roleSelect")
+    .classList.add("hidden");
+
+  document
+    .getElementById("liveArea")
+    .classList.remove("hidden");
+
+  remoteVideo.classList.remove("hidden");
+
+  setStatus(
+    "配信を接続中..."
   );
 
-  const pc =
-    new RTCPeerConnection(
-      rtcConfig
+  try {
+
+    await connectSocket();
+
+    send({
+      type: "join",
+      role: "viewer",
+      room
+    });
+
+    log("視聴者として参加");
+
+  } catch (e) {
+
+    log(
+      "接続エラー: " +
+      e.message
     );
+  }
+}
 
-  peers[viewerId] = pc;
 
-  pendingCandidates[viewerId] =
-    [];
+async function startCamera() {
 
-  if (localStream) {
-
-    localStream
-      .getTracks()
-      .forEach(track => {
-
-        pc.addTrack(
-          track,
-          localStream
-        );
-
+  localStream =
+    await navigator.mediaDevices
+      .getUserMedia({
+        video: {
+          facingMode: "user",
+          width: {
+            ideal: 1280
+          },
+          height: {
+            ideal: 720
+          }
+        },
+        audio: true
       });
 
+  localVideo.srcObject =
+    localStream;
+
+  localVideo.classList.remove(
+    "hidden"
+  );
+
+  log(
+    "🎥 カメラ・マイク取得OK"
+  );
+}
+
+
+function createHostPeer(viewer) {
+
+  const old =
+    viewerConnections.get(viewer);
+
+  if (old) {
+
+    old.close();
+
+    viewerConnections.delete(
+      viewer
+    );
   }
 
+  const pc =
+    new RTCPeerConnection({
+      iceServers: [
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        },
+        {
+          urls:
+            "stun:stun1.l.google.com:19302"
+        }
+      ]
+    });
+
+  viewerConnections.set(
+    viewer,
+    pc
+  );
+
+
+  // 配信者の映像・音声を追加
+  if (localStream) {
+
+    for (
+      const track
+      of localStream.getTracks()
+    ) {
+
+      pc.addTrack(
+        track,
+        localStream
+      );
+    }
+  }
+
+
   pc.onicecandidate =
-    event => {
+    (event) => {
 
       if (
         event.candidate
       ) {
 
-        debug(
-          "ICE candidate送信"
-        );
-
-        socket.send(
-          JSON.stringify({
-
-            type:
-              "candidate",
-
-            target:
-              viewerId,
-
+        send({
+          type: "signal",
+          target: viewer,
+          signal: {
+            type: "candidate",
             candidate:
               event.candidate
-
-          })
-        );
+          }
+        });
 
       }
-
     };
 
-  pc.oniceconnectionstatechange =
-    () => {
-
-      debug(
-        "ICE: " +
-        pc.iceConnectionState
-      );
-
-    };
 
   pc.onconnectionstatechange =
     () => {
 
-      debug(
-        "接続: " +
+      log(
+        "視聴者 " +
+        viewer +
+        " connection=" +
         pc.connectionState
       );
 
@@ -903,165 +800,93 @@ async function createPeer(
         "connected"
       ) {
 
-        debug(
-          "🎉 映像接続成功"
+        log(
+          "🎉 視聴者と映像接続成功"
         );
-
       }
-
     };
 
-  pc.onicegatheringstatechange =
-    () => {
-
-      console.log(
-        "ICE gathering:",
-        pc.iceGatheringState
-      );
-
-    };
 
   return pc;
-
 }
 
-async function createOffer(
-  viewerId
-) {
 
-  try {
+async function sendOffer(viewer) {
 
-    debug(
-      "Offer作成中..."
-    );
+  log(
+    "Offer作成: " +
+    viewer
+  );
 
-    const pc =
-      await createPeer(
-        viewerId
-      );
+  const pc =
+    createHostPeer(viewer);
 
-    const offer =
-      await pc.createOffer();
+  const offer =
+    await pc.createOffer();
 
-    await pc.setLocalDescription(
-      offer
-    );
+  await pc.setLocalDescription(
+    offer
+  );
 
-    debug(
-      "Offer送信"
-    );
+  send({
+    type: "signal",
+    target: viewer,
+    signal: {
+      type: "offer",
+      sdp: offer.sdp
+    }
+  });
 
-    socket.send(
-      JSON.stringify({
-
-        type: "offer",
-
-        target: viewerId,
-
-        offer:
-          pc.localDescription
-
-      })
-    );
-
-  } catch (error) {
-
-    console.error(
-      error
-    );
-
-    debug(
-      "Offer作成失敗"
-    );
-
-  }
-
+  log(
+    "Offer送信"
+  );
 }
 
-async function receiveOffer(
-  data
-) {
 
-  try {
+async function handleViewerSignal(msg) {
 
-    debug(
-      "Offer処理中..."
-    );
+  if (!viewerPeer) {
 
-    const pc =
-      new RTCPeerConnection(
-        rtcConfig
-      );
+    viewerPeer =
+      new RTCPeerConnection({
+        iceServers: [
+          {
+            urls:
+              "stun:stun.l.google.com:19302"
+          },
+          {
+            urls:
+              "stun:stun1.l.google.com:19302"
+          }
+        ]
+      });
 
-    peers[data.from] =
-      pc;
-
-    pendingCandidates[data.from] =
-      [];
-
-    pc.onicecandidate =
-      event => {
+    viewerPeer.onicecandidate =
+      (event) => {
 
         if (
-          event.candidate
+          event.candidate &&
+          viewerId
         ) {
 
-          socket.send(
-            JSON.stringify({
-
-              type:
-                "candidate",
-
-              target:
-                data.from,
-
+          send({
+            type: "signal",
+            target: viewerId,
+            signal: {
+              type: "candidate",
               candidate:
                 event.candidate
-
-            })
-          );
-
+            }
+          });
         }
-
       };
 
-    pc.oniceconnectionstatechange =
-      () => {
 
-        debug(
-          "ICE: " +
-          pc.iceConnectionState
-        );
+    viewerPeer.ontrack =
+      (event) => {
 
-      };
-
-    pc.onconnectionstatechange =
-      () => {
-
-        debug(
-          "接続: " +
-          pc.connectionState
-        );
-
-        if (
-          pc.connectionState ===
-          "connected"
-        ) {
-
-          debug(
-            "🎉 映像接続成功"
-          );
-
-        }
-
-      };
-
-    pc.ontrack =
-      event => {
-
-        console.log(
-          "TRACK受信",
-          event.streams
+        log(
+          "🎥 映像・音声トラック受信"
         );
 
         if (
@@ -1069,843 +894,480 @@ async function receiveOffer(
           event.streams[0]
         ) {
 
-          $("remoteVideo")
-            .srcObject =
+          remoteVideo.srcObject =
             event.streams[0];
 
-          $("remoteVideo")
-            .style.display =
-            "block";
+          remoteVideo.classList
+            .remove("hidden");
 
-          $("localVideo")
-            .style.display =
-            "none";
+          document
+            .getElementById(
+              "audioButton"
+            )
+            .classList
+            .remove("hidden");
 
-          $("placeholder")
-            .style.display =
-            "none";
+          remoteVideo.play()
+            .catch(() => {
+              log(
+                "再生には音声ボタンが必要です"
+              );
+            });
 
-          $("liveBadge")
-            .style.display =
-            "block";
-
-          debug(
-            "🎥 映像・音声受信"
+          setStatus(
+            "配信中",
+            true
           );
-
         }
-
       };
 
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(
-        data.offer
-      )
+
+    viewerPeer.onconnectionstatechange =
+      () => {
+
+        log(
+          "配信者 connection=" +
+          viewerPeer.connectionState
+        );
+
+        if (
+          viewerPeer.connectionState ===
+          "connected"
+        ) {
+
+          setStatus(
+            "配信中",
+            true
+          );
+
+          log(
+            "🎉 配信者との映像接続成功"
+          );
+        }
+      };
+  }
+
+
+  if (
+    msg.type === "offer"
+  ) {
+
+    await viewerPeer.setRemoteDescription({
+      type: "offer",
+      sdp: msg.sdp
+    });
+
+    log(
+      "Offer受信"
     );
 
-    if (
-      pendingCandidates[data.from]
+    for (
+      const candidate
+      of pendingCandidates
     ) {
 
-      for (
-        const candidate
-        of pendingCandidates[data.from]
-      ) {
+      try {
 
-        await pc.addIceCandidate(
+        await viewerPeer.addIceCandidate(
           candidate
         );
 
+      } catch (e) {
+
+        console.log(e);
       }
-
-      pendingCandidates[data.from] =
-        [];
-
     }
 
-    const answer =
-      await pc.createAnswer();
+    pendingCandidates = [];
 
-    await pc.setLocalDescription(
+
+    const answer =
+      await viewerPeer.createAnswer();
+
+    await viewerPeer.setLocalDescription(
       answer
     );
 
-    socket.send(
-      JSON.stringify({
-
+    send({
+      type: "signal",
+      target: viewerId,
+      signal: {
         type: "answer",
+        sdp: answer.sdp
+      }
+    });
 
-        target: data.from,
-
-        answer:
-          pc.localDescription
-
-      })
-    );
-
-    debug(
+    log(
       "Answer送信"
     );
-
-  } catch (error) {
-
-    console.error(
-      error
-    );
-
-    debug(
-      "Offer処理失敗"
-    );
-
   }
 
-}
-
-async function receiveAnswer(
-  data
-) {
-
-  const pc =
-    peers[data.from];
-
-  if (!pc) {
-
-    debug(
-      "Peerが見つからない"
-    );
-
-    return;
-
-  }
-
-  try {
-
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(
-        data.answer
-      )
-    );
-
-    debug(
-      "Answer設定完了"
-    );
-
-  } catch (error) {
-
-    console.error(
-      error
-    );
-
-    debug(
-      "Answer設定失敗"
-    );
-
-  }
-
-}
-
-async function receiveCandidate(
-  data
-) {
-
-  const candidate =
-    new RTCIceCandidate(
-      data.candidate
-    );
-
-  const pc =
-    peers[data.from];
-
-  if (!pc) {
-
-    return;
-
-  }
 
   if (
-    pc.remoteDescription
+    msg.type === "candidate"
+  ) {
+
+    const candidate =
+      new RTCIceCandidate(
+        msg.candidate
+      );
+
+    if (
+      viewerPeer.remoteDescription
+    ) {
+
+      try {
+
+        await viewerPeer
+          .addIceCandidate(
+            candidate
+          );
+
+      } catch (e) {
+
+        log(
+          "ICE candidate error"
+        );
+      }
+
+    } else {
+
+      pendingCandidates.push(
+        candidate
+      );
+    }
+  }
+}
+
+
+async function handleHostSignal(msg) {
+
+  const pc =
+    viewerConnections.get(
+      msg.from
+    );
+
+  if (!pc) {
+
+    log(
+      "Peerが見つかりません: " +
+      msg.from
+    );
+
+    return;
+  }
+
+
+  if (
+    msg.signal.type ===
+    "answer"
+  ) {
+
+    await pc.setRemoteDescription({
+      type: "answer",
+      sdp: msg.signal.sdp
+    });
+
+    log(
+      "Answer受信"
+    );
+
+    return;
+  }
+
+
+  if (
+    msg.signal.type ===
+    "candidate"
   ) {
 
     try {
 
       await pc.addIceCandidate(
-        candidate
+        new RTCIceCandidate(
+          msg.signal.candidate
+        )
       );
 
-    } catch (error) {
+    } catch (e) {
 
-      console.error(
-        error
+      log(
+        "ICE追加エラー"
       );
-
     }
-
-  } else {
-
-    if (
-      !pendingCandidates[data.from]
-    ) {
-
-      pendingCandidates[data.from] =
-        [];
-
-    }
-
-    pendingCandidates[data.from]
-      .push(candidate);
-
   }
-
 }
 
-function toggleCamera() {
 
-  if (!localStream) {
-
-    alert(
-      "先に配信開始してね"
-    );
-
-    return;
-
-  }
-
-  const track =
-    localStream
-      .getVideoTracks()[0];
-
-  track.enabled =
-    !track.enabled;
-
-}
-
-function toggleMic() {
-
-  if (!localStream) {
-
-    alert(
-      "先に配信開始してね"
-    );
-
-    return;
-
-  }
-
-  const track =
-    localStream
-      .getAudioTracks()[0];
-
-  track.enabled =
-    !track.enabled;
-
-}
-
-function sendChat() {
-
-  const input =
-    $("message");
-
-  const message =
-    input.value.trim();
+async function handleMessage(msg) {
 
   if (
-    !message ||
-    !socket
+    msg.type === "welcome"
   ) {
 
-    return;
+    myId = msg.id;
 
+    log(
+      "ID=" + myId
+    );
+
+    return;
   }
 
-  socket.send(
-    JSON.stringify({
 
-      type: "chat",
+  if (
+    msg.type === "status"
+  ) {
 
-      roomId: roomId,
+    log(
+      msg.text
+    );
 
-      name: userName,
+    return;
+  }
 
-      message: message
 
-    })
-  );
+  if (
+    msg.type === "room-status"
+  ) {
 
-  input.value = "";
+    if (myRole === "host") {
 
-}
+      info.textContent =
+        "視聴者: " +
+        msg.viewers +
+        "人";
 
-$("message").addEventListener(
-  "keydown",
-  event => {
+    } else {
 
-    if (
-      event.key === "Enter"
-    ) {
-
-      sendChat();
-
+      info.textContent =
+        msg.live
+          ? "配信者が配信中"
+          : "配信待機中";
     }
 
+    return;
   }
-);
 
-function addChat(
-  name,
-  message
-) {
 
-  const div =
-    document.createElement(
-      "div"
-    );
+  // 新しい視聴者が入った
+  if (
+    msg.type === "viewer-joined"
+  ) {
 
-  div.className =
-    "message";
+    if (
+      myRole === "host"
+    ) {
 
-  const nameSpan =
-    document.createElement(
-      "span"
-    );
+      log(
+        "新しい視聴者: " +
+        msg.viewerId
+      );
 
-  nameSpan.className =
-    "name";
-
-  nameSpan.textContent =
-    name;
-
-  div.appendChild(
-    nameSpan
-  );
-
-  div.appendChild(
-    document.createTextNode(
-      "：" + message
-    )
-  );
-
-  $("chat").appendChild(
-    div
-  );
-
-  $("chat").scrollTop =
-    $("chat").scrollHeight;
-
-}
-
-function sendGift() {
-
-  if (!socket) {
+      await sendOffer(
+        msg.viewerId
+      );
+    }
 
     return;
-
   }
 
-  socket.send(
-    JSON.stringify({
 
-      type: "gift",
+  if (
+    msg.type === "signal"
+  ) {
 
-      roomId: roomId,
+    if (
+      myRole === "host"
+    ) {
 
-      name: userName
+      await handleHostSignal(
+        msg
+      );
 
-    })
-  );
+    } else {
 
-}
+      viewerId =
+        msg.from;
 
-function showGift(name) {
+      await handleViewerSignal(
+        msg.signal
+      );
+    }
 
-  const div =
-    document.createElement(
-      "div"
+    return;
+  }
+
+
+  if (
+    msg.type === "stream-started"
+  ) {
+
+    setStatus(
+      "配信者が配信中",
+      true
     );
 
-  div.className =
-    "giftAnimation";
+    log(
+      "配信開始通知"
+    );
 
-  div.textContent =
-    "🎁 " + name;
+    return;
+  }
 
-  document.body.appendChild(
-    div
+
+  if (
+    msg.type === "stream-stopped"
+  ) {
+
+    setStatus(
+      "配信終了"
+    );
+
+    return;
+  }
+
+
+  if (
+    msg.type === "host-left"
+  ) {
+
+    setStatus(
+      "配信者が退出しました"
+    );
+
+    remoteVideo.srcObject =
+      null;
+
+    return;
+  }
+
+
+  if (
+    msg.type === "viewer-left"
+  ) {
+
+    const pc =
+      viewerConnections.get(
+        msg.viewerId
+      );
+
+    if (pc) {
+
+      pc.close();
+
+      viewerConnections.delete(
+        msg.viewerId
+      );
+    }
+
+    return;
+  }
+}
+
+
+async function enableAudio() {
+
+  try {
+
+    remoteVideo.muted = false;
+
+    remoteVideo.volume = 1;
+
+    await remoteVideo.play();
+
+    document
+      .getElementById(
+        "audioButton"
+      )
+      .classList
+      .add("hidden");
+
+    log(
+      "🔊 音声ON"
+    );
+
+  } catch (e) {
+
+    log(
+      "音声再生エラー: " +
+      e.message
+    );
+  }
+}
+
+
+function stopLive() {
+
+  if (localStream) {
+
+    for (
+      const track
+      of localStream.getTracks()
+    ) {
+
+      track.stop();
+    }
+
+    localStream = null;
+  }
+
+
+  for (
+    const pc
+    of viewerConnections.values()
+  ) {
+
+    pc.close();
+  }
+
+  viewerConnections.clear();
+
+
+  if (viewerPeer) {
+
+    viewerPeer.close();
+
+    viewerPeer = null;
+  }
+
+
+  if (ws) {
+
+    ws.close();
+
+    ws = null;
+  }
+
+
+  localVideo.srcObject =
+    null;
+
+  remoteVideo.srcObject =
+    null;
+
+
+  document
+    .getElementById(
+      "liveArea"
+    )
+    .classList
+    .add("hidden");
+
+  document
+    .getElementById(
+      "roleSelect"
+    )
+    .classList
+    .remove("hidden");
+
+  setStatus(
+    "停止しました"
   );
-
-  setTimeout(
-    () => div.remove(),
-    1000
-  );
-
 }
 
 </script>
 
 </body>
-</html>`;
-
-const server =
-  http.createServer(
-    (req, res) => {
-
-      if (
-        req.url === "/" ||
-        req.url === "/index.html"
-      ) {
-
-        res.writeHead(
-          200,
-          {
-            "Content-Type":
-              "text/html; charset=utf-8"
-          }
-        );
-
-        res.end(html);
-
-        return;
-
-      }
-
-      res.writeHead(404);
-
-      res.end("Not Found");
-
-    }
-  );
-
-const wss =
-  new WebSocket.Server({
-    server
-  });
-
-function send(ws, data) {
-
-  if (
-    ws.readyState ===
-    WebSocket.OPEN
-  ) {
-
-    ws.send(
-      JSON.stringify(data)
-    );
-
-  }
-
-}
-
-function broadcastRoom(
-  roomId,
-  data
-) {
-
-  const room =
-    rooms.get(roomId);
-
-  if (!room) {
-
-    return;
-
-  }
-
-  for (
-    const client
-    of room.clients
-  ) {
-
-    send(
-      client,
-      data
-    );
-
-  }
-
-}
-
-function findClient(id) {
-
-  for (
-    const client
-    of wss.clients
-  ) {
-
-    if (
-      client.id === id
-    ) {
-
-      return client;
-
-    }
-
-  }
-
-  return null;
-
-}
-
-wss.on(
-  "connection",
-  ws => {
-
-    ws.id =
-      Math.random()
-        .toString(36)
-        .substring(2);
-
-    ws.roomId = null;
-
-    ws.name = "匿名";
-
-    ws.isHost = false;
-
-    ws.on(
-      "message",
-      raw => {
-
-        let data;
-
-        try {
-
-          data =
-            JSON.parse(
-              raw.toString()
-            );
-
-        } catch {
-
-          return;
-
-        }
-
-        if (
-          data.type ===
-          "join"
-        ) {
-
-          ws.roomId =
-            String(
-              data.roomId ||
-              "bota"
-            );
-
-          ws.name =
-            String(
-              data.name ||
-              "匿名"
-            ).substring(
-              0,
-              30
-            );
-
-          if (
-            !rooms.has(
-              ws.roomId
-            )
-          ) {
-
-            rooms.set(
-              ws.roomId,
-              {
-                clients:
-                  new Set(),
-                host: null,
-                live: false
-              }
-            );
-
-          }
-
-          const room =
-            rooms.get(
-              ws.roomId
-            );
-
-          if (!room.host) {
-
-            room.host = ws;
-
-            ws.isHost = true;
-
-          }
-
-          room.clients.add(ws);
-
-          send(
-            ws,
-            {
-              type: "joined",
-
-              isHost:
-                ws.isHost,
-
-              count:
-                room.clients.size
-            }
-          );
-
-          broadcastRoom(
-            ws.roomId,
-            {
-              type:
-                "viewerCount",
-
-              count:
-                room.clients.size
-            }
-          );
-
-          if (
-            !ws.isHost &&
-            room.live &&
-            room.host
-          ) {
-
-            send(
-              room.host,
-              {
-                type:
-                  "viewerJoined",
-
-                viewerId:
-                  ws.id
-              }
-            );
-
-            send(
-              ws,
-              {
-                type: "live",
-
-                active: true
-              }
-            );
-
-          }
-
-          return;
-
-        }
-
-        if (!ws.roomId) {
-
-          return;
-
-        }
-
-        const room =
-          rooms.get(
-            ws.roomId
-          );
-
-        if (!room) {
-
-          return;
-
-        }
-
-        if (
-          data.type ===
-          "live"
-        ) {
-
-          if (
-            !ws.isHost
-          ) {
-
-            return;
-
-          }
-
-          room.live =
-            Boolean(
-              data.active
-            );
-
-          broadcastRoom(
-            ws.roomId,
-            {
-              type: "live",
-
-              active:
-                room.live
-            }
-          );
-
-          return;
-
-        }
-
-        if (
-          data.type ===
-          "chat"
-        ) {
-
-          broadcastRoom(
-            ws.roomId,
-            {
-              type: "chat",
-
-              name:
-                ws.name,
-
-              message:
-                String(
-                  data.message ||
-                  ""
-                ).substring(
-                  0,
-                  300
-                )
-            }
-          );
-
-          return;
-
-        }
-
-        if (
-          data.type ===
-          "gift"
-        ) {
-
-          broadcastRoom(
-            ws.roomId,
-            {
-              type: "gift",
-
-              name:
-                ws.name
-            }
-          );
-
-          return;
-
-        }
-
-        if (
-          data.type ===
-            "offer" ||
-          data.type ===
-            "answer" ||
-          data.type ===
-            "candidate"
-        ) {
-
-          const target =
-            findClient(
-              data.target
-            );
-
-          if (!target) {
-
-            console.log(
-              "送信先なし:",
-              data.target
-            );
-
-            return;
-
-          }
-
-          send(
-            target,
-            {
-              type:
-                data.type,
-
-              from:
-                ws.id,
-
-              offer:
-                data.offer,
-
-              answer:
-                data.answer,
-
-              candidate:
-                data.candidate
-            }
-          );
-
-          return;
-
-        }
-
-      }
-    );
-
-    ws.on(
-      "close",
-      () => {
-
-        if (!ws.roomId) {
-
-          return;
-
-        }
-
-        const room =
-          rooms.get(
-            ws.roomId
-          );
-
-        if (!room) {
-
-          return;
-
-        }
-
-        room.clients.delete(ws);
-
-        if (
-          room.host === ws
-        ) {
-
-          room.host = null;
-
-          room.live = false;
-
-        }
-
-        if (
-          room.clients.size ===
-          0
-        ) {
-
-          rooms.delete(
-            ws.roomId
-          );
-
-        } else {
-
-          broadcastRoom(
-            ws.roomId,
-            {
-              type:
-                "viewerCount",
-
-              count:
-                room.clients.size
-            }
-          );
-
-        }
-
-      }
-    );
-
-  }
-);
-
-server.listen(
-  PORT,
-  HOST,
-  () => {
-
-    console.log(
-      "Bota Live Server running on port " +
-      PORT
-    );
-
-  }
-);
+</html>
+`;

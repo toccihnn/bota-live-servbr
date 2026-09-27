@@ -4,24 +4,11 @@ const WebSocket = require("ws");
 const PORT = process.env.PORT || 8080;
 const HOST = "0.0.0.0";
 
-const server = http.createServer((req, res) => {
-  if (req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("OK");
-    return;
-  }
-
-  res.writeHead(200, {
-    "Content-Type": "text/html; charset=utf-8",
-  });
-
-  res.end(HTML);
-});
-
-const wss = new WebSocket.Server({ server });
+const clients = new Map();
+const streams = new Map();
 
 let nextId = 1;
-const clients = new Map();
+let nextStreamId = 1;
 
 function send(ws, data) {
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -29,32 +16,143 @@ function send(ws, data) {
   }
 }
 
-function broadcast(data, except = null) {
-  for (const client of clients.values()) {
-    if (client.ws !== except) {
-      send(client.ws, data);
-    }
+function sendClient(client, data) {
+  if (client) {
+    send(client.ws, data);
   }
 }
 
+function getStream(streamId) {
+  return streams.get(String(streamId));
+}
+
+function getStreamClients(streamId) {
+  const result = [];
+
+  for (const client of clients.values()) {
+    if (client.streamId === String(streamId)) {
+      result.push(client);
+    }
+  }
+
+  return result;
+}
+
+function sendStreamList() {
+  const list = [];
+
+  for (const stream of streams.values()) {
+    if (!stream.live) continue;
+
+    let viewers = 0;
+
+    for (const client of clients.values()) {
+      if (
+        client.streamId === stream.id &&
+        client.role === "viewer"
+      ) {
+        viewers++;
+      }
+    }
+
+    list.push({
+      id: stream.id,
+      name: stream.name,
+      viewers,
+      likes: stream.likes,
+      gifts: stream.gifts
+    });
+  }
+
+  for (const client of clients.values()) {
+    if (!client.role) continue;
+
+    send(client.ws, {
+      type: "stream-list",
+      streams: list
+    });
+  }
+}
+
+function sendRoomStatus(streamId) {
+  const stream = getStream(streamId);
+
+  if (!stream) return;
+
+  let viewers = 0;
+
+  for (const client of clients.values()) {
+    if (
+      client.streamId === String(streamId) &&
+      client.role === "viewer"
+    ) {
+      viewers++;
+    }
+  }
+
+  for (const client of getStreamClients(streamId)) {
+    send(client.ws, {
+      type: "room-status",
+      live: stream.live,
+      viewers,
+      likes: stream.likes,
+      gifts: stream.gifts
+    });
+  }
+
+  sendStreamList();
+}
+
+function broadcastToStream(streamId, data) {
+  for (const client of getStreamClients(streamId)) {
+    send(client.ws, data);
+  }
+}
+
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, {
+      "Content-Type": "text/plain; charset=utf-8"
+    });
+
+    res.end("OK");
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/html; charset=utf-8"
+  });
+
+  res.end(HTML);
+});
+
+const wss = new WebSocket.Server({
+  server
+});
+
 wss.on("connection", (ws) => {
+
   const id = String(nextId++);
 
   const client = {
     id,
     ws,
     role: null,
-    room: "bota",
+    streamId: null,
+    name: "ゲスト"
   };
 
   clients.set(id, client);
 
   send(ws, {
     type: "welcome",
-    id,
+    id
   });
 
+  sendStreamList();
+
   ws.on("message", (raw) => {
+
     let msg;
 
     try {
@@ -64,210 +162,407 @@ wss.on("connection", (ws) => {
     }
 
     // -----------------------------
-    // 役割設定
+    // ホーム画面
     // -----------------------------
-    if (msg.type === "join") {
-      client.role = msg.role === "host" ? "host" : "viewer";
-      client.room = msg.room || "bota";
 
-      console.log(
-        `[JOIN] ${id} role=${client.role} room=${client.room}`
-      );
-
-      if (client.role === "host") {
-        send(ws, {
-          type: "status",
-          text: "配信者として接続しました",
-        });
-
-        // 既にいる視聴者を通知
-        for (const other of clients.values()) {
-          if (
-            other.id !== client.id &&
-            other.room === client.room &&
-            other.role === "viewer"
-          ) {
-            send(ws, {
-              type: "viewer-joined",
-              viewerId: other.id,
-            });
-          }
-        }
-      }
-
-      if (client.role === "viewer") {
-        send(ws, {
-          type: "status",
-          text: "視聴者として接続しました",
-        });
-
-        // 配信者へ視聴者参加を通知
-        for (const other of clients.values()) {
-          if (
-            other.room === client.room &&
-            other.role === "host"
-          ) {
-            send(other.ws, {
-              type: "viewer-joined",
-              viewerId: client.id,
-            });
-          }
-        }
-      }
-
-      updateRoomStatus(client.room);
-      return;
-    }
-
-    // -----------------------------
-    // WebRTCシグナリング
-    // -----------------------------
-    if (msg.type === "signal") {
-      const targetId = msg.target;
-      const target = clients.get(targetId);
-
-      if (!target) {
-        console.log("[SIGNAL] target not found:", targetId);
-        return;
-      }
-
-      if (target.room !== client.room) {
-        return;
-      }
-
-      send(target.ws, {
-        type: "signal",
-        from: client.id,
-        signal: msg.signal,
-      });
-
+    if (msg.type === "get-streams") {
+      sendStreamList();
       return;
     }
 
     // -----------------------------
     // 配信開始
     // -----------------------------
-    if (msg.type === "stream-started") {
-      for (const other of clients.values()) {
-        if (
-          other.room === client.room &&
-          other.role === "viewer"
-        ) {
-          send(other.ws, {
-            type: "stream-started",
-          });
-        }
-      }
+
+    if (msg.type === "start-stream") {
+
+      client.role = "host";
+      client.name =
+        String(msg.name || "ぼたもちの配信");
+
+      const streamId =
+        String(nextStreamId++);
+
+      client.streamId = streamId;
+
+      const stream = {
+        id: streamId,
+        hostId: client.id,
+        name: client.name,
+        live: true,
+        likes: 0,
+        gifts: 0
+      };
+
+      streams.set(
+        streamId,
+        stream
+      );
+
+      console.log(
+        `[STREAM START] ${streamId} ${client.name}`
+      );
+
+      send(ws, {
+        type: "stream-created",
+        streamId,
+        name: stream.name
+      });
+
+      send(ws, {
+        type: "status",
+        text: "配信者として配信開始"
+      });
+
+      sendRoomStatus(streamId);
 
       return;
     }
 
     // -----------------------------
-    // 配信停止
+    // 視聴開始
     // -----------------------------
-    if (msg.type === "stream-stopped") {
-      for (const other of clients.values()) {
-        if (
-          other.room === client.room &&
-          other.role === "viewer"
-        ) {
-          send(other.ws, {
-            type: "stream-stopped",
-          });
-        }
+
+    if (msg.type === "join-stream") {
+
+      const streamId =
+        String(msg.streamId);
+
+      const stream =
+        getStream(streamId);
+
+      if (!stream || !stream.live) {
+
+        send(ws, {
+          type: "error",
+          text: "この配信は終了しています"
+        });
+
+        return;
       }
+
+      client.role = "viewer";
+      client.streamId = streamId;
+      client.name =
+        String(msg.name || "視聴者");
+
+      console.log(
+        `[VIEWER JOIN] ${client.id} -> ${streamId}`
+      );
+
+      send(ws, {
+        type: "joined-stream",
+        streamId,
+        name: stream.name
+      });
+
+      // 配信者に視聴者参加通知
+      const host =
+        clients.get(stream.hostId);
+
+      if (host) {
+        send(host.ws, {
+          type: "viewer-joined",
+          viewerId: client.id
+        });
+      }
+
+      sendRoomStatus(streamId);
+
+      return;
+    }
+
+    // -----------------------------
+    // WebRTCシグナリング
+    // -----------------------------
+
+    if (msg.type === "signal") {
+
+      const target =
+        clients.get(String(msg.target));
+
+      if (!target) {
+        console.log(
+          "[SIGNAL] target not found",
+          msg.target
+        );
+        return;
+      }
+
+      if (
+        client.streamId &&
+        target.streamId !== client.streamId
+      ) {
+        return;
+      }
+
+      send(target.ws, {
+        type: "signal",
+        from: client.id,
+        signal: msg.signal
+      });
+
+      return;
+    }
+
+    // -----------------------------
+    // 配信開始通知
+    // -----------------------------
+
+    if (msg.type === "stream-started") {
+
+      const stream =
+        getStream(client.streamId);
+
+      if (!stream) return;
+
+      stream.live = true;
+
+      broadcastToStream(
+        client.streamId,
+        {
+          type: "stream-started"
+        }
+      );
+
+      sendStreamList();
+
+      return;
+    }
+
+    // -----------------------------
+    // いいね
+    // -----------------------------
+
+    if (msg.type === "like") {
+
+      const stream =
+        getStream(client.streamId);
+
+      if (!stream) return;
+
+      stream.likes++;
+
+      broadcastToStream(
+        client.streamId,
+        {
+          type: "like-count",
+          likes: stream.likes
+        }
+      );
+
+      sendStreamList();
+
+      return;
+    }
+
+    // -----------------------------
+    // ギフト
+    // -----------------------------
+
+    if (msg.type === "gift") {
+
+      const stream =
+        getStream(client.streamId);
+
+      if (!stream) return;
+
+      stream.gifts++;
+
+      const giftName =
+        String(msg.gift || "ハート");
+
+      broadcastToStream(
+        client.streamId,
+        {
+          type: "gift",
+          gift: giftName,
+          gifts: stream.gifts,
+          from: client.name
+        }
+      );
+
+      sendStreamList();
+
+      return;
+    }
+
+    // -----------------------------
+    // コメント
+    // -----------------------------
+
+    if (msg.type === "comment") {
+
+      const text =
+        String(msg.text || "")
+          .trim()
+          .slice(0, 200);
+
+      if (!text) return;
+
+      broadcastToStream(
+        client.streamId,
+        {
+          type: "comment",
+          name: client.name,
+          text
+        }
+      );
+
+      return;
+    }
+
+    // -----------------------------
+    // 配信終了
+    // -----------------------------
+
+    if (msg.type === "stop-stream") {
+
+      const stream =
+        getStream(client.streamId);
+
+      if (!stream) return;
+
+      if (
+        stream.hostId !== client.id
+      ) {
+        return;
+      }
+
+      stream.live = false;
+
+      broadcastToStream(
+        client.streamId,
+        {
+          type: "stream-stopped"
+        }
+      );
+
+      console.log(
+        `[STREAM STOP] ${stream.id}`
+      );
+
+      sendStreamList();
 
       return;
     }
   });
 
   ws.on("close", () => {
-    console.log(`[CLOSE] ${id}`);
 
-    const room = client.room;
-    const role = client.role;
+    console.log(
+      `[CLOSE] ${client.id}`
+    );
 
-    clients.delete(id);
+    const streamId =
+      client.streamId;
 
-    if (role === "host") {
-      for (const other of clients.values()) {
+    const role =
+      client.role;
+
+    const stream =
+      getStream(streamId);
+
+    clients.delete(client.id);
+
+    // 配信者が退出
+    if (
+      role === "host" &&
+      stream
+    ) {
+
+      stream.live = false;
+
+      for (
+        const other of clients.values()
+      ) {
+
         if (
-          other.room === room &&
+          other.streamId === streamId &&
           other.role === "viewer"
         ) {
+
           send(other.ws, {
-            type: "host-left",
+            type: "host-left"
           });
         }
       }
+
+      sendStreamList();
     }
 
-    if (role === "viewer") {
-      for (const other of clients.values()) {
-        if (
-          other.room === room &&
-          other.role === "host"
-        ) {
-          send(other.ws, {
-            type: "viewer-left",
-            viewerId: id,
-          });
-        }
+    // 視聴者が退出
+    if (
+      role === "viewer" &&
+      stream
+    ) {
+
+      const host =
+        clients.get(stream.hostId);
+
+      if (host) {
+
+        send(host.ws, {
+          type: "viewer-left",
+          viewerId: client.id
+        });
       }
-    }
 
-    updateRoomStatus(room);
+      sendRoomStatus(streamId);
+    }
   });
 });
 
-function updateRoomStatus(room) {
-  let host = false;
-  let viewers = 0;
+server.listen(
+  PORT,
+  HOST,
+  () => {
 
-  for (const client of clients.values()) {
-    if (client.room !== room) continue;
+    console.log(
+      "================================="
+    );
 
-    if (client.role === "host") {
-      host = true;
-    }
+    console.log(
+      "Bota Live Server"
+    );
 
-    if (client.role === "viewer") {
-      viewers++;
-    }
+    console.log(
+      `PORT: ${PORT}`
+    );
+
+    console.log(
+      "Server started!"
+    );
+
+    console.log(
+      "================================="
+    );
   }
+);
 
-  for (const client of clients.values()) {
-    if (client.room === room) {
-      send(client.ws, {
-        type: "room-status",
-        live: host,
-        viewers,
-      });
-    }
-  }
-}
 
-server.listen(PORT, HOST, () => {
-  console.log("=================================");
-  console.log("Bota Live Server");
-  console.log(`PORT: ${PORT}`);
-  console.log("Server started!");
-  console.log("=================================");
-});
-
+// ======================================================
+// HTML
+// ======================================================
 
 const HTML = `
 <!DOCTYPE html>
+
 <html lang="ja">
+
 <head>
+
 <meta charset="UTF-8">
+
 <meta
   name="viewport"
   content="width=device-width,initial-scale=1.0,user-scalable=no"
 >
+
 <title>Bota Live</title>
 
 <style>
+
 * {
   box-sizing: border-box;
 }
@@ -284,31 +579,34 @@ body {
 }
 
 #app {
-  width: 100%;
   min-height: 100vh;
+  padding: 15px;
+}
+
+.card {
+  max-width: 720px;
+  margin: auto;
+  background: #151515;
+  border-radius: 20px;
   padding: 16px;
 }
 
 h1 {
   text-align: center;
-  margin: 10px 0 20px;
+  margin: 5px 0 20px;
 }
 
-.card {
-  max-width: 700px;
-  margin: 0 auto;
-  background: #151515;
-  border-radius: 18px;
-  padding: 18px;
+h2 {
+  margin-top: 10px;
 }
 
 button {
   width: 100%;
-  padding: 16px;
-  margin: 7px 0;
   border: 0;
-  border-radius: 12px;
-  font-size: 17px;
+  border-radius: 13px;
+  padding: 15px;
+  margin: 6px 0;
+  font-size: 16px;
   font-weight: bold;
 }
 
@@ -332,11 +630,49 @@ button {
   color: black;
 }
 
+.likeButton {
+  background: #ff4d6d;
+  color: white;
+}
+
+.giftButton {
+  background: #9c36b5;
+  color: white;
+}
+
+.backButton {
+  background: #343a40;
+  color: white;
+}
+
+.stream {
+  background: #202020;
+  border-radius: 15px;
+  padding: 15px;
+  margin: 10px 0;
+}
+
+.streamTitle {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.streamInfo {
+  color: #aaa;
+  font-size: 13px;
+  margin: 7px 0;
+}
+
+.liveDot {
+  color: #00ff66;
+  font-weight: bold;
+}
+
 video {
   width: 100%;
   max-height: 65vh;
-  background: #000;
-  border-radius: 14px;
+  background: black;
+  border-radius: 15px;
   object-fit: contain;
   display: block;
 }
@@ -346,10 +682,10 @@ video {
 }
 
 .status {
-  margin: 12px 0;
-  padding: 12px;
   background: #202020;
   border-radius: 10px;
+  padding: 12px;
+  margin: 10px 0;
   text-align: center;
 }
 
@@ -370,118 +706,366 @@ video {
   color: #aaa;
   font-size: 13px;
   text-align: center;
+  margin: 8px;
+}
+
+.stats {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.stat {
+  flex: 1;
+  background: #202020;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.comments {
+  background: #090909;
+  border-radius: 12px;
+  padding: 10px;
   margin-top: 10px;
+  height: 180px;
+  overflow-y: auto;
+}
+
+.comment {
+  padding: 6px 2px;
+  border-bottom: 1px solid #222;
+}
+
+.commentName {
+  font-weight: bold;
+}
+
+.commentText {
+  color: #ddd;
+}
+
+.commentInput {
+  display: flex;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.commentInput input {
+  flex: 1;
+  min-width: 0;
+  padding: 13px;
+  border-radius: 10px;
+  border: 0;
+  font-size: 15px;
+}
+
+.commentInput button {
+  width: 90px;
+  margin: 0;
+  background: #228be6;
+  color: white;
 }
 
 #log {
-  margin-top: 15px;
-  padding: 10px;
+  margin-top: 12px;
   background: #050505;
-  border-radius: 10px;
-  font-size: 12px;
   color: #00ff66;
-  max-height: 180px;
-  overflow: auto;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 11px;
+  max-height: 140px;
+  overflow-y: auto;
   white-space: pre-wrap;
 }
+
+.giftPopup {
+  position: fixed;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  background: #9c36b5;
+  padding: 20px 30px;
+  border-radius: 20px;
+  font-size: 22px;
+  font-weight: bold;
+  z-index: 999;
+  display: none;
+}
+
 </style>
+
 </head>
+
 
 <body>
 
 <div id="app">
 
-  <div class="card">
+<div class="card">
 
-    <h1>🎥 Bota Live</h1>
+<h1>🎥 Bota Live</h1>
 
-    <div id="roleSelect">
 
-      <div class="status">
-        役割を選んでください
-      </div>
+<!-- ==========================================
+     ホーム
+========================================== -->
 
-      <button
-        class="hostButton"
-        onclick="startHost()"
-      >
-        🎥 配信者として開始
-      </button>
+<div id="home">
 
-      <button
-        class="viewerButton"
-        onclick="startViewer()"
-      >
-        👀 視聴者として見る
-      </button>
+  <div class="status">
+    🔴 配信中のライブ
+  </div>
 
+  <div id="streamList">
+    配信を読み込んでいます...
+  </div>
+
+  <button
+    class="hostButton"
+    onclick="showHostStart()"
+  >
+    🎥 配信を開始する
+  </button>
+
+</div>
+
+
+<!-- ==========================================
+     配信開始画面
+========================================== -->
+
+<div
+  id="hostStart"
+  class="hidden"
+>
+
+  <div class="status">
+    🎥 配信者
+  </div>
+
+  <input
+    id="streamName"
+    placeholder="配信タイトル"
+    value="ぼたもちの配信"
+    style="
+      width:100%;
+      padding:14px;
+      border-radius:10px;
+      border:0;
+      margin:8px 0;
+      font-size:16px;
+    "
+  >
+
+  <button
+    class="hostButton"
+    onclick="startHost()"
+  >
+    🔴 配信開始
+  </button>
+
+  <button
+    class="backButton"
+    onclick="showHome()"
+  >
+    ← 戻る
+  </button>
+
+</div>
+
+
+<!-- ==========================================
+     ライブ画面
+========================================== -->
+
+<div
+  id="liveArea"
+  class="hidden"
+>
+
+  <div
+    id="status"
+    class="status"
+  >
+    接続中...
+  </div>
+
+
+  <video
+    id="localVideo"
+    autoplay
+    playsinline
+    muted
+    class="hidden"
+  ></video>
+
+
+  <video
+    id="remoteVideo"
+    autoplay
+    playsinline
+    class="hidden"
+  ></video>
+
+
+  <button
+    id="audioButton"
+    class="audioButton hidden"
+    onclick="enableAudio()"
+  >
+    🔊 音声をONにする
+  </button>
+
+
+  <div class="stats">
+
+    <div class="stat">
+      👤
+      <span id="viewerCount">
+        0
+      </span>
     </div>
 
+    <div class="stat">
+      ❤️
+      <span id="likeCount">
+        0
+      </span>
+    </div>
 
-    <div id="liveArea" class="hidden">
-
-      <div id="status" class="status">
-        接続中...
-      </div>
-
-      <video
-        id="localVideo"
-        autoplay
-        playsinline
-        muted
-        class="hidden"
-      ></video>
-
-      <video
-        id="remoteVideo"
-        autoplay
-        playsinline
-        class="hidden"
-      ></video>
-
-      <button
-        id="audioButton"
-        class="audioButton hidden"
-        onclick="enableAudio()"
-      >
-        🔊 音声をONにする
-      </button>
-
-      <button
-        id="stopButton"
-        class="stopButton"
-        onclick="stopLive()"
-      >
-        ⛔ 終了
-      </button>
-
-      <div id="info" class="small"></div>
-
-      <div id="log"></div>
-
+    <div class="stat">
+      🎁
+      <span id="giftCount">
+        0
+      </span>
     </div>
 
   </div>
 
+
+  <button
+    id="likeButton"
+    class="likeButton"
+    onclick="sendLike()"
+  >
+    ❤️ いいね
+  </button>
+
+
+  <button
+    id="giftButton"
+    class="giftButton"
+    onclick="sendGift()"
+  >
+    🎁 ギフトを送る
+  </button>
+
+
+  <div
+    id="comments"
+    class="comments"
+  ></div>
+
+
+  <div class="commentInput">
+
+    <input
+      id="commentText"
+      placeholder="コメントを書く..."
+      maxlength="200"
+      onkeydown="
+        if(event.key === 'Enter'){
+          sendComment();
+        }
+      "
+    >
+
+    <button
+      onclick="sendComment()"
+    >
+      送信
+    </button>
+
+  </div>
+
+
+  <button
+    id="stopButton"
+    class="stopButton"
+    onclick="stopLive()"
+  >
+    ⛔ 配信終了
+  </button>
+
+
+  <button
+    class="backButton"
+    onclick="leaveLive()"
+  >
+    ← 戻る
+  </button>
+
+
+  <div
+    id="info"
+    class="small"
+  ></div>
+
+
+  <div id="log"></div>
+
 </div>
+
+</div>
+
+</div>
+
+
+<div
+  id="giftPopup"
+  class="giftPopup"
+></div>
 
 
 <script>
 
 let ws = null;
+
 let myId = null;
+
 let myRole = null;
+
+let myStreamId = null;
+
+let myName = "視聴者";
 
 let localStream = null;
 
 let viewerConnections = new Map();
 
 let viewerPeer = null;
+
 let viewerId = null;
 
 let pendingCandidates = [];
 
-const room = "bota";
+
+// -----------------------------
+// 要素
+// -----------------------------
+
+const home =
+  document.getElementById("home");
+
+const hostStart =
+  document.getElementById("hostStart");
+
+const liveArea =
+  document.getElementById("liveArea");
+
+const streamList =
+  document.getElementById("streamList");
 
 const localVideo =
   document.getElementById("localVideo");
@@ -498,7 +1082,13 @@ const info =
 const logBox =
   document.getElementById("log");
 
+
+// -----------------------------
+// ログ
+// -----------------------------
+
 function log(text) {
+
   console.log(text);
 
   logBox.textContent +=
@@ -509,71 +1099,129 @@ function log(text) {
 }
 
 
-function setStatus(text, live = false) {
+// -----------------------------
+// 画面
+// -----------------------------
 
-  statusBox.textContent = text;
+function showHome() {
 
-  statusBox.className =
-    "status " +
-    (live ? "live" : "wait");
+  home.classList.remove(
+    "hidden"
+  );
+
+  hostStart.classList.add(
+    "hidden"
+  );
+
+  liveArea.classList.add(
+    "hidden"
+  );
+
+  if (ws) {
+
+    ws.close();
+
+    ws = null;
+  }
 }
 
 
+function showHostStart() {
+
+  home.classList.add(
+    "hidden"
+  );
+
+  hostStart.classList.remove(
+    "hidden"
+  );
+
+  liveArea.classList.add(
+    "hidden"
+  );
+}
+
+
+// -----------------------------
+// WebSocket
+// -----------------------------
+
 function connectSocket() {
 
-  return new Promise((resolve, reject) => {
+  return new Promise(
+    (resolve, reject) => {
 
-    const protocol =
-      location.protocol === "https:"
-        ? "wss:"
-        : "ws:";
+      const protocol =
+        location.protocol === "https:"
+          ? "wss:"
+          : "ws:";
 
-    ws = new WebSocket(
-      protocol +
-      "//" +
-      location.host
-    );
+      ws =
+        new WebSocket(
+          protocol +
+          "//" +
+          location.host
+        );
 
-    ws.onopen = () => {
 
-      log("WebSocket接続OK");
-
-      resolve();
-    };
-
-    ws.onerror = () => {
-
-      log("WebSocket ERROR");
-
-      reject();
-    };
-
-    ws.onclose = () => {
-
-      log("WebSocket切断");
-    };
-
-    ws.onmessage = async (event) => {
-
-      try {
-
-        const msg =
-          JSON.parse(event.data);
-
-        await handleMessage(msg);
-
-      } catch (e) {
-
-        console.error(e);
+      ws.onopen = () => {
 
         log(
-          "message error: " +
-          e.message
+          "WebSocket接続OK"
         );
-      }
-    };
 
-  });
+        resolve();
+      };
+
+
+      ws.onerror = () => {
+
+        log(
+          "WebSocket ERROR"
+        );
+
+        reject(
+          new Error(
+            "WebSocket error"
+          )
+        );
+      };
+
+
+      ws.onclose = () => {
+
+        log(
+          "WebSocket切断"
+        );
+      };
+
+
+      ws.onmessage =
+        async (event) => {
+
+          try {
+
+            const msg =
+              JSON.parse(
+                event.data
+              );
+
+            await handleMessage(
+              msg
+            );
+
+          } catch (e) {
+
+            console.error(e);
+
+            log(
+              "message error: " +
+              e.message
+            );
+          }
+        };
+    }
+  );
 }
 
 
@@ -581,7 +1229,8 @@ function send(data) {
 
   if (
     ws &&
-    ws.readyState === WebSocket.OPEN
+    ws.readyState ===
+    WebSocket.OPEN
   ) {
 
     ws.send(
@@ -591,44 +1240,186 @@ function send(data) {
 }
 
 
+// -----------------------------
+// 配信一覧
+// -----------------------------
+
+function loadStreams() {
+
+  if (!ws) {
+
+    connectSocket()
+      .then(() => {
+
+        send({
+          type:
+            "get-streams"
+        });
+
+      });
+
+    return;
+  }
+
+  send({
+    type:
+      "get-streams"
+  });
+}
+
+
+function renderStreams(streams) {
+
+  streamList.innerHTML = "";
+
+  if (
+    !streams ||
+    streams.length === 0
+  ) {
+
+    streamList.innerHTML =
+      '<div class="status">' +
+      '現在配信中のライブはありません' +
+      '</div>';
+
+    return;
+  }
+
+
+  streams.forEach(
+    (stream) => {
+
+      const div =
+        document.createElement(
+          "div"
+        );
+
+      div.className =
+        "stream";
+
+
+      const title =
+        document.createElement(
+          "div"
+        );
+
+      title.className =
+        "streamTitle";
+
+      title.textContent =
+        "🔴 " +
+        stream.name;
+
+
+      const info =
+        document.createElement(
+          "div"
+        );
+
+      info.className =
+        "streamInfo";
+
+      info.textContent =
+        "👤 " +
+        stream.viewers +
+        "人　❤️ " +
+        stream.likes;
+
+
+      const button =
+        document.createElement(
+          "button"
+        );
+
+      button.className =
+        "viewerButton";
+
+      button.textContent =
+        "👀 この配信を見る";
+
+
+      button.onclick =
+        () => {
+
+          joinStream(
+            stream.id
+          );
+
+        };
+
+
+      div.appendChild(
+        title
+      );
+
+      div.appendChild(
+        info
+      );
+
+      div.appendChild(
+        button
+      );
+
+      streamList.appendChild(
+        div
+      );
+
+    }
+  );
+}
+
+
+// -----------------------------
+// 配信開始
+// -----------------------------
+
 async function startHost() {
 
   myRole = "host";
 
-  document
-    .getElementById("roleSelect")
-    .classList.add("hidden");
+  myName =
+    document
+      .getElementById(
+        "streamName"
+      )
+      .value
+      .trim() ||
+    "ぼたもちの配信";
 
-  document
-    .getElementById("liveArea")
-    .classList.remove("hidden");
+
+  home.classList.add(
+    "hidden"
+  );
+
+  hostStart.classList.add(
+    "hidden"
+  );
+
+  liveArea.classList.remove(
+    "hidden"
+  );
+
 
   setStatus(
     "配信者として接続中..."
   );
 
+
   try {
 
     await connectSocket();
 
+
     send({
-      type: "join",
-      role: "host",
-      room
+      type:
+        "start-stream",
+
+      name:
+        myName
     });
 
-    log("配信者として参加");
 
     await startCamera();
-
-    setStatus(
-      "配信中",
-      true
-    );
-
-    send({
-      type: "stream-started"
-    });
 
   } catch (e) {
 
@@ -638,41 +1429,132 @@ async function startHost() {
     );
 
     setStatus(
-      "カメラを開始できません"
+      "配信を開始できません"
     );
   }
 }
 
 
-async function startViewer() {
+// -----------------------------
+// カメラ
+// -----------------------------
+
+async function startCamera() {
+
+  localStream =
+    await navigator
+      .mediaDevices
+      .getUserMedia({
+
+        video: {
+          facingMode: "user",
+
+          width: {
+            ideal: 1280
+          },
+
+          height: {
+            ideal: 720
+          }
+        },
+
+        audio: {
+
+          echoCancellation: true,
+
+          noiseSuppression: true,
+
+          autoGainControl: true
+        }
+
+      });
+
+
+  localVideo.srcObject =
+    localStream;
+
+
+  localVideo.classList.remove(
+    "hidden"
+  );
+
+
+  log(
+    "🎥 カメラ・マイク取得OK"
+  );
+}
+
+
+// -----------------------------
+// 視聴
+// -----------------------------
+
+async function joinStream(
+  streamId
+) {
 
   myRole = "viewer";
 
-  document
-    .getElementById("roleSelect")
-    .classList.add("hidden");
+  myStreamId =
+    String(streamId);
+
+  myName =
+    "視聴者";
+
+
+  home.classList.add(
+    "hidden"
+  );
+
+  hostStart.classList.add(
+    "hidden"
+  );
+
+  liveArea.classList.remove(
+    "hidden"
+  );
+
+
+  remoteVideo.classList.remove(
+    "hidden"
+  );
+
 
   document
-    .getElementById("liveArea")
-    .classList.remove("hidden");
+    .getElementById(
+      "stopButton"
+    )
+    .classList.add(
+      "hidden"
+    );
 
-  remoteVideo.classList.remove("hidden");
 
   setStatus(
     "配信を接続中..."
   );
 
+
   try {
 
     await connectSocket();
 
+
     send({
-      type: "join",
-      role: "viewer",
-      room
+      type:
+        "join-stream",
+
+      streamId:
+        myStreamId,
+
+      name:
+        myName
     });
 
-    log("視聴者として参加");
+
+    log(
+      "視聴者として参加"
+    );
+
 
   } catch (e) {
 
@@ -684,40 +1566,19 @@ async function startViewer() {
 }
 
 
-async function startCamera() {
+// -----------------------------
+// 配信者Peer
+// -----------------------------
 
-  localStream =
-    await navigator.mediaDevices
-      .getUserMedia({
-        video: {
-          facingMode: "user",
-          width: {
-            ideal: 1280
-          },
-          height: {
-            ideal: 720
-          }
-        },
-        audio: true
-      });
-
-  localVideo.srcObject =
-    localStream;
-
-  localVideo.classList.remove(
-    "hidden"
-  );
-
-  log(
-    "🎥 カメラ・マイク取得OK"
-  );
-}
-
-
-function createHostPeer(viewer) {
+function createHostPeer(
+  viewer
+) {
 
   const old =
-    viewerConnections.get(viewer);
+    viewerConnections.get(
+      viewer
+    );
+
 
   if (old) {
 
@@ -728,19 +1589,25 @@ function createHostPeer(viewer) {
     );
   }
 
+
   const pc =
     new RTCPeerConnection({
+
       iceServers: [
+
         {
           urls:
             "stun:stun.l.google.com:19302"
         },
+
         {
           urls:
             "stun:stun1.l.google.com:19302"
         }
+
       ]
     });
+
 
   viewerConnections.set(
     viewer,
@@ -748,7 +1615,6 @@ function createHostPeer(viewer) {
   );
 
 
-  // 配信者の映像・音声を追加
   if (localStream) {
 
     for (
@@ -772,15 +1638,22 @@ function createHostPeer(viewer) {
       ) {
 
         send({
-          type: "signal",
-          target: viewer,
+
+          type:
+            "signal",
+
+          target:
+            viewer,
+
           signal: {
-            type: "candidate",
+
+            type:
+              "candidate",
+
             candidate:
               event.candidate
           }
         });
-
       }
     };
 
@@ -795,13 +1668,14 @@ function createHostPeer(viewer) {
         pc.connectionState
       );
 
+
       if (
         pc.connectionState ===
         "connected"
       ) {
 
         log(
-          "🎉 視聴者と映像接続成功"
+          "🎉 映像接続成功"
         );
       }
     };
@@ -811,31 +1685,53 @@ function createHostPeer(viewer) {
 }
 
 
-async function sendOffer(viewer) {
+// -----------------------------
+// Offer
+// -----------------------------
+
+async function sendOffer(
+  viewer
+) {
 
   log(
-    "Offer作成: " +
-    viewer
+    "Offer作成"
   );
 
+
   const pc =
-    createHostPeer(viewer);
+    createHostPeer(
+      viewer
+    );
+
 
   const offer =
     await pc.createOffer();
+
 
   await pc.setLocalDescription(
     offer
   );
 
+
   send({
-    type: "signal",
-    target: viewer,
+
+    type:
+      "signal",
+
+    target:
+      viewer,
+
     signal: {
-      type: "offer",
-      sdp: offer.sdp
+
+      type:
+        "offer",
+
+      sdp:
+        offer.sdp
     }
+
   });
+
 
   log(
     "Offer送信"
@@ -843,23 +1739,34 @@ async function sendOffer(viewer) {
 }
 
 
-async function handleViewerSignal(msg) {
+// -----------------------------
+// Viewer WebRTC
+// -----------------------------
+
+async function handleViewerSignal(
+  msg
+) {
 
   if (!viewerPeer) {
 
     viewerPeer =
       new RTCPeerConnection({
+
         iceServers: [
+
           {
             urls:
               "stun:stun.l.google.com:19302"
           },
+
           {
             urls:
               "stun:stun1.l.google.com:19302"
           }
+
         ]
       });
+
 
     viewerPeer.onicecandidate =
       (event) => {
@@ -870,13 +1777,22 @@ async function handleViewerSignal(msg) {
         ) {
 
           send({
-            type: "signal",
-            target: viewerId,
+
+            type:
+              "signal",
+
+            target:
+              viewerId,
+
             signal: {
-              type: "candidate",
+
+              type:
+                "candidate",
+
               candidate:
                 event.candidate
             }
+
           });
         }
       };
@@ -886,8 +1802,9 @@ async function handleViewerSignal(msg) {
       (event) => {
 
         log(
-          "🎥 映像・音声トラック受信"
+          "🎥 映像・音声受信"
         );
+
 
         if (
           event.streams &&
@@ -897,22 +1814,32 @@ async function handleViewerSignal(msg) {
           remoteVideo.srcObject =
             event.streams[0];
 
+
           remoteVideo.classList
-            .remove("hidden");
+            .remove(
+              "hidden"
+            );
+
 
           document
             .getElementById(
               "audioButton"
             )
             .classList
-            .remove("hidden");
+            .remove(
+              "hidden"
+            );
 
-          remoteVideo.play()
+
+          remoteVideo
+            .play()
             .catch(() => {
+
               log(
-                "再生には音声ボタンが必要です"
+                "音声ONボタンを押してください"
               );
             });
+
 
           setStatus(
             "配信中",
@@ -922,16 +1849,20 @@ async function handleViewerSignal(msg) {
       };
 
 
-    viewerPeer.onconnectionstatechange =
+    viewerPeer
+      .onconnectionstatechange =
       () => {
 
         log(
           "配信者 connection=" +
-          viewerPeer.connectionState
+          viewerPeer
+            .connectionState
         );
 
+
         if (
-          viewerPeer.connectionState ===
+          viewerPeer
+            .connectionState ===
           "connected"
         ) {
 
@@ -941,7 +1872,7 @@ async function handleViewerSignal(msg) {
           );
 
           log(
-            "🎉 配信者との映像接続成功"
+            "🎉 配信者と接続成功"
           );
         }
       };
@@ -949,17 +1880,25 @@ async function handleViewerSignal(msg) {
 
 
   if (
-    msg.type === "offer"
+    msg.type ===
+    "offer"
   ) {
 
-    await viewerPeer.setRemoteDescription({
-      type: "offer",
-      sdp: msg.sdp
-    });
+    await viewerPeer
+      .setRemoteDescription({
+
+        type:
+          "offer",
+
+        sdp:
+          msg.sdp
+      });
+
 
     log(
       "Offer受信"
     );
+
 
     for (
       const candidate
@@ -968,9 +1907,10 @@ async function handleViewerSignal(msg) {
 
       try {
 
-        await viewerPeer.addIceCandidate(
-          candidate
-        );
+        await viewerPeer
+          .addIceCandidate(
+            candidate
+          );
 
       } catch (e) {
 
@@ -978,24 +1918,40 @@ async function handleViewerSignal(msg) {
       }
     }
 
+
     pendingCandidates = [];
 
 
     const answer =
-      await viewerPeer.createAnswer();
+      await viewerPeer
+        .createAnswer();
 
-    await viewerPeer.setLocalDescription(
-      answer
-    );
+
+    await viewerPeer
+      .setLocalDescription(
+        answer
+      );
+
 
     send({
-      type: "signal",
-      target: viewerId,
+
+      type:
+        "signal",
+
+      target:
+        viewerId,
+
       signal: {
-        type: "answer",
-        sdp: answer.sdp
+
+        type:
+          "answer",
+
+        sdp:
+          answer.sdp
       }
+
     });
+
 
     log(
       "Answer送信"
@@ -1004,7 +1960,8 @@ async function handleViewerSignal(msg) {
 
 
   if (
-    msg.type === "candidate"
+    msg.type ===
+    "candidate"
   ) {
 
     const candidate =
@@ -1012,8 +1969,10 @@ async function handleViewerSignal(msg) {
         msg.candidate
       );
 
+
     if (
-      viewerPeer.remoteDescription
+      viewerPeer
+        .remoteDescription
     ) {
 
       try {
@@ -1026,7 +1985,7 @@ async function handleViewerSignal(msg) {
       } catch (e) {
 
         log(
-          "ICE candidate error"
+          "ICEエラー"
         );
       }
 
@@ -1040,18 +1999,24 @@ async function handleViewerSignal(msg) {
 }
 
 
-async function handleHostSignal(msg) {
+// -----------------------------
+// Host signal
+// -----------------------------
+
+async function handleHostSignal(
+  msg
+) {
 
   const pc =
     viewerConnections.get(
       msg.from
     );
 
+
   if (!pc) {
 
     log(
-      "Peerが見つかりません: " +
-      msg.from
+      "Peerがありません"
     );
 
     return;
@@ -1063,10 +2028,16 @@ async function handleHostSignal(msg) {
     "answer"
   ) {
 
-    await pc.setRemoteDescription({
-      type: "answer",
-      sdp: msg.signal.sdp
-    });
+    await pc
+      .setRemoteDescription({
+
+        type:
+          "answer",
+
+        sdp:
+          msg.signal.sdp
+      });
+
 
     log(
       "Answer受信"
@@ -1083,11 +2054,14 @@ async function handleHostSignal(msg) {
 
     try {
 
-      await pc.addIceCandidate(
-        new RTCIceCandidate(
-          msg.signal.candidate
-        )
-      );
+      await pc
+        .addIceCandidate(
+
+          new RTCIceCandidate(
+            msg.signal.candidate
+          )
+
+        );
 
     } catch (e) {
 
@@ -1099,16 +2073,25 @@ async function handleHostSignal(msg) {
 }
 
 
-async function handleMessage(msg) {
+// -----------------------------
+// メッセージ
+// -----------------------------
+
+async function handleMessage(
+  msg
+) {
 
   if (
-    msg.type === "welcome"
+    msg.type ===
+    "welcome"
   ) {
 
-    myId = msg.id;
+    myId =
+      msg.id;
 
     log(
-      "ID=" + myId
+      "ID=" +
+      myId
     );
 
     return;
@@ -1116,11 +2099,12 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "status"
+    msg.type ===
+    "stream-list"
   ) {
 
-    log(
-      msg.text
+    renderStreams(
+      msg.streams
     );
 
     return;
@@ -1128,41 +2112,59 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "room-status"
+    msg.type ===
+    "stream-created"
   ) {
 
-    if (myRole === "host") {
+    myStreamId =
+      msg.streamId;
 
-      info.textContent =
-        "視聴者: " +
-        msg.viewers +
-        "人";
+    setStatus(
+      "配信中",
+      true
+    );
 
-    } else {
-
-      info.textContent =
-        msg.live
-          ? "配信者が配信中"
-          : "配信待機中";
-    }
+    send({
+      type:
+        "stream-started"
+    });
 
     return;
   }
 
 
-  // 新しい視聴者が入った
   if (
-    msg.type === "viewer-joined"
+    msg.type ===
+    "joined-stream"
+  ) {
+
+    setStatus(
+      "配信者を接続中..."
+    );
+
+    log(
+      "配信参加OK"
+    );
+
+    return;
+  }
+
+
+  if (
+    msg.type ===
+    "viewer-joined"
   ) {
 
     if (
-      myRole === "host"
+      myRole ===
+      "host"
     ) {
 
       log(
-        "新しい視聴者: " +
+        "視聴者参加: " +
         msg.viewerId
       );
+
 
       await sendOffer(
         msg.viewerId
@@ -1174,11 +2176,13 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "signal"
+    msg.type ===
+    "signal"
   ) {
 
     if (
-      myRole === "host"
+      myRole ===
+      "host"
     ) {
 
       await handleHostSignal(
@@ -1200,16 +2204,79 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "stream-started"
+    msg.type ===
+    "room-status"
   ) {
 
-    setStatus(
-      "配信者が配信中",
-      true
-    );
+    document
+      .getElementById(
+        "viewerCount"
+      )
+      .textContent =
+      msg.viewers || 0;
 
-    log(
-      "配信開始通知"
+
+    document
+      .getElementById(
+        "likeCount"
+      )
+      .textContent =
+      msg.likes || 0;
+
+
+    document
+      .getElementById(
+        "giftCount"
+      )
+      .textContent =
+      msg.gifts || 0;
+
+
+    if (myRole === "host") {
+
+      info.textContent =
+        "視聴者 " +
+        msg.viewers +
+        "人";
+    }
+
+    return;
+  }
+
+
+  if (
+    msg.type ===
+    "like-count"
+  ) {
+
+    document
+      .getElementById(
+        "likeCount"
+      )
+      .textContent =
+      msg.likes;
+
+    return;
+  }
+
+
+  if (
+    msg.type ===
+    "gift"
+  ) {
+
+    document
+      .getElementById(
+        "giftCount"
+      )
+      .textContent =
+      msg.gifts;
+
+
+    showGift(
+      msg.from +
+      " さんから 🎁 " +
+      msg.gift
     );
 
     return;
@@ -1217,7 +2284,36 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "stream-stopped"
+    msg.type ===
+    "comment"
+  ) {
+
+    addComment(
+      msg.name,
+      msg.text
+    );
+
+    return;
+  }
+
+
+  if (
+    msg.type ===
+    "stream-started"
+  ) {
+
+    setStatus(
+      "配信中",
+      true
+    );
+
+    return;
+  }
+
+
+  if (
+    msg.type ===
+    "stream-stopped"
   ) {
 
     setStatus(
@@ -1229,12 +2325,14 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "host-left"
+    msg.type ===
+    "host-left"
   ) {
 
     setStatus(
       "配信者が退出しました"
     );
+
 
     remoteVideo.srcObject =
       null;
@@ -1244,13 +2342,15 @@ async function handleMessage(msg) {
 
 
   if (
-    msg.type === "viewer-left"
+    msg.type ===
+    "viewer-left"
   ) {
 
     const pc =
       viewerConnections.get(
         msg.viewerId
       );
+
 
     if (pc) {
 
@@ -1263,25 +2363,73 @@ async function handleMessage(msg) {
 
     return;
   }
+
+
+  if (
+    msg.type ===
+    "error"
+  ) {
+
+    alert(
+      msg.text
+    );
+
+    showHome();
+
+    return;
+  }
 }
 
+
+// -----------------------------
+// ステータス
+// -----------------------------
+
+function setStatus(
+  text,
+  live = false
+) {
+
+  statusBox.textContent =
+    text;
+
+  statusBox.className =
+    "status " +
+    (
+      live
+        ? "live"
+        : "wait"
+    );
+}
+
+
+// -----------------------------
+// 音声
+// -----------------------------
 
 async function enableAudio() {
 
   try {
 
-    remoteVideo.muted = false;
+    remoteVideo.muted =
+      false;
 
-    remoteVideo.volume = 1;
+    remoteVideo.volume =
+      1;
+
 
     await remoteVideo.play();
+
 
     document
       .getElementById(
         "audioButton"
       )
       .classList
-      .add("hidden");
+      .add(
+        "hidden"
+      );
+
 
     log(
       "🔊 音声ON"
@@ -1290,14 +2438,240 @@ async function enableAudio() {
   } catch (e) {
 
     log(
-      "音声再生エラー: " +
+      "音声エラー: " +
       e.message
     );
   }
 }
 
 
+// -----------------------------
+// いいね
+// -----------------------------
+
+function sendLike() {
+
+  if (
+    myRole !==
+    "viewer"
+  ) {
+    return;
+  }
+
+  send({
+    type:
+      "like"
+  });
+}
+
+
+// -----------------------------
+// ギフト
+// -----------------------------
+
+function sendGift() {
+
+  if (
+    myRole !==
+    "viewer"
+  ) {
+    return;
+  }
+
+  send({
+
+    type:
+      "gift",
+
+    gift:
+      "ハートギフト"
+  });
+}
+
+
+function showGift(
+  text
+) {
+
+  const popup =
+    document.getElementById(
+      "giftPopup"
+    );
+
+
+  popup.textContent =
+    text;
+
+
+  popup.style.display =
+    "block";
+
+
+  setTimeout(
+    () => {
+
+      popup.style.display =
+        "none";
+
+    },
+    1800
+  );
+}
+
+
+// -----------------------------
+// コメント
+// -----------------------------
+
+function sendComment() {
+
+  const input =
+    document.getElementById(
+      "commentText"
+    );
+
+
+  const text =
+    input.value.trim();
+
+
+  if (!text) {
+    return;
+  }
+
+
+  send({
+
+    type:
+      "comment",
+
+    text
+  });
+
+
+  input.value =
+    "";
+}
+
+
+function addComment(
+  name,
+  text
+) {
+
+  const box =
+    document.getElementById(
+      "comments"
+    );
+
+
+  const row =
+    document.createElement(
+      "div"
+    );
+
+
+  row.className =
+    "comment";
+
+
+  const nameEl =
+    document.createElement(
+      "span"
+    );
+
+
+  nameEl.className =
+    "commentName";
+
+
+  nameEl.textContent =
+    name + ": ";
+
+
+  const textEl =
+    document.createElement(
+      "span"
+    );
+
+
+  textEl.className =
+    "commentText";
+
+
+  textEl.textContent =
+    text;
+
+
+  row.appendChild(
+    nameEl
+  );
+
+
+  row.appendChild(
+    textEl
+  );
+
+
+  box.appendChild(
+    row
+  );
+
+
+  box.scrollTop =
+    box.scrollHeight;
+}
+
+
+// -----------------------------
+// 配信終了
+// -----------------------------
+
 function stopLive() {
+
+  if (
+    myRole !==
+    "host"
+  ) {
+    return;
+  }
+
+
+  send({
+    type:
+      "stop-stream"
+  });
+
+
+  cleanup();
+
+
+  showHome();
+
+
+  loadStreams();
+}
+
+
+// -----------------------------
+// 視聴終了
+// -----------------------------
+
+function leaveLive() {
+
+  cleanup();
+
+  showHome();
+
+  loadStreams();
+}
+
+
+// -----------------------------
+// クリーンアップ
+// -----------------------------
+
+function cleanup() {
 
   if (localStream) {
 
@@ -1309,7 +2683,8 @@ function stopLive() {
       track.stop();
     }
 
-    localStream = null;
+    localStream =
+      null;
   }
 
 
@@ -1321,6 +2696,7 @@ function stopLive() {
     pc.close();
   }
 
+
   viewerConnections.clear();
 
 
@@ -1328,46 +2704,68 @@ function stopLive() {
 
     viewerPeer.close();
 
-    viewerPeer = null;
+    viewerPeer =
+      null;
   }
+
+
+  viewerId =
+    null;
+
+
+  pendingCandidates =
+    [];
 
 
   if (ws) {
 
     ws.close();
 
-    ws = null;
+    ws =
+      null;
   }
 
 
   localVideo.srcObject =
     null;
 
+
   remoteVideo.srcObject =
     null;
 
 
-  document
-    .getElementById(
-      "liveArea"
-    )
-    .classList
-    .add("hidden");
+  myRole =
+    null;
 
-  document
-    .getElementById(
-      "roleSelect"
-    )
-    .classList
-    .remove("hidden");
-
-  setStatus(
-    "停止しました"
-  );
+  myStreamId =
+    null;
 }
+
+
+// -----------------------------
+// 最初に接続
+// -----------------------------
+
+connectSocket()
+  .then(() => {
+
+    send({
+      type:
+        "get-streams"
+    });
+
+  })
+  .catch(() => {
+
+    streamList.innerHTML =
+      '<div class="status">' +
+      'サーバーに接続できません' +
+      '</div>';
+  });
 
 </script>
 
 </body>
+
 </html>
 `;

@@ -573,3 +573,91 @@ server.listen(PORT, HOST, () => {
     PORT
   );
 });
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use(express.static("public"));
+
+let rooms = {};
+
+app.get("/api/rooms", (req, res) => {
+  res.json(Object.values(rooms));
+});
+
+io.on("connection", (socket) => {
+  console.log("ユーザー接続:", socket.id);
+
+  socket.on("createRoom", ({ name, user }) => {
+    const roomId = Date.now().toString();
+
+    rooms[roomId] = {
+      id: roomId,
+      name: name || "新しい配信",
+      host: user || "配信者",
+      viewers: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    socket.join(roomId);
+
+    io.emit("roomsUpdated", Object.values(rooms));
+    socket.emit("roomCreated", rooms[roomId]);
+  });
+
+  socket.on("joinRoom", (roomId) => {
+    if (!rooms[roomId]) return;
+
+    socket.join(roomId);
+    rooms[roomId].viewers++;
+
+    io.emit("roomsUpdated", Object.values(rooms));
+  });
+
+  socket.on("leaveRoom", (roomId) => {
+    if (!rooms[roomId]) return;
+
+    socket.leave(roomId);
+
+    if (rooms[roomId].viewers > 0) {
+      rooms[roomId].viewers--;
+    }
+
+    io.emit("roomsUpdated", Object.values(rooms));
+  });
+
+  socket.on("chat", ({ roomId, user, message }) => {
+    if (!rooms[roomId]) return;
+
+    io.to(roomId).emit("chat", {
+      user: user || "匿名",
+      message,
+      time: new Date().toLocaleTimeString("ja-JP")
+    });
+  });
+
+  socket.on("like", (roomId) => {
+    if (!rooms[roomId]) return;
+
+    io.to(roomId).emit("like");
+  });
+
+  socket.on("disconnect", () => {
+    console.log("ユーザー切断:", socket.id);
+  });
+});
+
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Bota Live Server is running on port ${PORT}`);
+});

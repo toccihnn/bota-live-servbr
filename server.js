@@ -10,7 +10,9 @@ const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport"
+content="width=device-width,initial-scale=1,maximum-scale=1">
+
 <title>Bota Live</title>
 
 <style>
@@ -97,7 +99,8 @@ header {
 
 .status {
   color: #aaa;
-  font-size: 13px;
+  font-size: 12px;
+  text-align: right;
 }
 
 .videoArea {
@@ -116,6 +119,7 @@ video {
   background: #111;
 }
 
+#localVideo,
 #remoteVideo {
   display: none;
 }
@@ -148,6 +152,14 @@ video {
   padding: 6px 12px;
   background: #0009;
   border-radius: 20px;
+}
+
+.debug {
+  padding: 8px 12px;
+  background: #191919;
+  color: #80ff80;
+  font-size: 11px;
+  word-break: break-all;
 }
 
 .info {
@@ -267,89 +279,138 @@ video {
 <body>
 
 <div id="login">
+
   <div class="loginBox">
+
     <h1>💗 Bota Live</h1>
 
-    <input id="nameInput" placeholder="あなたの名前">
+    <input
+      id="nameInput"
+      placeholder="あなたの名前"
+    >
 
-    <input id="roomInput"
-           placeholder="ルーム名"
-           value="bota">
+    <input
+      id="roomInput"
+      placeholder="ルーム名"
+      value="bota"
+    >
 
     <button onclick="enterRoom()">
       入室する
     </button>
+
   </div>
+
 </div>
 
 <div id="app">
 
 <header>
+
   <div class="logo">
     Bota <span>Live</span>
   </div>
 
-  <div class="status" id="status">
+  <div
+    class="status"
+    id="status"
+  >
     接続中...
   </div>
+
 </header>
 
 <div class="videoArea">
 
-  <video id="localVideo"
-         autoplay
-         muted
-         playsinline>
-  </video>
+  <video
+    id="localVideo"
+    autoplay
+    muted
+    playsinline
+  ></video>
 
-  <video id="remoteVideo"
-         autoplay
-         playsinline>
-  </video>
+  <video
+    id="remoteVideo"
+    autoplay
+    playsinline
+  ></video>
 
-  <div class="placeholder" id="placeholder">
-    <div style="font-size:50px">📺</div>
+  <div
+    class="placeholder"
+    id="placeholder"
+  >
+
+    <div style="font-size:50px">
+      📺
+    </div>
+
     <div id="placeholderText">
       配信を待っています
     </div>
+
   </div>
 
-  <div class="live" id="liveBadge">
+  <div
+    class="live"
+    id="liveBadge"
+  >
     🔴 LIVE
   </div>
 
   <div class="viewers">
-    👤 <span id="viewerCount">0</span>
+    👤
+    <span id="viewerCount">
+      0
+    </span>
   </div>
 
 </div>
 
+<div
+  class="debug"
+  id="debug"
+>
+  WebRTC: 待機中
+</div>
+
 <div class="info">
+
   <div class="title">
     Bota Live 配信
   </div>
 
   <div class="roomName">
-    ルーム：<span id="roomLabel"></span>
+    ルーム：
+    <span id="roomLabel"></span>
   </div>
+
 </div>
 
-<div class="chat" id="chat"></div>
+<div
+  class="chat"
+  id="chat"
+></div>
 
 <div class="chatForm">
-  <input id="message"
-         placeholder="コメントを入力">
+
+  <input
+    id="message"
+    placeholder="コメントを入力"
+  >
 
   <button onclick="sendChat()">
     送信
   </button>
+
 </div>
 
 <div class="controls">
 
-  <button class="start"
-          id="startButton"
-          onclick="startLive()">
+  <button
+    class="start"
+    id="startButton"
+    onclick="startLive()"
+  >
     🎥 配信開始
   </button>
 
@@ -361,8 +422,10 @@ video {
     🎤 マイク
   </button>
 
-  <button class="gift"
-          onclick="sendGift()">
+  <button
+    class="gift"
+    onclick="sendGift()"
+  >
     🎁 ギフト
   </button>
 
@@ -375,41 +438,73 @@ video {
 let socket = null;
 
 let roomId = "";
+
 let userName = "";
 
 let isHost = false;
+
 let isLive = false;
 
 let localStream = null;
 
 const peers = {};
 
+const pendingCandidates = {};
+
 const rtcConfig = {
+
   iceServers: [
+
     {
-      urls: "stun:stun.l.google.com:19302"
+      urls:
+        "stun:stun.l.google.com:19302"
     }
+
   ]
+
 };
 
 function $(id) {
+
   return document.getElementById(id);
+
+}
+
+function debug(message) {
+
+  console.log(
+    "Bota Live:",
+    message
+  );
+
+  $("debug").textContent =
+    "WebRTC: " + message;
+
 }
 
 function enterRoom() {
 
   userName =
-    $("nameInput").value.trim() || "匿名";
+    $("nameInput")
+      .value
+      .trim() || "匿名";
 
   roomId =
-    $("roomInput").value.trim() || "bota";
+    $("roomInput")
+      .value
+      .trim() || "bota";
 
-  $("login").style.display = "none";
-  $("app").style.display = "block";
+  $("login").style.display =
+    "none";
 
-  $("roomLabel").textContent = roomId;
+  $("app").style.display =
+    "block";
+
+  $("roomLabel").textContent =
+    roomId;
 
   connect();
+
 }
 
 function connect() {
@@ -421,180 +516,314 @@ function connect() {
 
   socket =
     new WebSocket(
-      protocol + "//" + location.host
+      protocol +
+      "//" +
+      location.host
     );
 
   socket.onopen = () => {
 
     $("status").textContent =
-      "オンライン";
+      isHost
+        ? "配信者"
+        : "接続中";
 
-    socket.send(JSON.stringify({
-      type: "join",
-      roomId: roomId,
-      name: userName
-    }));
-  };
+    debug(
+      "WebSocket接続OK"
+    );
 
-  socket.onclose = () => {
+    socket.send(
+      JSON.stringify({
 
-    $("status").textContent =
-      "接続が切れました";
+        type: "join",
+
+        roomId: roomId,
+
+        name: userName
+
+      })
+    );
   };
 
   socket.onerror = () => {
 
-    $("status").textContent =
-      "接続エラー";
+    debug(
+      "WebSocketエラー"
+    );
+  };
+
+  socket.onclose = () => {
+
+    debug(
+      "WebSocket切断"
+    );
+
   };
 
   socket.onmessage =
-    async (event) => {
+    async event => {
 
       const data =
-        JSON.parse(event.data);
+        JSON.parse(
+          event.data
+        );
 
-      if (data.type === "joined") {
+      console.log(
+        "受信:",
+        data
+      );
 
-        isHost = data.isHost;
+      if (
+        data.type === "joined"
+      ) {
 
-        $("viewerCount").textContent =
+        isHost =
+          data.isHost;
+
+        $("viewerCount")
+          .textContent =
           data.count;
 
-        if (isHost) {
+        $("status")
+          .textContent =
+          isHost
+            ? "配信者"
+            : "視聴者";
 
-          $("status").textContent =
-            "配信者";
+        debug(
+          isHost
+            ? "配信者として入室"
+            : "視聴者として入室"
+        );
 
-        } else {
-
-          $("status").textContent =
-            "視聴者";
-        }
+        return;
       }
 
-      if (data.type === "viewerCount") {
+      if (
+        data.type ===
+        "viewerCount"
+      ) {
 
-        $("viewerCount").textContent =
+        $("viewerCount")
+          .textContent =
           data.count;
+
+        return;
       }
 
-      if (data.type === "viewerJoined") {
+      if (
+        data.type ===
+        "viewerJoined"
+      ) {
 
-        if (isHost && isLive) {
+        debug(
+          "視聴者接続要求を受信"
+        );
+
+        if (
+          isHost &&
+          isLive
+        ) {
 
           await createOffer(
             data.viewerId
           );
         }
+
+        return;
       }
 
-      if (data.type === "live") {
+      if (
+        data.type === "live"
+      ) {
 
-        $("liveBadge").style.display =
+        $("liveBadge")
+          .style.display =
           data.active
             ? "block"
             : "none";
 
         if (data.active) {
 
-          $("placeholderText").textContent =
+          $("placeholderText")
+            .textContent =
             "配信中";
 
         } else {
 
-          $("placeholderText").textContent =
+          $("placeholderText")
+            .textContent =
             "配信を待っています";
         }
+
+        debug(
+          data.active
+            ? "配信中"
+            : "待機中"
+        );
+
+        return;
       }
 
-      if (data.type === "offer") {
+      if (
+        data.type === "offer"
+      ) {
 
-        await receiveOffer(data);
+        debug(
+          "Offer受信"
+        );
+
+        await receiveOffer(
+          data
+        );
+
+        return;
       }
 
-      if (data.type === "answer") {
+      if (
+        data.type === "answer"
+      ) {
 
-        await receiveAnswer(data);
+        debug(
+          "Answer受信"
+        );
+
+        await receiveAnswer(
+          data
+        );
+
+        return;
       }
 
-      if (data.type === "candidate") {
+      if (
+        data.type ===
+        "candidate"
+      ) {
 
-        await receiveCandidate(data);
+        await receiveCandidate(
+          data
+        );
+
+        return;
       }
 
-      if (data.type === "chat") {
+      if (
+        data.type === "chat"
+      ) {
 
         addChat(
           data.name,
           data.message
         );
+
+        return;
       }
 
-      if (data.type === "gift") {
+      if (
+        data.type === "gift"
+      ) {
 
-        showGift(data.name);
+        showGift(
+          data.name
+        );
+
+        return;
       }
+
     };
+
 }
 
 async function startLive() {
 
   if (localStream) {
+
     return;
+
   }
 
   try {
 
-    localStream =
-      await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user"
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+    debug(
+      "カメラ・マイク取得中..."
+    );
 
-    $("localVideo").srcObject =
+    localStream =
+      await navigator
+        .mediaDevices
+        .getUserMedia({
+
+          video: true,
+
+          audio: true
+
+        });
+
+    $("localVideo")
+      .srcObject =
       localStream;
 
-    $("localVideo").style.display =
+    $("localVideo")
+      .style.display =
       "block";
 
-    $("remoteVideo").style.display =
+    $("remoteVideo")
+      .style.display =
       "none";
 
-    $("placeholder").style.display =
+    $("placeholder")
+      .style.display =
       "none";
 
-    $("liveBadge").style.display =
+    $("liveBadge")
+      .style.display =
       "block";
 
-    $("startButton").textContent =
+    $("startButton")
+      .textContent =
       "🔴 配信中";
 
     isLive = true;
 
-    socket.send(JSON.stringify({
-      type: "live",
-      roomId: roomId,
-      active: true
-    }));
+    debug(
+      "カメラ・マイクOK"
+    );
+
+    socket.send(
+      JSON.stringify({
+
+        type: "live",
+
+        roomId: roomId,
+
+        active: true
+
+      })
+    );
 
   } catch (error) {
 
     console.error(error);
 
-    alert(
-      "カメラとマイクの使用を許可してください。"
+    debug(
+      "カメラ・マイク取得失敗"
     );
+
+    alert(
+      "カメラとマイクを許可してください。"
+    );
+
   }
+
 }
 
-async function createPeer(viewerId) {
+async function createPeer(
+  viewerId
+) {
+
+  debug(
+    "PeerConnection作成"
+  );
 
   const pc =
     new RTCPeerConnection(
@@ -603,146 +832,430 @@ async function createPeer(viewerId) {
 
   peers[viewerId] = pc;
 
-  localStream
-    .getTracks()
-    .forEach(track => {
+  pendingCandidates[viewerId] =
+    [];
 
-      pc.addTrack(
-        track,
-        localStream
+  if (localStream) {
+
+    localStream
+      .getTracks()
+      .forEach(track => {
+
+        pc.addTrack(
+          track,
+          localStream
+        );
+
+      });
+
+  }
+
+  pc.onicecandidate =
+    event => {
+
+      if (
+        event.candidate
+      ) {
+
+        debug(
+          "ICE candidate送信"
+        );
+
+        socket.send(
+          JSON.stringify({
+
+            type:
+              "candidate",
+
+            target:
+              viewerId,
+
+            candidate:
+              event.candidate
+
+          })
+        );
+
+      }
+
+    };
+
+  pc.oniceconnectionstatechange =
+    () => {
+
+      debug(
+        "ICE: " +
+        pc.iceConnectionState
       );
-    });
 
-  pc.onicecandidate =
-    event => {
-
-      if (!event.candidate) {
-        return;
-      }
-
-      socket.send(JSON.stringify({
-        type: "candidate",
-        target: viewerId,
-        candidate: event.candidate
-      }));
     };
 
-  const offer =
-    await pc.createOffer();
+  pc.onconnectionstatechange =
+    () => {
 
-  await pc.setLocalDescription(
-    offer
-  );
+      debug(
+        "接続: " +
+        pc.connectionState
+      );
 
-  socket.send(JSON.stringify({
-    type: "offer",
-    target: viewerId,
-    offer: offer
-  }));
-}
+      if (
+        pc.connectionState ===
+        "connected"
+      ) {
 
-async function receiveOffer(data) {
+        debug(
+          "🎉 映像接続成功"
+        );
 
-  const pc =
-    new RTCPeerConnection(
-      rtcConfig
-    );
-
-  peers[data.from] = pc;
-
-  pc.onicecandidate =
-    event => {
-
-      if (!event.candidate) {
-        return;
       }
 
-      socket.send(JSON.stringify({
-        type: "candidate",
-        target: data.from,
-        candidate: event.candidate
-      }));
     };
 
-  pc.ontrack =
-    event => {
+  pc.onicegatheringstatechange =
+    () => {
 
-      if (event.streams[0]) {
+      console.log(
+        "ICE gathering:",
+        pc.iceGatheringState
+      );
 
-        $("remoteVideo").srcObject =
-          event.streams[0];
-
-        $("remoteVideo").style.display =
-          "block";
-
-        $("localVideo").style.display =
-          "none";
-
-        $("placeholder").style.display =
-          "none";
-
-        $("liveBadge").style.display =
-          "block";
-      }
     };
 
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(
-      data.offer
-    )
-  );
+  return pc;
 
-  const answer =
-    await pc.createAnswer();
-
-  await pc.setLocalDescription(
-    answer
-  );
-
-  socket.send(JSON.stringify({
-    type: "answer",
-    target: data.from,
-    answer: answer
-  }));
 }
 
-async function receiveAnswer(data) {
-
-  const pc =
-    peers[data.from];
-
-  if (!pc) {
-    return;
-  }
-
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(
-      data.answer
-    )
-  );
-}
-
-async function receiveCandidate(data) {
-
-  const pc =
-    peers[data.from];
-
-  if (!pc) {
-    return;
-  }
+async function createOffer(
+  viewerId
+) {
 
   try {
 
-    await pc.addIceCandidate(
-      new RTCIceCandidate(
-        data.candidate
-      )
+    debug(
+      "Offer作成中..."
+    );
+
+    const pc =
+      await createPeer(
+        viewerId
+      );
+
+    const offer =
+      await pc.createOffer();
+
+    await pc.setLocalDescription(
+      offer
+    );
+
+    debug(
+      "Offer送信"
+    );
+
+    socket.send(
+      JSON.stringify({
+
+        type: "offer",
+
+        target: viewerId,
+
+        offer:
+          pc.localDescription
+
+      })
     );
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      error
+    );
+
+    debug(
+      "Offer作成失敗"
+    );
+
   }
+
+}
+
+async function receiveOffer(
+  data
+) {
+
+  try {
+
+    debug(
+      "Offer処理中..."
+    );
+
+    const pc =
+      new RTCPeerConnection(
+        rtcConfig
+      );
+
+    peers[data.from] =
+      pc;
+
+    pendingCandidates[data.from] =
+      [];
+
+    pc.onicecandidate =
+      event => {
+
+        if (
+          event.candidate
+        ) {
+
+          socket.send(
+            JSON.stringify({
+
+              type:
+                "candidate",
+
+              target:
+                data.from,
+
+              candidate:
+                event.candidate
+
+            })
+          );
+
+        }
+
+      };
+
+    pc.oniceconnectionstatechange =
+      () => {
+
+        debug(
+          "ICE: " +
+          pc.iceConnectionState
+        );
+
+      };
+
+    pc.onconnectionstatechange =
+      () => {
+
+        debug(
+          "接続: " +
+          pc.connectionState
+        );
+
+        if (
+          pc.connectionState ===
+          "connected"
+        ) {
+
+          debug(
+            "🎉 映像接続成功"
+          );
+
+        }
+
+      };
+
+    pc.ontrack =
+      event => {
+
+        console.log(
+          "TRACK受信",
+          event.streams
+        );
+
+        if (
+          event.streams &&
+          event.streams[0]
+        ) {
+
+          $("remoteVideo")
+            .srcObject =
+            event.streams[0];
+
+          $("remoteVideo")
+            .style.display =
+            "block";
+
+          $("localVideo")
+            .style.display =
+            "none";
+
+          $("placeholder")
+            .style.display =
+            "none";
+
+          $("liveBadge")
+            .style.display =
+            "block";
+
+          debug(
+            "🎥 映像・音声受信"
+          );
+
+        }
+
+      };
+
+    await pc.setRemoteDescription(
+      new RTCSessionDescription(
+        data.offer
+      )
+    );
+
+    if (
+      pendingCandidates[data.from]
+    ) {
+
+      for (
+        const candidate
+        of pendingCandidates[data.from]
+      ) {
+
+        await pc.addIceCandidate(
+          candidate
+        );
+
+      }
+
+      pendingCandidates[data.from] =
+        [];
+
+    }
+
+    const answer =
+      await pc.createAnswer();
+
+    await pc.setLocalDescription(
+      answer
+    );
+
+    socket.send(
+      JSON.stringify({
+
+        type: "answer",
+
+        target: data.from,
+
+        answer:
+          pc.localDescription
+
+      })
+    );
+
+    debug(
+      "Answer送信"
+    );
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+    debug(
+      "Offer処理失敗"
+    );
+
+  }
+
+}
+
+async function receiveAnswer(
+  data
+) {
+
+  const pc =
+    peers[data.from];
+
+  if (!pc) {
+
+    debug(
+      "Peerが見つからない"
+    );
+
+    return;
+
+  }
+
+  try {
+
+    await pc.setRemoteDescription(
+      new RTCSessionDescription(
+        data.answer
+      )
+    );
+
+    debug(
+      "Answer設定完了"
+    );
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+    debug(
+      "Answer設定失敗"
+    );
+
+  }
+
+}
+
+async function receiveCandidate(
+  data
+) {
+
+  const candidate =
+    new RTCIceCandidate(
+      data.candidate
+    );
+
+  const pc =
+    peers[data.from];
+
+  if (!pc) {
+
+    return;
+
+  }
+
+  if (
+    pc.remoteDescription
+  ) {
+
+    try {
+
+      await pc.addIceCandidate(
+        candidate
+      );
+
+    } catch (error) {
+
+      console.error(
+        error
+      );
+
+    }
+
+  } else {
+
+    if (
+      !pendingCandidates[data.from]
+    ) {
+
+      pendingCandidates[data.from] =
+        [];
+
+    }
+
+    pendingCandidates[data.from]
+      .push(candidate);
+
+  }
+
 }
 
 function toggleCamera() {
@@ -750,17 +1263,20 @@ function toggleCamera() {
   if (!localStream) {
 
     alert(
-      "先に「配信開始」を押してね"
+      "先に配信開始してね"
     );
 
     return;
+
   }
 
   const track =
-    localStream.getVideoTracks()[0];
+    localStream
+      .getVideoTracks()[0];
 
   track.enabled =
     !track.enabled;
+
 }
 
 function toggleMic() {
@@ -768,17 +1284,20 @@ function toggleMic() {
   if (!localStream) {
 
     alert(
-      "先に「配信開始」を押してね"
+      "先に配信開始してね"
     );
 
     return;
+
   }
 
   const track =
-    localStream.getAudioTracks()[0];
+    localStream
+      .getAudioTracks()[0];
 
   track.enabled =
     !track.enabled;
+
 }
 
 function sendChat() {
@@ -789,40 +1308,65 @@ function sendChat() {
   const message =
     input.value.trim();
 
-  if (!message || !socket) {
+  if (
+    !message ||
+    !socket
+  ) {
+
     return;
+
   }
 
-  socket.send(JSON.stringify({
-    type: "chat",
-    roomId: roomId,
-    name: userName,
-    message: message
-  }));
+  socket.send(
+    JSON.stringify({
+
+      type: "chat",
+
+      roomId: roomId,
+
+      name: userName,
+
+      message: message
+
+    })
+  );
 
   input.value = "";
+
 }
 
 $("message").addEventListener(
   "keydown",
   event => {
 
-    if (event.key === "Enter") {
+    if (
+      event.key === "Enter"
+    ) {
+
       sendChat();
+
     }
+
   }
 );
 
-function addChat(name, message) {
+function addChat(
+  name,
+  message
+) {
 
   const div =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
   div.className =
     "message";
 
   const nameSpan =
-    document.createElement("span");
+    document.createElement(
+      "span"
+    );
 
   nameSpan.className =
     "name";
@@ -830,7 +1374,9 @@ function addChat(name, message) {
   nameSpan.textContent =
     name;
 
-  div.appendChild(nameSpan);
+  div.appendChild(
+    nameSpan
+  );
 
   div.appendChild(
     document.createTextNode(
@@ -838,41 +1384,59 @@ function addChat(name, message) {
     )
   );
 
-  $("chat").appendChild(div);
+  $("chat").appendChild(
+    div
+  );
 
   $("chat").scrollTop =
     $("chat").scrollHeight;
+
 }
 
 function sendGift() {
 
   if (!socket) {
+
     return;
+
   }
 
-  socket.send(JSON.stringify({
-    type: "gift",
-    roomId: roomId,
-    name: userName
-  }));
+  socket.send(
+    JSON.stringify({
+
+      type: "gift",
+
+      roomId: roomId,
+
+      name: userName
+
+    })
+  );
+
 }
 
 function showGift(name) {
 
   const div =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
   div.className =
     "giftAnimation";
 
   div.textContent =
-    "🎁 " + name + "";
+    "🎁 " + name;
 
-  document.body.appendChild(div);
+  document.body.appendChild(
+    div
+  );
 
-  setTimeout(() => {
-    div.remove();
-  }, 1000);
+  setTimeout(
+    () => div.remove(),
+    1000
+  );
+
 }
 
 </script>
@@ -881,27 +1445,34 @@ function showGift(name) {
 </html>`;
 
 const server =
-  http.createServer((req, res) => {
+  http.createServer(
+    (req, res) => {
 
-    if (
-      req.url === "/" ||
-      req.url === "/index.html"
-    ) {
+      if (
+        req.url === "/" ||
+        req.url === "/index.html"
+      ) {
 
-      res.writeHead(200, {
-        "Content-Type":
-          "text/html; charset=utf-8"
-      });
+        res.writeHead(
+          200,
+          {
+            "Content-Type":
+              "text/html; charset=utf-8"
+          }
+        );
 
-      res.end(html);
+        res.end(html);
 
-      return;
+        return;
+
+      }
+
+      res.writeHead(404);
+
+      res.end("Not Found");
+
     }
-
-    res.writeHead(404);
-
-    res.end("Not Found");
-  });
+  );
 
 const wss =
   new WebSocket.Server({
@@ -918,259 +1489,413 @@ function send(ws, data) {
     ws.send(
       JSON.stringify(data)
     );
+
   }
+
 }
 
-function broadcastRoom(roomId, data) {
+function broadcastRoom(
+  roomId,
+  data
+) {
 
   const room =
     rooms.get(roomId);
 
   if (!room) {
+
     return;
+
   }
 
-  for (const client of room.clients) {
+  for (
+    const client
+    of room.clients
+  ) {
 
-    send(client, data);
+    send(
+      client,
+      data
+    );
+
   }
+
 }
 
 function findClient(id) {
 
-  for (const client of wss.clients) {
+  for (
+    const client
+    of wss.clients
+  ) {
 
-    if (client.id === id) {
+    if (
+      client.id === id
+    ) {
+
       return client;
+
     }
+
   }
 
   return null;
+
 }
 
-wss.on("connection", ws => {
+wss.on(
+  "connection",
+  ws => {
 
-  ws.id =
-    Math.random()
-      .toString(36)
-      .substring(2);
+    ws.id =
+      Math.random()
+        .toString(36)
+        .substring(2);
 
-  ws.roomId = null;
-  ws.name = "匿名";
-  ws.isHost = false;
+    ws.roomId = null;
 
-  ws.on("message", raw => {
+    ws.name = "匿名";
 
-    let data;
+    ws.isHost = false;
 
-    try {
+    ws.on(
+      "message",
+      raw => {
 
-      data =
-        JSON.parse(
-          raw.toString()
-        );
+        let data;
 
-    } catch {
+        try {
 
-      return;
-    }
+          data =
+            JSON.parse(
+              raw.toString()
+            );
 
-    if (data.type === "join") {
+        } catch {
 
-      ws.roomId =
-        String(
-          data.roomId || "bota"
-        );
+          return;
 
-      ws.name =
-        String(
-          data.name || "匿名"
-        ).substring(0, 30);
+        }
 
-      if (!rooms.has(ws.roomId)) {
+        if (
+          data.type ===
+          "join"
+        ) {
 
-        rooms.set(
-          ws.roomId,
-          {
-            clients: new Set(),
-            host: null,
-            live: false
+          ws.roomId =
+            String(
+              data.roomId ||
+              "bota"
+            );
+
+          ws.name =
+            String(
+              data.name ||
+              "匿名"
+            ).substring(
+              0,
+              30
+            );
+
+          if (
+            !rooms.has(
+              ws.roomId
+            )
+          ) {
+
+            rooms.set(
+              ws.roomId,
+              {
+                clients:
+                  new Set(),
+                host: null,
+                live: false
+              }
+            );
+
           }
-        );
-      }
 
-      const room =
-        rooms.get(ws.roomId);
+          const room =
+            rooms.get(
+              ws.roomId
+            );
 
-      if (!room.host) {
+          if (!room.host) {
 
-        room.host = ws;
-        ws.isHost = true;
-      }
+            room.host = ws;
 
-      room.clients.add(ws);
+            ws.isHost = true;
 
-      send(ws, {
-        type: "joined",
-        isHost: ws.isHost,
-        count: room.clients.size
-      });
+          }
 
-      broadcastRoom(
-        ws.roomId,
-        {
-          type: "viewerCount",
-          count: room.clients.size
+          room.clients.add(ws);
+
+          send(
+            ws,
+            {
+              type: "joined",
+
+              isHost:
+                ws.isHost,
+
+              count:
+                room.clients.size
+            }
+          );
+
+          broadcastRoom(
+            ws.roomId,
+            {
+              type:
+                "viewerCount",
+
+              count:
+                room.clients.size
+            }
+          );
+
+          if (
+            !ws.isHost &&
+            room.live &&
+            room.host
+          ) {
+
+            send(
+              room.host,
+              {
+                type:
+                  "viewerJoined",
+
+                viewerId:
+                  ws.id
+              }
+            );
+
+            send(
+              ws,
+              {
+                type: "live",
+
+                active: true
+              }
+            );
+
+          }
+
+          return;
+
         }
-      );
 
-      if (
-        !ws.isHost &&
-        room.live &&
-        room.host
-      ) {
+        if (!ws.roomId) {
 
-        send(room.host, {
-          type: "viewerJoined",
-          viewerId: ws.id
-        });
+          return;
 
-        send(ws, {
-          type: "live",
-          active: true
-        });
-      }
-
-      return;
-    }
-
-    if (!ws.roomId) {
-      return;
-    }
-
-    const room =
-      rooms.get(ws.roomId);
-
-    if (!room) {
-      return;
-    }
-
-    if (data.type === "live") {
-
-      if (!ws.isHost) {
-        return;
-      }
-
-      room.live =
-        Boolean(data.active);
-
-      broadcastRoom(
-        ws.roomId,
-        {
-          type: "live",
-          active: room.live
         }
-      );
 
-      return;
-    }
+        const room =
+          rooms.get(
+            ws.roomId
+          );
 
-    if (data.type === "chat") {
+        if (!room) {
 
-      broadcastRoom(
-        ws.roomId,
-        {
-          type: "chat",
-          name: ws.name,
-          message: String(
-            data.message || ""
-          ).substring(0, 300)
+          return;
+
         }
-      );
 
-      return;
-    }
+        if (
+          data.type ===
+          "live"
+        ) {
 
-    if (data.type === "gift") {
+          if (
+            !ws.isHost
+          ) {
 
-      broadcastRoom(
-        ws.roomId,
-        {
-          type: "gift",
-          name: ws.name
+            return;
+
+          }
+
+          room.live =
+            Boolean(
+              data.active
+            );
+
+          broadcastRoom(
+            ws.roomId,
+            {
+              type: "live",
+
+              active:
+                room.live
+            }
+          );
+
+          return;
+
         }
-      );
 
-      return;
-    }
+        if (
+          data.type ===
+          "chat"
+        ) {
 
-    if (
-      data.type === "offer" ||
-      data.type === "answer" ||
-      data.type === "candidate"
-    ) {
+          broadcastRoom(
+            ws.roomId,
+            {
+              type: "chat",
 
-      const target =
-        findClient(data.target);
+              name:
+                ws.name,
 
-      if (!target) {
-        return;
+              message:
+                String(
+                  data.message ||
+                  ""
+                ).substring(
+                  0,
+                  300
+                )
+            }
+          );
+
+          return;
+
+        }
+
+        if (
+          data.type ===
+          "gift"
+        ) {
+
+          broadcastRoom(
+            ws.roomId,
+            {
+              type: "gift",
+
+              name:
+                ws.name
+            }
+          );
+
+          return;
+
+        }
+
+        if (
+          data.type ===
+            "offer" ||
+          data.type ===
+            "answer" ||
+          data.type ===
+            "candidate"
+        ) {
+
+          const target =
+            findClient(
+              data.target
+            );
+
+          if (!target) {
+
+            console.log(
+              "送信先なし:",
+              data.target
+            );
+
+            return;
+
+          }
+
+          send(
+            target,
+            {
+              type:
+                data.type,
+
+              from:
+                ws.id,
+
+              offer:
+                data.offer,
+
+              answer:
+                data.answer,
+
+              candidate:
+                data.candidate
+            }
+          );
+
+          return;
+
+        }
+
       }
+    );
 
-      send(target, {
-        type: data.type,
-        from: ws.id,
-        offer: data.offer,
-        answer: data.answer,
-        candidate: data.candidate
-      });
+    ws.on(
+      "close",
+      () => {
 
-      return;
-    }
-  });
+        if (!ws.roomId) {
 
-  ws.on("close", () => {
+          return;
 
-    if (!ws.roomId) {
-      return;
-    }
-
-    const room =
-      rooms.get(ws.roomId);
-
-    if (!room) {
-      return;
-    }
-
-    room.clients.delete(ws);
-
-    if (room.host === ws) {
-
-      room.host = null;
-      room.live = false;
-
-      for (const client of room.clients) {
-
-        client.isHost = false;
-      }
-    }
-
-    if (room.clients.size === 0) {
-
-      rooms.delete(ws.roomId);
-
-    } else {
-
-      broadcastRoom(
-        ws.roomId,
-        {
-          type: "viewerCount",
-          count: room.clients.size
         }
-      );
-    }
-  });
-});
+
+        const room =
+          rooms.get(
+            ws.roomId
+          );
+
+        if (!room) {
+
+          return;
+
+        }
+
+        room.clients.delete(ws);
+
+        if (
+          room.host === ws
+        ) {
+
+          room.host = null;
+
+          room.live = false;
+
+        }
+
+        if (
+          room.clients.size ===
+          0
+        ) {
+
+          rooms.delete(
+            ws.roomId
+          );
+
+        } else {
+
+          broadcastRoom(
+            ws.roomId,
+            {
+              type:
+                "viewerCount",
+
+              count:
+                room.clients.size
+            }
+          );
+
+        }
+
+      }
+    );
+
+  }
+);
 
 server.listen(
   PORT,
@@ -1181,5 +1906,6 @@ server.listen(
       "Bota Live Server running on port " +
       PORT
     );
+
   }
 );

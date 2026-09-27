@@ -14,283 +14,342 @@ const html = `<!DOCTYPE html>
 <title>Bota Live</title>
 
 <style>
-*{
-  box-sizing:border-box;
+* {
+  box-sizing: border-box;
 }
 
-body{
-  margin:0;
-  background:#080808;
-  color:white;
-  font-family:Arial,"Noto Sans JP",sans-serif;
+body {
+  margin: 0;
+  background: #090909;
+  color: white;
+  font-family: Arial, "Noto Sans JP", sans-serif;
 }
 
-header{
-  height:58px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-  background:#111;
-  border-bottom:1px solid #292929;
+button,
+input {
+  font: inherit;
 }
 
-.logo{
-  font-size:22px;
-  font-weight:bold;
+#login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
-.logo span{
-  color:#ff3b81;
+.loginBox {
+  width: 100%;
+  max-width: 400px;
+  background: #181818;
+  padding: 25px;
+  border-radius: 20px;
 }
 
-.status{
-  font-size:13px;
-  color:#aaa;
+.loginBox h1 {
+  text-align: center;
 }
 
-main{
-  max-width:700px;
-  margin:auto;
+.loginBox input {
+  width: 100%;
+  margin: 7px 0;
+  padding: 14px;
+  border: 1px solid #444;
+  border-radius: 10px;
+  background: #222;
+  color: white;
 }
 
-.videoArea{
-  position:relative;
-  width:100%;
-  aspect-ratio:9/16;
-  max-height:75vh;
-  background:#151515;
-  overflow:hidden;
+.loginBox button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #ff2876;
+  color: white;
+  font-weight: bold;
 }
 
-video{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  background:#111;
+#app {
+  display: none;
+  max-width: 700px;
+  margin: auto;
 }
 
-.noVideo{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  color:#aaa;
-  font-size:18px;
+header {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  background: #151515;
 }
 
-.liveBadge{
-  position:absolute;
-  top:15px;
-  left:15px;
-  background:#ff1744;
-  padding:6px 12px;
-  border-radius:20px;
-  font-weight:bold;
-  display:none;
+.logo {
+  font-size: 21px;
+  font-weight: bold;
 }
 
-.viewerCount{
-  position:absolute;
-  top:15px;
-  right:15px;
-  background:#0009;
-  padding:6px 12px;
-  border-radius:20px;
+.logo span {
+  color: #ff2876;
 }
 
-.info{
-  padding:14px;
-  background:#111;
+.status {
+  color: #aaa;
+  font-size: 13px;
 }
 
-.title{
-  font-size:20px;
-  font-weight:bold;
+.videoArea {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 72vh;
+  background: #151515;
+  overflow: hidden;
 }
 
-.room{
-  color:#999;
-  font-size:13px;
-  margin-top:5px;
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #111;
 }
 
-.chat{
-  height:190px;
-  overflow-y:auto;
-  padding:12px;
-  background:#0d0d0d;
+#remoteVideo {
+  display: none;
 }
 
-.message{
-  margin:7px 0;
-  font-size:14px;
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #aaa;
 }
 
-.name{
-  color:#ff72a7;
-  font-weight:bold;
+.live {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 6px 12px;
+  background: #ff1744;
+  border-radius: 20px;
+  font-weight: bold;
+  display: none;
 }
 
-.controls{
-  display:flex;
-  gap:8px;
-  padding:12px;
-  background:#111;
+.viewers {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 6px 12px;
+  background: #0009;
+  border-radius: 20px;
 }
 
-button{
-  border:0;
-  border-radius:10px;
-  padding:12px 15px;
-  background:#292929;
-  color:white;
-  font-size:15px;
+.info {
+  padding: 14px;
+  background: #111;
 }
 
-button:active{
-  transform:scale(.96);
+.title {
+  font-size: 19px;
+  font-weight: bold;
 }
 
-.start{
-  background:#ff2876;
+.roomName {
+  color: #888;
+  font-size: 13px;
+  margin-top: 4px;
 }
 
-.gift{
-  background:#ff9f00;
+.chat {
+  height: 180px;
+  overflow-y: auto;
+  padding: 10px;
+  background: #0d0d0d;
 }
 
-.inputArea{
-  display:flex;
-  gap:8px;
-  padding:12px;
-  background:#111;
+.message {
+  margin: 7px 0;
+  font-size: 14px;
 }
 
-input{
-  flex:1;
-  min-width:0;
-  padding:12px;
-  border-radius:10px;
-  border:1px solid #444;
-  background:#1d1d1d;
-  color:white;
-  font-size:15px;
+.name {
+  color: #ff72a7;
+  font-weight: bold;
 }
 
-#joinScreen{
-  position:fixed;
-  inset:0;
-  background:#080808;
-  z-index:20;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
+.controls {
+  display: flex;
+  gap: 7px;
+  padding: 10px;
+  background: #111;
+  overflow-x: auto;
 }
 
-.joinBox{
-  width:100%;
-  max-width:400px;
-  background:#151515;
-  padding:25px;
-  border-radius:20px;
+.controls button {
+  flex: 1;
+  min-width: 95px;
+  padding: 11px;
+  border: 0;
+  border-radius: 10px;
+  background: #292929;
+  color: white;
 }
 
-.joinBox h1{
-  text-align:center;
+.controls .start {
+  background: #ff2876;
 }
 
-.joinBox input{
-  width:100%;
-  margin:8px 0;
+.controls .gift {
+  background: #ff9700;
 }
 
-.joinBox button{
-  width:100%;
-  margin-top:10px;
-  background:#ff2876;
+.chatForm {
+  display: flex;
+  gap: 7px;
+  padding: 10px;
+  background: #111;
 }
 
-#app{
-  display:none;
+.chatForm input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #444;
+  border-radius: 10px;
+  background: #222;
+  color: white;
 }
 
-.giftPopup{
-  position:fixed;
-  left:50%;
-  top:40%;
-  transform:translate(-50%,-50%);
-  font-size:45px;
-  font-weight:bold;
-  animation:pop 1s ease forwards;
-  pointer-events:none;
+.chatForm button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0 15px;
+  background: #ff2876;
+  color: white;
 }
 
-@keyframes pop{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}
-  30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}
-  100%{opacity:0;transform:translate(-50%,-80%) scale(1)}
+.giftAnimation {
+  position: fixed;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  font-size: 45px;
+  z-index: 50;
+  animation: gift 1s forwards;
+  pointer-events: none;
+}
+
+@keyframes gift {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.3);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -80%) scale(1);
+  }
 }
 </style>
 </head>
 
 <body>
 
-<div id="joinScreen">
-  <div class="joinBox">
+<div id="login">
+  <div class="loginBox">
     <h1>💗 Bota Live</h1>
-    <p>配信ルームに入ろう</p>
 
-    <input id="nameInput" placeholder="名前">
-    <input id="roomInput" placeholder="ルーム名" value="bota">
+    <input id="nameInput" placeholder="あなたの名前">
 
-    <button onclick="joinRoom()">入室する</button>
+    <input id="roomInput"
+           placeholder="ルーム名"
+           value="bota">
+
+    <button onclick="enterRoom()">
+      入室する
+    </button>
   </div>
 </div>
 
 <div id="app">
 
 <header>
-  <div class="logo">Bota <span>Live</span></div>
-  <div class="status" id="status">接続中...</div>
-</header>
+  <div class="logo">
+    Bota <span>Live</span>
+  </div>
 
-<main>
+  <div class="status" id="status">
+    接続中...
+  </div>
+</header>
 
 <div class="videoArea">
 
-  <video id="remoteVideo" autoplay playsinline></video>
+  <video id="localVideo"
+         autoplay
+         muted
+         playsinline>
+  </video>
 
-  <div class="noVideo" id="noVideo">
+  <video id="remoteVideo"
+         autoplay
+         playsinline>
+  </video>
+
+  <div class="placeholder" id="placeholder">
     <div style="font-size:50px">📺</div>
-    <div>配信を待っています</div>
+    <div id="placeholderText">
+      配信を待っています
+    </div>
   </div>
 
-  <div class="liveBadge" id="liveBadge">🔴 LIVE</div>
+  <div class="live" id="liveBadge">
+    🔴 LIVE
+  </div>
 
-  <div class="viewerCount">
+  <div class="viewers">
     👤 <span id="viewerCount">0</span>
   </div>
 
 </div>
 
 <div class="info">
-  <div class="title" id="roomTitle">Bota Live</div>
-  <div class="room">ルーム：<span id="roomName"></span></div>
+  <div class="title">
+    Bota Live 配信
+  </div>
+
+  <div class="roomName">
+    ルーム：<span id="roomLabel"></span>
+  </div>
 </div>
 
 <div class="chat" id="chat"></div>
 
-<div class="inputArea">
-  <input id="messageInput" placeholder="コメントを入力">
-  <button onclick="sendMessage()">送信</button>
+<div class="chatForm">
+  <input id="message"
+         placeholder="コメントを入力">
+
+  <button onclick="sendChat()">
+    送信
+  </button>
 </div>
 
 <div class="controls">
-  <button class="start" id="startButton" onclick="startLive()">
+
+  <button class="start"
+          id="startButton"
+          onclick="startLive()">
     🎥 配信開始
   </button>
 
@@ -302,222 +361,482 @@ input{
     🎤 マイク
   </button>
 
-  <button class="gift" onclick="sendGift()">
+  <button class="gift"
+          onclick="sendGift()">
     🎁 ギフト
   </button>
+
 </div>
 
-</main>
 </div>
 
 <script>
 
-let socket;
-let localStream = null;
-let room = "";
+let socket = null;
+
+let roomId = "";
 let userName = "";
+
 let isHost = false;
+let isLive = false;
+
+let localStream = null;
 
 const peers = {};
 
-function $(id){
+const rtcConfig = {
+  iceServers: [
+    {
+      urls: "stun:stun.l.google.com:19302"
+    }
+  ]
+};
+
+function $(id) {
   return document.getElementById(id);
 }
 
-function joinRoom(){
+function enterRoom() {
 
-  userName = $("nameInput").value.trim() || "匿名";
-  room = $("roomInput").value.trim() || "bota";
+  userName =
+    $("nameInput").value.trim() || "匿名";
 
-  $("joinScreen").style.display = "none";
+  roomId =
+    $("roomInput").value.trim() || "bota";
+
+  $("login").style.display = "none";
   $("app").style.display = "block";
 
-  $("roomName").textContent = room;
+  $("roomLabel").textContent = roomId;
 
-  connectSocket();
+  connect();
 }
 
-function connectSocket(){
+function connect() {
 
   const protocol =
-    location.protocol === "https:" ? "wss:" : "ws:";
+    location.protocol === "https:"
+      ? "wss:"
+      : "ws:";
 
-  socket = new WebSocket(
-    protocol + "//" + location.host
-  );
+  socket =
+    new WebSocket(
+      protocol + "//" + location.host
+    );
 
-  socket.onopen = function(){
+  socket.onopen = () => {
 
-    $("status").textContent = "オンライン";
+    $("status").textContent =
+      "オンライン";
 
     socket.send(JSON.stringify({
-      type:"join",
-      room:room,
-      name:userName
+      type: "join",
+      roomId: roomId,
+      name: userName
     }));
   };
 
-  socket.onmessage = async function(event){
+  socket.onclose = () => {
 
-    const data = JSON.parse(event.data);
+    $("status").textContent =
+      "接続が切れました";
+  };
 
-    if(data.type === "joined"){
+  socket.onerror = () => {
 
-      isHost = data.host;
+    $("status").textContent =
+      "接続エラー";
+  };
 
-      if(isHost){
-        $("status").textContent = "配信者";
-      }else{
-        $("status").textContent = "視聴中";
+  socket.onmessage =
+    async (event) => {
+
+      const data =
+        JSON.parse(event.data);
+
+      if (data.type === "joined") {
+
+        isHost = data.isHost;
+
+        $("viewerCount").textContent =
+          data.count;
+
+        if (isHost) {
+
+          $("status").textContent =
+            "配信者";
+
+        } else {
+
+          $("status").textContent =
+            "視聴者";
+        }
       }
 
-      updateViewers(data.count);
-    }
+      if (data.type === "viewerCount") {
 
-    if(data.type === "viewerCount"){
-      updateViewers(data.count);
-    }
+        $("viewerCount").textContent =
+          data.count;
+      }
 
-    if(data.type === "chat"){
-      addMessage(data.name,data.message);
-    }
+      if (data.type === "viewerJoined") {
 
-    if(data.type === "gift"){
-      showGift(data.name);
-    }
+        if (isHost && isLive) {
 
-    if(data.type === "offer"){
-      await receiveOffer(data);
-    }
+          await createOffer(
+            data.viewerId
+          );
+        }
+      }
 
-    if(data.type === "answer"){
-      await receiveAnswer(data);
-    }
+      if (data.type === "live") {
 
-    if(data.type === "candidate"){
-      await receiveCandidate(data);
-    }
+        $("liveBadge").style.display =
+          data.active
+            ? "block"
+            : "none";
 
-    if(data.type === "live"){
-      $("liveBadge").style.display =
-        data.active ? "block" : "none";
+        if (data.active) {
 
-      $("noVideo").style.display =
-        data.active ? "none" : "flex";
-    }
-  };
+          $("placeholderText").textContent =
+            "配信中";
 
-  socket.onclose = function(){
-    $("status").textContent = "切断されました";
-  };
+        } else {
+
+          $("placeholderText").textContent =
+            "配信を待っています";
+        }
+      }
+
+      if (data.type === "offer") {
+
+        await receiveOffer(data);
+      }
+
+      if (data.type === "answer") {
+
+        await receiveAnswer(data);
+      }
+
+      if (data.type === "candidate") {
+
+        await receiveCandidate(data);
+      }
+
+      if (data.type === "chat") {
+
+        addChat(
+          data.name,
+          data.message
+        );
+      }
+
+      if (data.type === "gift") {
+
+        showGift(data.name);
+      }
+    };
 }
 
-function updateViewers(count){
-  $("viewerCount").textContent = count;
-}
+async function startLive() {
 
-async function startLive(){
-
-  if(localStream){
+  if (localStream) {
     return;
   }
 
-  try{
+  try {
 
     localStream =
       await navigator.mediaDevices.getUserMedia({
-        video:true,
-        audio:true
+        video: {
+          facingMode: "user"
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
 
-    $("remoteVideo").srcObject = localStream;
+    $("localVideo").srcObject =
+      localStream;
 
-    $("noVideo").style.display = "none";
-    $("liveBadge").style.display = "block";
+    $("localVideo").style.display =
+      "block";
 
-    $("startButton").textContent = "🔴 配信中";
+    $("remoteVideo").style.display =
+      "none";
+
+    $("placeholder").style.display =
+      "none";
+
+    $("liveBadge").style.display =
+      "block";
+
+    $("startButton").textContent =
+      "🔴 配信中";
+
+    isLive = true;
 
     socket.send(JSON.stringify({
-      type:"live",
-      room:room,
-      active:true
+      type: "live",
+      roomId: roomId,
+      active: true
     }));
 
-  }catch(error){
+  } catch (error) {
+
+    console.error(error);
 
     alert(
-      "カメラとマイクを許可してください。"
+      "カメラとマイクの使用を許可してください。"
     );
+  }
+}
+
+async function createPeer(viewerId) {
+
+  const pc =
+    new RTCPeerConnection(
+      rtcConfig
+    );
+
+  peers[viewerId] = pc;
+
+  localStream
+    .getTracks()
+    .forEach(track => {
+
+      pc.addTrack(
+        track,
+        localStream
+      );
+    });
+
+  pc.onicecandidate =
+    event => {
+
+      if (!event.candidate) {
+        return;
+      }
+
+      socket.send(JSON.stringify({
+        type: "candidate",
+        target: viewerId,
+        candidate: event.candidate
+      }));
+    };
+
+  const offer =
+    await pc.createOffer();
+
+  await pc.setLocalDescription(
+    offer
+  );
+
+  socket.send(JSON.stringify({
+    type: "offer",
+    target: viewerId,
+    offer: offer
+  }));
+}
+
+async function receiveOffer(data) {
+
+  const pc =
+    new RTCPeerConnection(
+      rtcConfig
+    );
+
+  peers[data.from] = pc;
+
+  pc.onicecandidate =
+    event => {
+
+      if (!event.candidate) {
+        return;
+      }
+
+      socket.send(JSON.stringify({
+        type: "candidate",
+        target: data.from,
+        candidate: event.candidate
+      }));
+    };
+
+  pc.ontrack =
+    event => {
+
+      if (event.streams[0]) {
+
+        $("remoteVideo").srcObject =
+          event.streams[0];
+
+        $("remoteVideo").style.display =
+          "block";
+
+        $("localVideo").style.display =
+          "none";
+
+        $("placeholder").style.display =
+          "none";
+
+        $("liveBadge").style.display =
+          "block";
+      }
+    };
+
+  await pc.setRemoteDescription(
+    new RTCSessionDescription(
+      data.offer
+    )
+  );
+
+  const answer =
+    await pc.createAnswer();
+
+  await pc.setLocalDescription(
+    answer
+  );
+
+  socket.send(JSON.stringify({
+    type: "answer",
+    target: data.from,
+    answer: answer
+  }));
+}
+
+async function receiveAnswer(data) {
+
+  const pc =
+    peers[data.from];
+
+  if (!pc) {
+    return;
+  }
+
+  await pc.setRemoteDescription(
+    new RTCSessionDescription(
+      data.answer
+    )
+  );
+}
+
+async function receiveCandidate(data) {
+
+  const pc =
+    peers[data.from];
+
+  if (!pc) {
+    return;
+  }
+
+  try {
+
+    await pc.addIceCandidate(
+      new RTCIceCandidate(
+        data.candidate
+      )
+    );
+
+  } catch (error) {
 
     console.error(error);
   }
 }
 
-function toggleCamera(){
+function toggleCamera() {
 
-  if(!localStream){
-    alert("先に「配信開始」を押してください");
+  if (!localStream) {
+
+    alert(
+      "先に「配信開始」を押してね"
+    );
+
     return;
   }
 
   const track =
     localStream.getVideoTracks()[0];
 
-  track.enabled = !track.enabled;
+  track.enabled =
+    !track.enabled;
 }
 
-function toggleMic(){
+function toggleMic() {
 
-  if(!localStream){
-    alert("先に「配信開始」を押してください");
+  if (!localStream) {
+
+    alert(
+      "先に「配信開始」を押してね"
+    );
+
     return;
   }
 
   const track =
     localStream.getAudioTracks()[0];
 
-  track.enabled = !track.enabled;
+  track.enabled =
+    !track.enabled;
 }
 
-function sendMessage(){
+function sendChat() {
 
-  const input = $("messageInput");
-  const message = input.value.trim();
+  const input =
+    $("message");
 
-  if(!message || !socket){
+  const message =
+    input.value.trim();
+
+  if (!message || !socket) {
     return;
   }
 
   socket.send(JSON.stringify({
-    type:"chat",
-    room:room,
-    name:userName,
-    message:message
+    type: "chat",
+    roomId: roomId,
+    name: userName,
+    message: message
   }));
 
   input.value = "";
 }
 
-$("messageInput").addEventListener(
+$("message").addEventListener(
   "keydown",
-  function(e){
-    if(e.key === "Enter"){
-      sendMessage();
+  event => {
+
+    if (event.key === "Enter") {
+      sendChat();
     }
   }
 );
 
-function addMessage(name,message){
+function addChat(name, message) {
 
-  const div = document.createElement("div");
+  const div =
+    document.createElement("div");
 
-  div.className = "message";
+  div.className =
+    "message";
 
-  div.innerHTML =
-    '<span class="name">' +
-    escapeHtml(name) +
-    '</span>：' +
-    escapeHtml(message);
+  const nameSpan =
+    document.createElement("span");
+
+  nameSpan.className =
+    "name";
+
+  nameSpan.textContent =
+    name;
+
+  div.appendChild(nameSpan);
+
+  div.appendChild(
+    document.createTextNode(
+      "：" + message
+    )
+  );
 
   $("chat").appendChild(div);
 
@@ -525,142 +844,35 @@ function addMessage(name,message){
     $("chat").scrollHeight;
 }
 
-function sendGift(){
+function sendGift() {
 
-  if(!socket){
+  if (!socket) {
     return;
   }
 
   socket.send(JSON.stringify({
-    type:"gift",
-    room:room,
-    name:userName
+    type: "gift",
+    roomId: roomId,
+    name: userName
   }));
 }
 
-function showGift(name){
+function showGift(name) {
 
   const div =
     document.createElement("div");
 
-  div.className = "giftPopup";
+  div.className =
+    "giftAnimation";
 
   div.textContent =
-    "🎁 " + name + " のギフト！";
+    "🎁 " + name + "";
 
   document.body.appendChild(div);
 
-  setTimeout(function(){
+  setTimeout(() => {
     div.remove();
-  },1000);
-}
-
-function escapeHtml(text){
-
-  return text
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-async function createPeer(id){
-
-  const pc =
-    new RTCPeerConnection({
-      iceServers:[
-        {
-          urls:"stun:stun.l.google.com:19302"
-        }
-      ]
-    });
-
-  peers[id] = pc;
-
-  if(localStream){
-
-    localStream
-      .getTracks()
-      .forEach(track=>{
-        pc.addTrack(track,localStream);
-      });
-  }
-
-  pc.onicecandidate =
-    function(event){
-
-      if(event.candidate){
-
-        socket.send(JSON.stringify({
-          type:"candidate",
-          target:id,
-          candidate:event.candidate
-        }));
-      }
-    };
-
-  pc.ontrack =
-    function(event){
-
-      $("remoteVideo").srcObject =
-        event.streams[0];
-
-      $("noVideo").style.display = "none";
-    };
-
-  return pc;
-}
-
-async function receiveOffer(data){
-
-  const pc =
-    await createPeer(data.from);
-
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(data.offer)
-  );
-
-  const answer =
-    await pc.createAnswer();
-
-  await pc.setLocalDescription(answer);
-
-  socket.send(JSON.stringify({
-    type:"answer",
-    target:data.from,
-    answer:answer
-  }));
-}
-
-async function receiveAnswer(data){
-
-  const pc = peers[data.from];
-
-  if(!pc){
-    return;
-  }
-
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(data.answer)
-  );
-}
-
-async function receiveCandidate(data){
-
-  const pc = peers[data.from];
-
-  if(!pc){
-    return;
-  }
-
-  try{
-    await pc.addIceCandidate(
-      new RTCIceCandidate(data.candidate)
-    );
-  }catch(error){
-    console.error(error);
-  }
+  }, 1000);
 }
 
 </script>
@@ -668,187 +880,306 @@ async function receiveCandidate(data){
 </body>
 </html>`;
 
-const server = http.createServer((req, res) => {
+const server =
+  http.createServer((req, res) => {
 
-  if(req.url === "/" || req.url === "/index.html"){
+    if (
+      req.url === "/" ||
+      req.url === "/index.html"
+    ) {
 
-    res.writeHead(200,{
-      "Content-Type":"text/html; charset=utf-8"
-    });
+      res.writeHead(200, {
+        "Content-Type":
+          "text/html; charset=utf-8"
+      });
 
-    res.end(html);
-    return;
-  }
+      res.end(html);
 
-  res.writeHead(404);
-  res.end("Not Found");
-});
+      return;
+    }
 
-const wss = new WebSocket.Server({
-  server
-});
+    res.writeHead(404);
 
-function send(ws,data){
+    res.end("Not Found");
+  });
 
-  if(ws.readyState === WebSocket.OPEN){
+const wss =
+  new WebSocket.Server({
+    server
+  });
 
-    ws.send(JSON.stringify(data));
+function send(ws, data) {
+
+  if (
+    ws.readyState ===
+    WebSocket.OPEN
+  ) {
+
+    ws.send(
+      JSON.stringify(data)
+    );
   }
 }
 
-wss.on("connection",(ws)=>{
+function broadcastRoom(roomId, data) {
+
+  const room =
+    rooms.get(roomId);
+
+  if (!room) {
+    return;
+  }
+
+  for (const client of room.clients) {
+
+    send(client, data);
+  }
+}
+
+function findClient(id) {
+
+  for (const client of wss.clients) {
+
+    if (client.id === id) {
+      return client;
+    }
+  }
+
+  return null;
+}
+
+wss.on("connection", ws => {
 
   ws.id =
-    Math.random().toString(36).slice(2);
+    Math.random()
+      .toString(36)
+      .substring(2);
 
-  ws.room = null;
+  ws.roomId = null;
   ws.name = "匿名";
+  ws.isHost = false;
 
-  ws.on("message",(raw)=>{
+  ws.on("message", raw => {
 
-    try{
+    let data;
 
-      const data =
-        JSON.parse(raw.toString());
+    try {
 
-      if(data.type === "join"){
+      data =
+        JSON.parse(
+          raw.toString()
+        );
 
-        ws.room = data.room;
-        ws.name = data.name || "匿名";
+    } catch {
 
-        if(!rooms.has(ws.room)){
-          rooms.set(ws.room,new Set());
+      return;
+    }
+
+    if (data.type === "join") {
+
+      ws.roomId =
+        String(
+          data.roomId || "bota"
+        );
+
+      ws.name =
+        String(
+          data.name || "匿名"
+        ).substring(0, 30);
+
+      if (!rooms.has(ws.roomId)) {
+
+        rooms.set(
+          ws.roomId,
+          {
+            clients: new Set(),
+            host: null,
+            live: false
+          }
+        );
+      }
+
+      const room =
+        rooms.get(ws.roomId);
+
+      if (!room.host) {
+
+        room.host = ws;
+        ws.isHost = true;
+      }
+
+      room.clients.add(ws);
+
+      send(ws, {
+        type: "joined",
+        isHost: ws.isHost,
+        count: room.clients.size
+      });
+
+      broadcastRoom(
+        ws.roomId,
+        {
+          type: "viewerCount",
+          count: room.clients.size
         }
+      );
 
-        const roomUsers =
-          rooms.get(ws.room);
+      if (
+        !ws.isHost &&
+        room.live &&
+        room.host
+      ) {
 
-        roomUsers.add(ws);
-
-        const isHost =
-          roomUsers.size === 1;
-
-        send(ws,{
-          type:"joined",
-          host:isHost,
-          count:roomUsers.size
+        send(room.host, {
+          type: "viewerJoined",
+          viewerId: ws.id
         });
 
-        broadcastRoom(ws.room,{
-          type:"viewerCount",
-          count:roomUsers.size
+        send(ws, {
+          type: "live",
+          active: true
         });
       }
 
-      else if(data.type === "chat"){
+      return;
+    }
 
-        broadcastRoom(ws.room,{
-          type:"chat",
-          name:ws.name,
-          message:data.message
-        });
+    if (!ws.roomId) {
+      return;
+    }
+
+    const room =
+      rooms.get(ws.roomId);
+
+    if (!room) {
+      return;
+    }
+
+    if (data.type === "live") {
+
+      if (!ws.isHost) {
+        return;
       }
 
-      else if(data.type === "gift"){
+      room.live =
+        Boolean(data.active);
 
-        broadcastRoom(ws.room,{
-          type:"gift",
-          name:ws.name
-        });
+      broadcastRoom(
+        ws.roomId,
+        {
+          type: "live",
+          active: room.live
+        }
+      );
+
+      return;
+    }
+
+    if (data.type === "chat") {
+
+      broadcastRoom(
+        ws.roomId,
+        {
+          type: "chat",
+          name: ws.name,
+          message: String(
+            data.message || ""
+          ).substring(0, 300)
+        }
+      );
+
+      return;
+    }
+
+    if (data.type === "gift") {
+
+      broadcastRoom(
+        ws.roomId,
+        {
+          type: "gift",
+          name: ws.name
+        }
+      );
+
+      return;
+    }
+
+    if (
+      data.type === "offer" ||
+      data.type === "answer" ||
+      data.type === "candidate"
+    ) {
+
+      const target =
+        findClient(data.target);
+
+      if (!target) {
+        return;
       }
 
-      else if(data.type === "live"){
+      send(target, {
+        type: data.type,
+        from: ws.id,
+        offer: data.offer,
+        answer: data.answer,
+        candidate: data.candidate
+      });
 
-        broadcastRoom(ws.room,{
-          type:"live",
-          active:!!data.active
-        });
-      }
-
-      else if(data.type === "offer"){
-
-        sendToTarget(data.target,{
-          type:"offer",
-          from:ws.id,
-          offer:data.offer
-        });
-      }
-
-      else if(data.type === "answer"){
-
-        sendToTarget(data.target,{
-          type:"answer",
-          from:ws.id,
-          answer:data.answer
-        });
-      }
-
-      else if(data.type === "candidate"){
-
-        sendToTarget(data.target,{
-          type:"candidate",
-          from:ws.id,
-          candidate:data.candidate
-        });
-      }
-
-    }catch(error){
-
-      console.error(error);
+      return;
     }
   });
 
-  ws.on("close",()=>{
+  ws.on("close", () => {
 
-    if(ws.room && rooms.has(ws.room)){
+    if (!ws.roomId) {
+      return;
+    }
 
-      const roomUsers =
-        rooms.get(ws.room);
+    const room =
+      rooms.get(ws.roomId);
 
-      roomUsers.delete(ws);
+    if (!room) {
+      return;
+    }
 
-      if(roomUsers.size === 0){
+    room.clients.delete(ws);
 
-        rooms.delete(ws.room);
+    if (room.host === ws) {
 
-      }else{
+      room.host = null;
+      room.live = false;
 
-        broadcastRoom(ws.room,{
-          type:"viewerCount",
-          count:roomUsers.size
-        });
+      for (const client of room.clients) {
+
+        client.isHost = false;
       }
+    }
+
+    if (room.clients.size === 0) {
+
+      rooms.delete(ws.roomId);
+
+    } else {
+
+      broadcastRoom(
+        ws.roomId,
+        {
+          type: "viewerCount",
+          count: room.clients.size
+        }
+      );
     }
   });
 });
 
-function broadcastRoom(room,data){
+server.listen(
+  PORT,
+  HOST,
+  () => {
 
-  const users = rooms.get(room);
-
-  if(!users){
-    return;
+    console.log(
+      "Bota Live Server running on port " +
+      PORT
+    );
   }
-
-  users.forEach(user=>{
-    send(user,data);
-  });
-}
-
-function sendToTarget(id,data){
-
-  wss.clients.forEach(client=>{
-
-    if(client.id === id){
-      send(client,data);
-    }
-  });
-}
-
-server.listen(PORT,HOST,()=>{
-
-  console.log(
-    "Bota Live Server running on port " + PORT
-  );
-
-});
+);

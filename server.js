@@ -4,6 +4,11 @@ const WebSocket = require("ws");
 const PORT = process.env.PORT || 8080;
 const HOST = "0.0.0.0";
 
+
+// =====================================================
+// HTML
+// =====================================================
+
 const HTML = `
 <!DOCTYPE html>
 <html lang="ja">
@@ -27,11 +32,17 @@ const HTML = `
 
 html,
 body {
+
   margin: 0;
   padding: 0;
+
   background: #080808;
   color: white;
-  font-family: Arial, "Noto Sans JP", sans-serif;
+
+  font-family:
+    Arial,
+    "Noto Sans JP",
+    sans-serif;
 }
 
 body {
@@ -43,104 +54,149 @@ body {
 }
 
 .card {
+
   max-width: 700px;
-  margin: auto;
+
+  margin: 0 auto;
+
   padding: 20px;
+
   background: #151515;
+
   border-radius: 20px;
 }
 
 h1 {
+
   text-align: center;
+
+  margin:
+    5px 0
+    20px;
 }
 
 .status {
+
   padding: 14px;
-  margin: 12px 0;
+
+  margin:
+    12px 0;
+
   border-radius: 12px;
+
   background: #222;
+
   text-align: center;
 }
 
 .live {
+
   color: #00ff66;
+
   font-weight: bold;
 }
 
 .wait {
+
   color: #aaa;
 }
 
 button {
+
   width: 100%;
+
   border: 0;
+
   border-radius: 12px;
+
   padding: 16px;
+
   margin: 7px 0;
+
   font-size: 17px;
+
   font-weight: bold;
 }
 
 .hostButton {
+
   background: #635bff;
+
   color: white;
 }
 
 .viewerButton {
+
   background: #2f9e44;
+
   color: white;
 }
 
 .audioButton {
+
   background: #f59f00;
+
   color: black;
 }
 
 .stopButton {
+
   background: #d6336c;
+
   color: white;
 }
 
 .hidden {
+
   display: none !important;
 }
 
 .info {
+
   text-align: center;
+
   color: #aaa;
+
   margin: 12px 0;
 }
 
 .voiceBox {
+
   margin-top: 15px;
-  padding: 30px 15px;
+
+  padding:
+    30px 15px;
+
   background: #0d0d0d;
+
   border-radius: 18px;
+
   text-align: center;
 }
 
 .mic {
+
   font-size: 60px;
 }
 
-#connectionInfo {
-  margin-top: 10px;
-  padding: 10px;
-  background: #101010;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 #log {
+
   margin-top: 15px;
+
   padding: 10px;
-  height: 220px;
+
+  height: 180px;
+
   overflow-y: auto;
+
   background: #050505;
+
   border-radius: 10px;
+
   color: #00ff66;
+
   font-size: 12px;
+
   white-space: pre-wrap;
 }
 
@@ -148,40 +204,61 @@ button {
 
 </head>
 
+
 <body>
 
 <div id="app">
 
 <div class="card">
 
-<h1>🎙️ Voice Bota Live</h1>
+<h1>
+🎙️ Voice Bota Live
+</h1>
+
 
 <div id="roleSelect">
 
 <div class="status">
+
 役割を選んでください
+
 </div>
+
 
 <button
 class="hostButton"
 onclick="startHost()">
+
 🎙️ 配信者として開始
+
 </button>
+
 
 <button
 class="viewerButton"
 onclick="startViewer()">
+
 👂 視聴者として参加
+
 </button>
 
 </div>
 
 
-<div id="liveArea" class="hidden">
+<div
+id="liveArea"
+class="hidden"
+>
 
-<div id="status" class="status">
+<div
+id="status"
+class="status"
+>
+
 接続中...
+
 </div>
+
 
 <div class="voiceBox">
 
@@ -190,34 +267,38 @@ onclick="startViewer()">
 </div>
 
 <div id="voiceText">
+
 音声配信
-</div>
 
 </div>
 
-<div id="info" class="info"></div>
-
-<div id="connectionInfo">
-WebRTC状態: -
-<br>
-ICE状態: -
-<br>
-音声トラック: -
 </div>
+
+
+<div
+id="info"
+class="info"
+></div>
 
 
 <button
 id="audioButton"
-class="audioButton"
-onclick="enableAudio()">
-🔊 音声を開始
+class="audioButton hidden"
+onclick="enableAudio()"
+>
+
+🔊 音声をONにする
+
 </button>
 
 
 <button
 class="stopButton"
-onclick="stopLive()">
+onclick="stopLive()"
+>
+
 ⛔ 終了
+
 </button>
 
 
@@ -233,11 +314,16 @@ onclick="stopLive()">
 <audio
 id="remoteAudio"
 autoplay
-playsinline>
-</audio>
+playsinline
+></audio>
 
 
 <script>
+
+
+// =====================================================
+// VARIABLES
+// =====================================================
 
 let ws = null;
 
@@ -253,11 +339,15 @@ let viewerId = null;
 
 let viewerConnections = new Map();
 
-let pendingViewerCandidates = [];
+let pendingCandidates = [];
 
-let pendingHostCandidates = new Map();
+let hostPendingCandidates = new Map();
 
-let remoteStream = null;
+let reconnectTimer = null;
+
+let manuallyStopped = false;
+
+let roomJoined = false;
 
 const room = "bota";
 
@@ -274,15 +364,10 @@ document.getElementById("log");
 const remoteAudio =
 document.getElementById("remoteAudio");
 
-const connectionInfo =
-document.getElementById(
-  "connectionInfo"
-);
 
-
-// ======================================
+// =====================================================
 // LOG
-// ======================================
+// =====================================================
 
 function log(text) {
 
@@ -296,90 +381,81 @@ function log(text) {
 }
 
 
-// ======================================
+// =====================================================
 // STATUS
-// ======================================
+// =====================================================
 
-function setStatus(text, live = false) {
+function setStatus(
+  text,
+  live = false
+) {
 
-  statusBox.textContent = text;
+  statusBox.textContent =
+    text;
 
   statusBox.className =
     "status " +
-    (live ? "live" : "wait");
-}
-
-
-// ======================================
-// WEBRTC STATUS
-// ======================================
-
-function updateRTCStatus(
-  pc,
-  trackText = null
-) {
-
-  if (!pc) {
-    return;
-  }
-
-  connectionInfo.innerHTML =
-    "WebRTC状態: " +
-    pc.connectionState +
-    "<br>" +
-    "ICE状態: " +
-    pc.iceConnectionState +
-    "<br>" +
-    "音声トラック: " +
     (
-      trackText ||
-      "-"
+      live
+        ? "live"
+        : "wait"
     );
 }
 
 
-// ======================================
-// SEND
-// ======================================
+// =====================================================
+// SOCKET URL
+// =====================================================
 
-function send(data) {
+function getSocketURL() {
 
-  if (
-    ws &&
-    ws.readyState ===
-    WebSocket.OPEN
-  ) {
+  const protocol =
+    location.protocol === "https:"
+      ? "wss:"
+      : "ws:";
 
-    ws.send(
-      JSON.stringify(data)
-    );
-
-  }
-
+  return (
+    protocol +
+    "//" +
+    location.host
+  );
 }
 
 
-// ======================================
-// SOCKET
-// ======================================
+// =====================================================
+// WEBSOCKET CONNECT
+// =====================================================
 
 function connectSocket() {
 
   return new Promise(
     (resolve, reject) => {
 
-      const protocol =
-        location.protocol ===
-        "https:"
-          ? "wss:"
-          : "ws:";
+      if (
+        ws &&
+        ws.readyState ===
+          WebSocket.OPEN
+      ) {
+
+        resolve();
+
+        return;
+      }
+
+
+      log(
+        "WebSocket接続開始"
+      );
+
 
       ws =
         new WebSocket(
-          protocol +
-          "//" +
-          location.host
+          getSocketURL()
         );
+
+
+      let settled =
+        false;
 
 
       ws.onopen = () => {
@@ -388,31 +464,89 @@ function connectSocket() {
           "✅ WebSocket接続OK"
         );
 
-        resolve();
+        if (!settled) {
+
+          settled = true;
+
+          resolve();
+        }
+
+
+        // 再接続時
+
+        if (
+          myRole &&
+          !roomJoined
+        ) {
+
+          sendJoin();
+        }
 
       };
 
 
-      ws.onerror = () => {
+      ws.onerror = error => {
 
         log(
           "❌ WebSocketエラー"
         );
 
-        reject(
-          new Error(
-            "WebSocket接続失敗"
-          )
+        console.log(
+          "WebSocket error:",
+          error
         );
+
+
+        if (!settled) {
+
+          settled = true;
+
+          reject(
+            new Error(
+              "WebSocket接続失敗"
+            )
+          );
+
+        }
 
       };
 
 
-      ws.onclose = () => {
+      ws.onclose = event => {
 
         log(
-          "WebSocket切断"
+          "❌ WebSocket切断"
         );
+
+
+        log(
+          "code=" +
+          event.code +
+          " reason=" +
+          (
+            event.reason ||
+            "なし"
+          ) +
+          " clean=" +
+          event.wasClean
+        );
+
+
+        roomJoined = false;
+
+
+        if (
+          !manuallyStopped &&
+          myRole
+        ) {
+
+          setStatus(
+            "接続が切れました。再接続中..."
+          );
+
+
+          scheduleReconnect();
+        }
 
       };
 
@@ -444,28 +578,127 @@ function connectSocket() {
 
     }
   );
+}
+
+
+// =====================================================
+// RECONNECT
+// =====================================================
+
+function scheduleReconnect() {
+
+  if (reconnectTimer) {
+
+    return;
+  }
+
+
+  reconnectTimer =
+    setTimeout(
+      async () => {
+
+        reconnectTimer =
+          null;
+
+
+        if (
+          manuallyStopped ||
+          !myRole
+        ) {
+
+          return;
+        }
+
+
+        try {
+
+          await connectSocket();
+
+        } catch (e) {
+
+          log(
+            "再接続失敗"
+          );
+
+          scheduleReconnect();
+        }
+
+      },
+      3000
+    );
+}
+
+
+// =====================================================
+// SEND
+// =====================================================
+
+function send(data) {
+
+  if (
+    ws &&
+    ws.readyState ===
+      WebSocket.OPEN
+  ) {
+
+    ws.send(
+      JSON.stringify(data)
+    );
+
+  } else {
+
+    log(
+      "⚠️ WebSocket未接続"
+    );
+
+  }
+}
+
+
+// =====================================================
+// JOIN
+// =====================================================
+
+function sendJoin() {
+
+  send({
+
+    type: "join",
+
+    role:
+      myRole,
+
+    room:
+      room
+
+  });
 
 }
 
 
-// ======================================
-// HOST START
-// ======================================
+// =====================================================
+// HOST
+// =====================================================
 
 async function startHost() {
 
-  myRole =
-    "host";
+  manuallyStopped = false;
+
+  myRole = "host";
 
 
   document
-    .getElementById("roleSelect")
+    .getElementById(
+      "roleSelect"
+    )
     .classList
     .add("hidden");
 
 
   document
-    .getElementById("liveArea")
+    .getElementById(
+      "liveArea"
+    )
     .classList
     .remove("hidden");
 
@@ -479,19 +712,7 @@ async function startHost() {
 
     await connectSocket();
 
-
-    send({
-
-      type:
-        "join",
-
-      role:
-        "host",
-
-      room:
-        room
-
-    });
+    sendJoin();
 
 
     await startMicrophone();
@@ -520,8 +741,13 @@ async function startHost() {
   } catch (e) {
 
     log(
-      "❌ 配信開始失敗: " +
+      "配信開始失敗: " +
       e.message
+    );
+
+
+    setStatus(
+      "配信開始失敗"
     );
 
   }
@@ -529,24 +755,29 @@ async function startHost() {
 }
 
 
-// ======================================
-// VIEWER START
-// ======================================
+// =====================================================
+// VIEWER
+// =====================================================
 
 async function startViewer() {
 
-  myRole =
-    "viewer";
+  manuallyStopped = false;
+
+  myRole = "viewer";
 
 
   document
-    .getElementById("roleSelect")
+    .getElementById(
+      "roleSelect"
+    )
     .classList
     .add("hidden");
 
 
   document
-    .getElementById("liveArea")
+    .getElementById(
+      "liveArea"
+    )
     .classList
     .remove("hidden");
 
@@ -566,25 +797,13 @@ async function startViewer() {
 
     await connectSocket();
 
-
-    send({
-
-      type:
-        "join",
-
-      role:
-        "viewer",
-
-      room:
-        room
-
-    });
+    sendJoin();
 
 
   } catch (e) {
 
     log(
-      "❌ 接続失敗: " +
+      "接続失敗: " +
       e.message
     );
 
@@ -593,15 +812,22 @@ async function startViewer() {
 }
 
 
-// ======================================
+// =====================================================
 // MICROPHONE
-// ======================================
+// =====================================================
 
 async function startMicrophone() {
 
-  log(
-    "🎙️ マイク取得開始"
-  );
+  if (
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  ) {
+
+    throw new Error(
+      "マイク機能が利用できません"
+    );
+
+  }
 
 
   localStream =
@@ -611,98 +837,35 @@ async function startMicrophone() {
 
         audio: {
 
-          echoCancellation:
-            true,
+          echoCancellation: true,
 
-          noiseSuppression:
-            true,
+          noiseSuppression: true,
 
-          autoGainControl:
-            true,
+          autoGainControl: true,
 
-          channelCount:
-            1
+          channelCount: 1
 
         },
 
-        video:
-          false
+        video: false
 
       });
-
-
-  const tracks =
-    localStream.getAudioTracks();
 
 
   log(
     "🎙️ マイク取得OK"
   );
 
-
-  log(
-    "音声トラック数: " +
-    tracks.length
-  );
-
-
-  if (tracks.length > 0) {
-
-    log(
-      "マイクtrack: " +
-      tracks[0].readyState
-    );
-
-  }
-
 }
 
 
-// ======================================
-// RTC CONFIG
-// ======================================
-
-function createRTCConfig() {
-
-  return {
-
-    iceServers: [
-
-      {
-        urls:
-          "stun:stun.l.google.com:19302"
-      },
-
-      {
-        urls:
-          "stun:stun1.l.google.com:19302"
-      }
-
-    ],
-
-    bundlePolicy:
-      "max-bundle",
-
-    rtcpMuxPolicy:
-      "require"
-
-  };
-
-}
-
-
-// ======================================
+// =====================================================
 // HOST PEER
-// ======================================
+// =====================================================
 
 function createHostPeer(
   viewer
 ) {
-
-  log(
-    "🔗 Host Peer作成"
-  );
-
 
   const old =
     viewerConnections.get(
@@ -713,16 +876,42 @@ function createHostPeer(
   if (old) {
 
     try {
+
       old.close();
+
     } catch {}
+
+    viewerConnections.delete(
+      viewer
+    );
 
   }
 
 
   const pc =
-    new RTCPeerConnection(
-      createRTCConfig()
-    );
+    new RTCPeerConnection({
+
+      iceServers: [
+
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        },
+
+        {
+          urls:
+            "stun:stun1.l.google.com:19302"
+        }
+
+      ],
+
+      bundlePolicy:
+        "max-bundle",
+
+      rtcpMuxPolicy:
+        "require"
+
+    });
 
 
   viewerConnections.set(
@@ -731,11 +920,14 @@ function createHostPeer(
   );
 
 
+  // ---------------------------------
+  // AUDIO TRACK
+  // ---------------------------------
+
   if (localStream) {
 
     const tracks =
-      localStream
-        .getAudioTracks();
+      localStream.getAudioTracks();
 
 
     for (
@@ -743,53 +935,19 @@ function createHostPeer(
       of tracks
     ) {
 
-      log(
-        "🎙️ 音声track追加"
+      pc.addTrack(
+        track,
+        localStream
       );
-
-
-      const sender =
-        pc.addTrack(
-          track,
-          localStream
-        );
-
-
-      try {
-
-        const params =
-          sender.getParameters();
-
-
-        if (
-          !params.encodings
-        ) {
-
-          params.encodings =
-            [{}];
-
-        }
-
-
-        params.encodings[0]
-          .maxBitrate =
-          64000;
-
-
-        sender
-          .setParameters(
-            params
-          )
-          .catch(
-            () => {}
-          );
-
-      } catch {}
 
     }
 
   }
 
+
+  // ---------------------------------
+  // ICE
+  // ---------------------------------
 
   pc.onicecandidate =
     event => {
@@ -797,11 +955,6 @@ function createHostPeer(
       if (
         event.candidate
       ) {
-
-        log(
-          "📡 ICE candidate送信"
-        );
-
 
         send({
 
@@ -821,41 +974,38 @@ function createHostPeer(
 
           }
 
-        );
+        });
 
       }
 
     };
 
 
-  pc.oniceconnectionstatechange =
-    () => {
-
-      log(
-        "Host ICE: " +
-        pc.iceConnectionState
-      );
-
-
-      updateRTCStatus(
-        pc
-      );
-
-    };
-
+  // ---------------------------------
+  // STATE
+  // ---------------------------------
 
   pc.onconnectionstatechange =
     () => {
 
       log(
-        "Host WebRTC: " +
+        "視聴者 " +
+        viewer +
+        " : " +
         pc.connectionState
       );
 
 
-      updateRTCStatus(
-        pc
-      );
+      if (
+        pc.connectionState ===
+        "failed"
+      ) {
+
+        log(
+          "⚠️ WebRTC接続失敗"
+        );
+
+      }
 
     };
 
@@ -865,97 +1015,123 @@ function createHostPeer(
 }
 
 
-// ======================================
-// OFFER
-// ======================================
+// =====================================================
+// SEND OFFER
+// =====================================================
 
 async function sendOffer(
   viewer
 ) {
 
-  log(
-    "📨 Offer作成開始"
-  );
+  try {
 
-
-  const pc =
-    createHostPeer(
+    log(
+      "Offer作成: " +
       viewer
     );
 
 
-  const offer =
-    await pc.createOffer();
+    const pc =
+      createHostPeer(
+        viewer
+      );
 
 
-  log(
-    "📨 Offer作成OK"
-  );
+    const offer =
+      await pc.createOffer({
+
+        offerToReceiveAudio:
+          false
+
+      });
 
 
-  await pc.setLocalDescription(
-    offer
-  );
+    await pc.setLocalDescription(
+      offer
+    );
 
 
-  log(
-    "📨 LocalDescription設定OK"
-  );
-
-
-  send({
-
-    type:
-      "signal",
-
-    target:
-      viewer,
-
-    signal: {
+    send({
 
       type:
-        "offer",
+        "signal",
 
-      sdp:
-        offer.sdp
+      target:
+        viewer,
 
-    }
+      signal: {
 
-  });
+        type:
+          "offer",
+
+        sdp:
+          offer.sdp
+
+      }
+
+    });
 
 
-  log(
-    "📨 Offer送信"
-  );
+    log(
+      "Offer送信: " +
+      viewer
+    );
+
+
+  } catch (e) {
+
+    log(
+      "Offerエラー: " +
+      e.message
+    );
+
+  }
 
 }
 
 
-// ======================================
+// =====================================================
 // VIEWER PEER
-// ======================================
+// =====================================================
 
 function createViewerPeer() {
 
-  if (
-    viewerPeer
-  ) {
+  if (viewerPeer) {
 
     return viewerPeer;
 
   }
 
 
-  log(
-    "🔗 Viewer Peer作成"
-  );
-
-
   viewerPeer =
-    new RTCPeerConnection(
-      createRTCConfig()
-    );
+    new RTCPeerConnection({
 
+      iceServers: [
+
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        },
+
+        {
+          urls:
+            "stun:stun1.l.google.com:19302"
+        }
+
+      ],
+
+      bundlePolicy:
+        "max-bundle",
+
+      rtcpMuxPolicy:
+        "require"
+
+    });
+
+
+  // ---------------------------------
+  // ICE
+  // ---------------------------------
 
   viewerPeer.onicecandidate =
     event => {
@@ -964,11 +1140,6 @@ function createViewerPeer() {
         event.candidate &&
         viewerId
       ) {
-
-        log(
-          "📡 Viewer ICE送信"
-        );
-
 
         send({
 
@@ -988,40 +1159,114 @@ function createViewerPeer() {
 
           }
 
-        );
+        });
 
       }
 
     };
 
 
-  viewerPeer.oniceconnectionstatechange =
-    () => {
+  // ---------------------------------
+  // TRACK
+  // ---------------------------------
+
+  viewerPeer.ontrack =
+    event => {
 
       log(
-        "Viewer ICE: " +
-        viewerPeer.iceConnectionState
+        "🔊 音声トラック受信"
       );
 
 
-      updateRTCStatus(
-        viewerPeer
+      let stream =
+        event.streams &&
+        event.streams[0];
+
+
+      if (!stream) {
+
+        stream =
+          new MediaStream();
+
+        stream.addTrack(
+          event.track
+        );
+
+      }
+
+
+      remoteAudio.srcObject =
+        stream;
+
+
+      remoteAudio.volume =
+        1;
+
+
+      // ★重要
+      // 最初からミュートしない
+
+      remoteAudio.muted =
+        false;
+
+
+      const playPromise =
+        remoteAudio.play();
+
+
+      if (
+        playPromise &&
+        typeof playPromise.catch ===
+          "function"
+      ) {
+
+        playPromise.catch(
+          error => {
+
+            log(
+              "自動再生待機: " +
+              error.message
+            );
+
+
+            document
+              .getElementById(
+                "audioButton"
+              )
+              .classList
+              .remove("hidden");
+
+          }
+        );
+
+      }
+
+
+      setStatus(
+        "🔴 配信中",
+        true
       );
+
+
+      document.getElementById(
+        "voiceText"
+      ).textContent =
+        "🎙️ 配信者の音声を受信中";
 
     };
 
 
-  viewerPeer.onconnectionstatechange =
+  // ---------------------------------
+  // CONNECTION
+  // ---------------------------------
+
+  viewerPeer
+    .onconnectionstatechange =
     () => {
 
       log(
-        "Viewer WebRTC: " +
+        "配信者接続: " +
         viewerPeer.connectionState
-      );
-
-
-      updateRTCStatus(
-        viewerPeer
       );
 
 
@@ -1035,122 +1280,41 @@ function createViewerPeer() {
           true
         );
 
+
+        log(
+          "🎉 音声接続成功"
+        );
+
       }
 
-    };
 
-
-  // ====================================
-  // AUDIO TRACK
-  // ====================================
-
-  viewerPeer.ontrack =
-    event => {
-
-      log(
-        "🔊🔊🔊 AUDIO TRACK RECEIVED"
-      );
-
-
-      log(
-        "track kind: " +
-        event.track.kind
-      );
-
-
-      log(
-        "track state: " +
-        event.track.readyState
-      );
-
-
-      // 新しいMediaStreamを作る
       if (
-        !remoteStream
+        viewerPeer.connectionState ===
+        "disconnected"
       ) {
 
-        remoteStream =
-          new MediaStream();
+        setStatus(
+          "WebRTC接続切断"
+        );
 
       }
 
 
-      // track追加
-      try {
+      if (
+        viewerPeer.connectionState ===
+        "failed"
+      ) {
 
-        remoteStream.addTrack(
-          event.track
+        setStatus(
+          "WebRTC接続失敗"
         );
 
-      } catch {}
 
-
-      remoteAudio.srcObject =
-        remoteStream;
-
-
-      remoteAudio.volume =
-        1;
-
-
-      remoteAudio.muted =
-        false;
-
-
-      updateRTCStatus(
-        viewerPeer,
-        "受信済み: " +
-        event.track.readyState
-      );
-
-
-      document.getElementById(
-        "voiceText"
-      ).textContent =
-        "🔊 音声を受信しました";
-
-
-      setStatus(
-        "🔴 音声受信中",
-        true
-      );
-
-
-      // 再生を試す
-      remoteAudio
-        .play()
-        .then(
-          () => {
-
-            log(
-              "🔊 自動音声再生成功"
-            );
-
-            document
-              .getElementById(
-                "audioButton"
-              )
-              .classList
-              .add("hidden");
-
-          }
-        )
-        .catch(
-          e => {
-
-            log(
-              "⚠️ 自動再生待ち"
-            );
-
-            document
-              .getElementById(
-                "audioButton"
-              )
-              .classList
-              .remove("hidden");
-
-          }
+        log(
+          "⚠️ NAT/ICE接続失敗"
         );
+
+      }
 
     };
 
@@ -1160,9 +1324,9 @@ function createViewerPeer() {
 }
 
 
-// ======================================
+// =====================================================
 // VIEWER SIGNAL
-// ======================================
+// =====================================================
 
 async function handleViewerSignal(
   msg
@@ -1172,109 +1336,102 @@ async function handleViewerSignal(
     createViewerPeer();
 
 
-  // ==================================
+  // ---------------------------------
   // OFFER
-  // ==================================
+  // ---------------------------------
 
   if (
     msg.type ===
     "offer"
   ) {
 
-    log(
-      "📨 Offer受信"
-    );
+    try {
 
-
-    await pc.setRemoteDescription({
-
-      type:
-        "offer",
-
-      sdp:
-        msg.sdp
-
-    });
-
-
-    log(
-      "📨 RemoteDescription設定OK"
-    );
-
-
-    for (
-      const candidate
-      of pendingViewerCandidates
-    ) {
-
-      try {
-
-        await pc.addIceCandidate(
-          candidate
-        );
-
-        log(
-          "📡 待機ICE追加OK"
-        );
-
-      } catch (e) {
-
-        log(
-          "❌ 待機ICE失敗"
-        );
-
-      }
-
-    }
-
-
-    pendingViewerCandidates =
-      [];
-
-
-    const answer =
-      await pc.createAnswer();
-
-
-    log(
-      "📨 Answer作成OK"
-    );
-
-
-    await pc.setLocalDescription(
-      answer
-    );
-
-
-    log(
-      "📨 LocalDescription設定OK"
-    );
-
-
-    send({
-
-      type:
-        "signal",
-
-      target:
-        viewerId,
-
-      signal: {
+      await pc.setRemoteDescription({
 
         type:
-          "answer",
+          "offer",
 
         sdp:
-          answer.sdp
+          msg.sdp
+
+      });
+
+
+      log(
+        "Offer受信"
+      );
+
+
+      // 保留ICE
+      for (
+        const candidate
+        of pendingCandidates
+      ) {
+
+        try {
+
+          await pc.addIceCandidate(
+            candidate
+          );
+
+        } catch (e) {
+
+          console.log(
+            e
+          );
+
+        }
 
       }
 
-    });
+
+      pendingCandidates = [];
 
 
-    log(
-      "📨 Answer送信"
-    );
+      const answer =
+        await pc.createAnswer();
+
+
+      await pc.setLocalDescription(
+        answer
+      );
+
+
+      send({
+
+        type:
+          "signal",
+
+        target:
+          viewerId,
+
+        signal: {
+
+          type:
+            "answer",
+
+          sdp:
+            answer.sdp
+
+        }
+
+      });
+
+
+      log(
+        "Answer送信"
+      );
+
+
+    } catch (e) {
+
+      log(
+        "Viewer Offer処理エラー: " +
+        e.message
+      );
+
+    }
 
 
     return;
@@ -1282,9 +1439,9 @@ async function handleViewerSignal(
   }
 
 
-  // ==================================
-  // ICE
-  // ==================================
+  // ---------------------------------
+  // CANDIDATE
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1307,30 +1464,19 @@ async function handleViewerSignal(
           candidate
         );
 
-
-        log(
-          "📡 Viewer ICE追加OK"
-        );
-
       } catch (e) {
 
         log(
-          "❌ Viewer ICE追加失敗"
+          "ICE追加エラー"
         );
 
       }
 
     } else {
 
-      log(
-        "📡 Viewer ICEを待機"
+      pendingCandidates.push(
+        candidate
       );
-
-
-      pendingViewerCandidates
-        .push(
-          candidate
-        );
 
     }
 
@@ -1339,9 +1485,9 @@ async function handleViewerSignal(
 }
 
 
-// ======================================
+// =====================================================
 // HOST SIGNAL
-// ======================================
+// =====================================================
 
 async function handleHostSignal(
   msg
@@ -1356,7 +1502,8 @@ async function handleHostSignal(
   if (!pc) {
 
     log(
-      "❌ Peerがありません"
+      "Peerなし: " +
+      msg.from
     );
 
     return;
@@ -1364,43 +1511,39 @@ async function handleHostSignal(
   }
 
 
-  // ==================================
+  // ---------------------------------
   // ANSWER
-  // ==================================
+  // ---------------------------------
 
   if (
     msg.signal.type ===
     "answer"
   ) {
 
-    log(
-      "📨 Answer受信"
-    );
+    try {
+
+      await pc.setRemoteDescription({
+
+        type:
+          "answer",
+
+        sdp:
+          msg.signal.sdp
+
+      });
 
 
-    await pc.setRemoteDescription({
-
-      type:
-        "answer",
-
-      sdp:
-        msg.signal.sdp
-
-    });
-
-
-    log(
-      "📨 Answer設定OK"
-    );
-
-
-    const pending =
-      pendingHostCandidates.get(
+      log(
+        "Answer受信: " +
         msg.from
       );
 
 
-    if (pending) {
+      const pending =
+        hostPendingCandidates.get(
+          msg.from
+        ) || [];
+
 
       for (
         const candidate
@@ -1418,8 +1561,16 @@ async function handleHostSignal(
       }
 
 
-      pendingHostCandidates.delete(
+      hostPendingCandidates.delete(
         msg.from
+      );
+
+
+    } catch (e) {
+
+      log(
+        "Answer処理エラー: " +
+        e.message
       );
 
     }
@@ -1430,9 +1581,9 @@ async function handleHostSignal(
   }
 
 
-  // ==================================
-  // ICE
-  // ==================================
+  // ---------------------------------
+  // CANDIDATE
+  // ---------------------------------
 
   if (
     msg.signal.type ===
@@ -1455,40 +1606,37 @@ async function handleHostSignal(
           candidate
         );
 
+      } catch (e) {
 
         log(
-          "📡 Host ICE追加OK"
-        );
-
-      } catch {
-
-        log(
-          "❌ Host ICE追加失敗"
+          "ICE追加エラー"
         );
 
       }
 
     } else {
 
-      if (
-        !pendingHostCandidates.has(
+      let list =
+        hostPendingCandidates.get(
           msg.from
-        )
-      ) {
+        );
 
-        pendingHostCandidates.set(
+
+      if (!list) {
+
+        list = [];
+
+        hostPendingCandidates.set(
           msg.from,
-          []
+          list
         );
 
       }
 
 
-      pendingHostCandidates
-        .get(msg.from)
-        .push(
-          candidate
-        );
+      list.push(
+        candidate
+      );
 
     }
 
@@ -1497,13 +1645,17 @@ async function handleHostSignal(
 }
 
 
-// ======================================
+// =====================================================
 // MESSAGE
-// ======================================
+// =====================================================
 
 async function handleMessage(
   msg
 ) {
+
+  // ---------------------------------
+  // WELCOME
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1525,6 +1677,10 @@ async function handleMessage(
   }
 
 
+  // ---------------------------------
+  // STATUS
+  // ---------------------------------
+
   if (
     msg.type ===
     "status"
@@ -1539,6 +1695,10 @@ async function handleMessage(
 
   }
 
+
+  // ---------------------------------
+  // ROOM STATUS
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1570,6 +1730,33 @@ async function handleMessage(
   }
 
 
+  // ---------------------------------
+  // JOIN COMPLETE
+  // ---------------------------------
+
+  if (
+    msg.type ===
+    "join-ok"
+  ) {
+
+    roomJoined =
+      true;
+
+
+    log(
+      "✅ ルーム参加完了"
+    );
+
+
+    return;
+
+  }
+
+
+  // ---------------------------------
+  // VIEWER JOINED
+  // ---------------------------------
+
   if (
     msg.type ===
     "viewer-joined"
@@ -1597,6 +1784,10 @@ async function handleMessage(
 
   }
 
+
+  // ---------------------------------
+  // WEBRTC SIGNAL
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1630,21 +1821,35 @@ async function handleMessage(
   }
 
 
+  // ---------------------------------
+  // STREAM STARTED
+  // ---------------------------------
+
   if (
     msg.type ===
     "stream-started"
   ) {
 
     setStatus(
-      "🔴 配信中",
+      "🎙️ 配信中",
       true
     );
+
+
+    document.getElementById(
+      "voiceText"
+    ).textContent =
+      "配信者が配信中";
 
 
     return;
 
   }
 
+
+  // ---------------------------------
+  // STREAM STOPPED
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1660,10 +1865,20 @@ async function handleMessage(
       null;
 
 
+    document.getElementById(
+      "voiceText"
+    ).textContent =
+      "配信終了";
+
+
     return;
 
   }
 
+
+  // ---------------------------------
+  // HOST LEFT
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1679,10 +1894,20 @@ async function handleMessage(
       null;
 
 
+    document.getElementById(
+      "voiceText"
+    ).textContent =
+      "配信終了";
+
+
     return;
 
   }
 
+
+  // ---------------------------------
+  // VIEWER LEFT
+  // ---------------------------------
 
   if (
     msg.type ===
@@ -1697,13 +1922,23 @@ async function handleMessage(
 
     if (pc) {
 
-      pc.close();
+      try {
+
+        pc.close();
+
+      } catch {}
+
 
       viewerConnections.delete(
         msg.viewerId
       );
 
     }
+
+
+    hostPendingCandidates.delete(
+      msg.viewerId
+    );
 
 
     return;
@@ -1713,16 +1948,11 @@ async function handleMessage(
 }
 
 
-// ======================================
-// AUDIO BUTTON
-// ======================================
+// =====================================================
+// AUDIO ON
+// =====================================================
 
 async function enableAudio() {
-
-  log(
-    "🔊 音声開始ボタン押下"
-  );
-
 
   try {
 
@@ -1734,37 +1964,26 @@ async function enableAudio() {
       1;
 
 
-    if (
-      remoteAudio.srcObject
-    ) {
-
-      await remoteAudio.play();
+    await remoteAudio.play();
 
 
-      log(
-        "🔊🔊🔊 音声再生成功"
-      );
+    document
+      .getElementById(
+        "audioButton"
+      )
+      .classList
+      .add("hidden");
 
 
-      document
-        .getElementById(
-          "audioButton"
-        )
-        .classList
-        .add("hidden");
+    log(
+      "🔊 音声ON"
+    );
 
-    } else {
-
-      log(
-        "⚠️ まだ音声ストリームがありません"
-      );
-
-    }
 
   } catch (e) {
 
     log(
-      "❌ 音声再生エラー: " +
+      "音声再生エラー: " +
       e.message
     );
 
@@ -1773,15 +1992,109 @@ async function enableAudio() {
 }
 
 
-// ======================================
+// =====================================================
 // STOP
-// ======================================
+// =====================================================
 
 function stopLive() {
 
+  manuallyStopped =
+    true;
+
+
+  roomJoined =
+    false;
+
+
+  if (reconnectTimer) {
+
+    clearTimeout(
+      reconnectTimer
+    );
+
+    reconnectTimer =
+      null;
+
+  }
+
+
+  // ---------------------------------
+  // MICROPHONE
+  // ---------------------------------
+
+  if (localStream) {
+
+    for (
+      const track
+      of localStream.getTracks()
+    ) {
+
+      track.stop();
+
+    }
+
+
+    localStream =
+      null;
+
+  }
+
+
+  // ---------------------------------
+  // HOST PEERS
+  // ---------------------------------
+
+  for (
+    const pc
+    of viewerConnections.values()
+  ) {
+
+    try {
+
+      pc.close();
+
+    } catch {}
+
+  }
+
+
+  viewerConnections.clear();
+
+
+  hostPendingCandidates.clear();
+
+
+  // ---------------------------------
+  // VIEWER PEER
+  // ---------------------------------
+
+  if (viewerPeer) {
+
+    try {
+
+      viewerPeer.close();
+
+    } catch {}
+
+
+    viewerPeer =
+      null;
+
+  }
+
+
+  pendingCandidates =
+    [];
+
+
+  // ---------------------------------
+  // SERVER NOTIFY
+  // ---------------------------------
+
   if (
-    myRole ===
-    "host"
+    ws &&
+    ws.readyState ===
+      WebSocket.OPEN
   ) {
 
     send({
@@ -1794,61 +2107,25 @@ function stopLive() {
   }
 
 
-  if (
-    localStream
-  ) {
+  // ---------------------------------
+  // WEBSOCKET
+  // ---------------------------------
 
-    localStream
-      .getTracks()
-      .forEach(
-        track =>
-          track.stop()
+  if (ws) {
+
+    try {
+
+      ws.close(
+        1000,
+        "user stopped"
       );
 
-    localStream =
+    } catch {}
+
+    ws =
       null;
 
   }
-
-
-  for (
-    const pc
-    of viewerConnections.values()
-  ) {
-
-    try {
-      pc.close();
-    } catch {}
-
-  }
-
-
-  viewerConnections.clear();
-
-
-  if (
-    viewerPeer
-  ) {
-
-    try {
-      viewerPeer.close();
-    } catch {}
-
-    viewerPeer =
-      null;
-
-  }
-
-
-  pendingViewerCandidates =
-    [];
-
-
-  pendingHostCandidates.clear();
-
-
-  remoteStream =
-    null;
 
 
   remoteAudio.srcObject =
@@ -1857,20 +2134,6 @@ function stopLive() {
 
   remoteAudio.muted =
     true;
-
-
-  if (
-    ws
-  ) {
-
-    try {
-      ws.close();
-    } catch {}
-
-    ws =
-      null;
-
-  }
 
 
   document
@@ -1889,19 +2152,78 @@ function stopLive() {
     .remove("hidden");
 
 
-  myRole =
-    null;
-
-
-  viewerId =
-    null;
+  document
+    .getElementById(
+      "audioButton"
+    )
+    .classList
+    .add("hidden");
 
 
   setStatus(
     "停止しました"
   );
 
+
+  myRole =
+    null;
+
 }
+
+
+// =====================================================
+// INITIAL AUDIO SETTINGS
+// =====================================================
+
+remoteAudio.autoplay =
+  true;
+
+remoteAudio.playsInline =
+  true;
+
+remoteAudio.volume =
+  1;
+
+
+// =====================================================
+// USER INTERACTION AUDIO
+// =====================================================
+
+document.addEventListener(
+  "click",
+  () => {
+
+    if (
+      myRole === "viewer" &&
+      remoteAudio.srcObject &&
+      remoteAudio.paused
+    ) {
+
+      remoteAudio.muted =
+        false;
+
+
+      remoteAudio.play()
+        .then(() => {
+
+          document
+            .getElementById(
+              "audioButton"
+            )
+            .classList
+            .add("hidden");
+
+        })
+        .catch(() => {});
+
+    }
+
+  },
+  {
+    passive: true
+  }
+);
+
 
 </script>
 
@@ -1911,9 +2233,9 @@ function stopLive() {
 `;
 
 
-// ==========================================
-// HTTP
-// ==========================================
+// =====================================================
+// HTTP SERVER
+// =====================================================
 
 const server =
   http.createServer(
@@ -1932,9 +2254,11 @@ const server =
           }
         );
 
+
         res.end(
           "OK"
         );
+
 
         return;
 
@@ -1945,7 +2269,10 @@ const server =
         200,
         {
           "Content-Type":
-            "text/html; charset=utf-8"
+            "text/html; charset=utf-8",
+
+          "Cache-Control":
+            "no-store"
         }
       );
 
@@ -1958,13 +2285,14 @@ const server =
   );
 
 
-// ==========================================
-// WEBSOCKET
-// ==========================================
+// =====================================================
+// WEBSOCKET SERVER
+// =====================================================
 
 const wss =
   new WebSocket.Server({
-    server
+    server,
+    perMessageDeflate: false
   });
 
 
@@ -1976,9 +2304,9 @@ const clients =
   new Map();
 
 
-// ==========================================
+// =====================================================
 // SEND
-// ==========================================
+// =====================================================
 
 function send(
   ws,
@@ -1988,23 +2316,32 @@ function send(
   if (
     ws &&
     ws.readyState ===
-    WebSocket.OPEN
+      WebSocket.OPEN
   ) {
 
-    ws.send(
-      JSON.stringify(
-        data
-      )
-    );
+    try {
+
+      ws.send(
+        JSON.stringify(data)
+      );
+
+    } catch (e) {
+
+      console.log(
+        "[SEND ERROR]",
+        e.message
+      );
+
+    }
 
   }
 
 }
 
 
-// ==========================================
+// =====================================================
 // CONNECTION
-// ==========================================
+// =====================================================
 
 wss.on(
   "connection",
@@ -2019,9 +2356,20 @@ wss.on(
     const client = {
 
       id,
+
       ws,
-      role: null,
-      room: "bota"
+
+      role:
+        null,
+
+      room:
+        "bota",
+
+      streaming:
+        false,
+
+      isAlive:
+        true
 
     };
 
@@ -2050,6 +2398,25 @@ wss.on(
     );
 
 
+    // =================================================
+    // PONG
+    // =================================================
+
+    ws.on(
+      "pong",
+      () => {
+
+        client.isAlive =
+          true;
+
+      }
+    );
+
+
+    // =================================================
+    // MESSAGE
+    // =================================================
+
     ws.on(
       "message",
       raw => {
@@ -2064,16 +2431,20 @@ wss.on(
               raw.toString()
             );
 
-        } catch {
+        } catch (e) {
+
+          console.log(
+            "[JSON ERROR]"
+          );
 
           return;
 
         }
 
 
-        // =================================
+        // =============================================
         // JOIN
-        // =================================
+        // =============================================
 
         if (
           msg.type ===
@@ -2100,24 +2471,85 @@ wss.on(
           );
 
 
+          // -------------------------------------------
+          // HOST
+          // -------------------------------------------
+
           if (
             client.role ===
             "host"
           ) {
 
+            // 既に別の配信者がいるか確認
+
+            let existingHost =
+              null;
+
+
+            for (
+              const other
+              of clients.values()
+            ) {
+
+              if (
+                other.id !== id &&
+                other.room ===
+                  client.room &&
+                other.role ===
+                  "host"
+              ) {
+
+                existingHost =
+                  other;
+
+                break;
+
+              }
+
+            }
+
+
+            if (existingHost) {
+
+              send(
+                ws,
+                {
+                  type:
+                    "join-error",
+
+                  text:
+                    "このルームには既に配信者がいます"
+                }
+              );
+
+
+              return;
+
+            }
+
+
             send(
               ws,
               {
-
                 type:
                   "status",
 
                 text:
                   "配信者として接続しました"
-
               }
             );
 
+
+            send(
+              ws,
+              {
+                type:
+                  "join-ok"
+              }
+            );
+
+
+            // 既存視聴者にOffer
 
             for (
               const other
@@ -2135,13 +2567,11 @@ wss.on(
                 send(
                   ws,
                   {
-
                     type:
                       "viewer-joined",
 
                     viewerId:
                       other.id
-
                   }
                 );
 
@@ -2152,6 +2582,10 @@ wss.on(
           }
 
 
+          // -------------------------------------------
+          // VIEWER
+          // -------------------------------------------
+
           if (
             client.role ===
             "viewer"
@@ -2160,16 +2594,25 @@ wss.on(
             send(
               ws,
               {
-
                 type:
                   "status",
 
                 text:
                   "視聴者として接続しました"
-
               }
             );
 
+
+            send(
+              ws,
+              {
+                type:
+                  "join-ok"
+              }
+            );
+
+
+            // 配信者を探す
 
             for (
               const other
@@ -2186,15 +2629,30 @@ wss.on(
                 send(
                   other.ws,
                   {
-
                     type:
                       "viewer-joined",
 
                     viewerId:
                       client.id
-
                   }
                 );
+
+
+                // 既に配信中なら通知
+
+                if (
+                  other.streaming
+                ) {
+
+                  send(
+                    ws,
+                    {
+                      type:
+                        "stream-started"
+                    }
+                  );
+
+                }
 
               }
 
@@ -2213,9 +2671,9 @@ wss.on(
         }
 
 
-        // =================================
+        // =============================================
         // SIGNAL
-        // =================================
+        // =============================================
 
         if (
           msg.type ===
@@ -2235,6 +2693,7 @@ wss.on(
               msg.target
             );
 
+
             return;
 
           }
@@ -2253,7 +2712,6 @@ wss.on(
           send(
             target.ws,
             {
-
               type:
                 "signal",
 
@@ -2262,7 +2720,6 @@ wss.on(
 
               signal:
                 msg.signal
-
             }
           );
 
@@ -2272,14 +2729,24 @@ wss.on(
         }
 
 
-        // =================================
-        // STREAM START
-        // =================================
+        // =============================================
+        // STREAM STARTED
+        // =============================================
 
         if (
           msg.type ===
           "stream-started"
         ) {
+
+          client.streaming =
+            true;
+
+
+          console.log(
+            "[STREAM STARTED]",
+            client.id
+          );
+
 
           for (
             const other
@@ -2296,16 +2763,19 @@ wss.on(
               send(
                 other.ws,
                 {
-
                   type:
                     "stream-started"
-
                 }
               );
 
             }
 
           }
+
+
+          updateRoomStatus(
+            client.room
+          );
 
 
           return;
@@ -2313,14 +2783,24 @@ wss.on(
         }
 
 
-        // =================================
-        // STREAM STOP
-        // =================================
+        // =============================================
+        // STREAM STOPPED
+        // =============================================
 
         if (
           msg.type ===
           "stream-stopped"
         ) {
+
+          client.streaming =
+            false;
+
+
+          console.log(
+            "[STREAM STOPPED]",
+            client.id
+          );
+
 
           for (
             const other
@@ -2337,16 +2817,19 @@ wss.on(
               send(
                 other.ws,
                 {
-
                   type:
                     "stream-stopped"
-
                 }
               );
 
             }
 
           }
+
+
+          updateRoomStatus(
+            client.room
+          );
 
 
           return;
@@ -2357,17 +2840,21 @@ wss.on(
     );
 
 
-    // =================================
+    // =================================================
     // CLOSE
-    // =================================
+    // =================================================
 
     ws.on(
       "close",
-      () => {
+      (code, reason) => {
 
         console.log(
           "[CLOSE]",
-          id
+          id,
+          "code=",
+          code,
+          "reason=",
+          reason.toString()
         );
 
 
@@ -2384,6 +2871,10 @@ wss.on(
         );
 
 
+        // ---------------------------------------------
+        // HOST
+        // ---------------------------------------------
+
         if (
           role ===
           "host"
@@ -2395,7 +2886,8 @@ wss.on(
           ) {
 
             if (
-              other.room === room &&
+              other.room ===
+                room &&
               other.role ===
                 "viewer"
             ) {
@@ -2403,10 +2895,8 @@ wss.on(
               send(
                 other.ws,
                 {
-
                   type:
                     "host-left"
-
                 }
               );
 
@@ -2416,6 +2906,10 @@ wss.on(
 
         }
 
+
+        // ---------------------------------------------
+        // VIEWER
+        // ---------------------------------------------
 
         if (
           role ===
@@ -2428,7 +2922,8 @@ wss.on(
           ) {
 
             if (
-              other.room === room &&
+              other.room ===
+                room &&
               other.role ===
                 "host"
             ) {
@@ -2436,13 +2931,11 @@ wss.on(
               send(
                 other.ws,
                 {
-
                   type:
                     "viewer-left",
 
                   viewerId:
                     id
-
                 }
               );
 
@@ -2460,13 +2953,100 @@ wss.on(
       }
     );
 
+
+    // =================================================
+    // ERROR
+    // =================================================
+
+    ws.on(
+      "error",
+      error => {
+
+        console.log(
+          "[WS ERROR]",
+          id,
+          error.message
+        );
+
+      }
+    );
+
   }
 );
 
 
-// ==========================================
+// =====================================================
+// WEBSOCKET HEARTBEAT
+// =====================================================
+
+const heartbeat =
+  setInterval(
+    () => {
+
+      for (
+        const client
+        of clients.values()
+      ) {
+
+        const ws =
+          client.ws;
+
+
+        if (
+          client.isAlive ===
+          false
+        ) {
+
+          console.log(
+            "[HEARTBEAT TIMEOUT]",
+            client.id
+          );
+
+
+          try {
+
+            ws.terminate();
+
+          } catch {}
+
+
+          continue;
+
+        }
+
+
+        client.isAlive =
+          false;
+
+
+        try {
+
+          ws.ping();
+
+        } catch {}
+
+      }
+
+    },
+    25000
+  );
+
+
+wss.on(
+  "close",
+  () => {
+
+    clearInterval(
+      heartbeat
+    );
+
+  }
+);
+
+
+// =====================================================
 // ROOM STATUS
-// ==========================================
+// =====================================================
 
 function updateRoomStatus(
   room
@@ -2478,6 +3058,10 @@ function updateRoomStatus(
 
   let viewers =
     0;
+
+
+  let streaming =
+    false;
 
 
   for (
@@ -2502,6 +3086,16 @@ function updateRoomStatus(
 
       host =
         true;
+
+
+      if (
+        client.streaming
+      ) {
+
+        streaming =
+          true;
+
+      }
 
     }
 
@@ -2531,16 +3125,15 @@ function updateRoomStatus(
       send(
         client.ws,
         {
-
           type:
             "room-status",
 
           live:
-            host,
+            host &&
+            streaming,
 
           viewers:
             viewers
-
         }
       );
 
@@ -2551,9 +3144,26 @@ function updateRoomStatus(
 }
 
 
-// ==========================================
+// =====================================================
+// SERVER ERROR
+// =====================================================
+
+server.on(
+  "error",
+  error => {
+
+    console.error(
+      "[SERVER ERROR]",
+      error
+    );
+
+  }
+);
+
+
+// =====================================================
 // START
-// ==========================================
+// =====================================================
 
 server.listen(
   PORT,
@@ -2569,12 +3179,21 @@ server.listen(
     );
 
     console.log(
-      "WEBRTC DEBUG MODE"
+      "LOW LATENCY AUDIO MODE"
+    );
+
+    console.log(
+      "WebSocket heartbeat ENABLED"
     );
 
     console.log(
       "PORT:",
       PORT
+    );
+
+    console.log(
+      "HOST:",
+      HOST
     );
 
     console.log(

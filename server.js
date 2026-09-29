@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const WebSocket = require("ws");
 
-const PORT = process.env.PORT || 10000;
+const PORT = Number(process.env.PORT) || 8080;
 const HOST = "0.0.0.0";
 
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -13,7 +13,7 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 }
 
 /* =====================================================
-   サンプルランキング
+   ランキング
 ===================================================== */
 
 const rankingUsers = [
@@ -70,13 +70,13 @@ const rankingUsers = [
 ];
 
 const ranking = rankingUsers.map((name, index) => ({
-  id: "rank-" + (index + 1),
+  id: `rank-${index + 1}`,
   name,
   score: 50000 - index * 731,
   viewers: Math.max(1, 1200 - index * 19),
-  icon: ["🌙", "⭐", "🌸", "🎙️", "✨"][index % 5]
+  icon: ["🌙", "⭐", "🌸", "🎙️", "✨"][index % 5],
+  live: false
 }));
-
 
 /* =====================================================
    新人ライバー
@@ -88,108 +88,121 @@ const newcomers = [
     name: "新人ぼた",
     title: "はじめまして🌙",
     icon: "🌙",
-    live: true
+    live: true,
+    score: 9800
   },
   {
     id: "new-2",
     name: "月音ゆい",
     title: "のんびりお話しします",
     icon: "🌸",
-    live: false
+    live: false,
+    score: 8600
   },
   {
     id: "new-3",
     name: "星空れん",
     title: "夜のおしゃべり",
     icon: "⭐",
-    live: true
+    live: true,
+    score: 8200
   },
   {
     id: "new-4",
     name: "そら",
     title: "歌ってみる🎙️",
     icon: "🎙️",
-    live: false
+    live: false,
+    score: 7600
   },
   {
     id: "new-5",
     name: "みお",
     title: "初配信です",
     icon: "✨",
-    live: true
+    live: true,
+    score: 7100
   },
   {
     id: "new-6",
     name: "夜桜",
     title: "まったり雑談",
     icon: "🌸",
-    live: false
+    live: false,
+    score: 6500
   },
   {
     id: "new-7",
-    name: "月乃",
-    title: "夜の雑談",
+    name: "月乃ソラ",
+    title: "夜にゆっくり話そう",
     icon: "🌙",
-    live: false
+    live: false,
+    score: 6200
   },
   {
     id: "new-8",
-    name: "あおい",
-    title: "歌います",
-    icon: "💙",
-    live: false
+    name: "星野ミナ",
+    title: "初見さん歓迎",
+    icon: "⭐",
+    live: false,
+    score: 5900
   },
   {
     id: "new-9",
-    name: "ゆら",
-    title: "のんびり配信",
-    icon: "✨",
-    live: false
+    name: "花音リオ",
+    title: "雑談中心です",
+    icon: "🌸",
+    live: false,
+    score: 5400
   },
   {
     id: "new-10",
-    name: "カナ",
-    title: "お話しよう",
-    icon: "🌸",
-    live: false
+    name: "白雪あお",
+    title: "よろしくお願いします",
+    icon: "✨",
+    live: false,
+    score: 5000
   },
   {
     id: "new-11",
-    name: "れい",
-    title: "初見歓迎",
-    icon: "⭐",
-    live: false
+    name: "夜空ミオ",
+    title: "のんびり配信",
+    icon: "🌙",
+    live: false,
+    score: 4800
   },
   {
     id: "new-12",
-    name: "なぎ",
-    title: "深夜雑談",
-    icon: "🌙",
-    live: false
+    name: "春風ユイ",
+    title: "お話ししませんか？",
+    icon: "🌸",
+    live: false,
+    score: 4500
   }
 ];
 
-
 /* =====================================================
-   配信管理
-=====================================================
-
-   liveStreams
-   key   = broadcaster clientId
-   value = 配信情報
-
+   現在の配信
 ===================================================== */
 
-const clients = new Map();
+let liveBroadcaster = null;
 
-const liveStreams = new Map();
+/*
+  liveBroadcaster:
+
+  {
+    id,
+    name,
+    startedAt
+  }
+*/
 
 
 /* =====================================================
    HTML
 ===================================================== */
 
-const HTML = String.raw`
+const HTML = `
 <!DOCTYPE html>
 <html lang="ja">
 
@@ -222,8 +235,10 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100%;
+
   background: #030510;
   color: white;
+
   font-family:
     -apple-system,
     BlinkMacSystemFont,
@@ -255,24 +270,40 @@ button:active {
 ===================================================== */
 
 .header {
+
   height: 58px;
+
   position: fixed;
+
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+
+  z-index: 1000;
+
   display: flex;
   align-items: center;
+
   padding: 0 18px;
-  background: rgba(3,5,16,.84);
+
+  background:
+    rgba(3,5,16,.88);
+
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(120,140,255,.10);
+
+  border-bottom:
+    1px solid
+    rgba(120,140,255,.10);
 }
 
 .logo {
+
   font-size: 18px;
+
   font-weight: 900;
+
   letter-spacing: -.5px;
+
   background:
     linear-gradient(
       90deg,
@@ -280,8 +311,27 @@ button:active {
       #9bd8ff,
       #c98cff
     );
+
   -webkit-background-clip: text;
+  background-clip: text;
+
   color: transparent;
+}
+
+
+/* =====================================================
+   PAGE
+===================================================== */
+
+.page {
+
+  display: none;
+
+  padding-top: 58px;
+}
+
+.page.active {
+  display: block;
 }
 
 
@@ -290,72 +340,106 @@ button:active {
 ===================================================== */
 
 .hero {
+
   position: relative;
-  margin-top: 58px;
+
+  margin-top: 0;
+
   width: 100%;
-  min-height: 590px;
+
   overflow: hidden;
 
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0,0,0,0) 35%,
-      rgba(3,5,16,.35) 62%,
-      #030510 100%
-    ),
-    url("/home.png");
+  background: #030510;
+}
 
-  background-size: cover;
-  background-position: center top;
+.hero-image {
 
-  display: flex;
-  align-items: flex-end;
+  display: block;
+
+  width: 100%;
+
+  height: auto;
+
+  max-width: 100%;
+
+  object-fit: contain;
 }
 
 .hero::after {
+
   content: "";
+
   position: absolute;
-  inset: 0;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  height: 52%;
+
   pointer-events: none;
 
   background:
     linear-gradient(
-      90deg,
-      rgba(2,4,15,.04),
-      rgba(2,4,15,0) 70%
-    ),
-    linear-gradient(
       0deg,
       #030510 0%,
-      rgba(3,5,16,0) 46%
+      rgba(3,5,16,.92) 18%,
+      rgba(3,5,16,.45) 50%,
+      rgba(3,5,16,0) 100%
     );
 }
 
 .hero-content {
-  position: relative;
+
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
   z-index: 5;
-  width: 100%;
-  padding: 40px 20px 28px;
+
+  padding:
+    70px
+    18px
+    30px;
 }
 
 .hero-small {
-  font-size: 12px;
-  font-weight: 700;
+
+  font-size: 11px;
+
+  font-weight: 800;
+
   color: #b7c9ff;
+
   margin-bottom: 8px;
-  text-shadow: 0 0 12px rgba(90,130,255,.7);
+
+  text-shadow:
+    0 0 12px
+    rgba(90,130,255,.8);
 }
 
 .hero-title {
+
   margin: 0;
-  font-size: clamp(28px, 8vw, 48px);
+
+  font-size:
+    clamp(27px, 8vw, 48px);
+
   line-height: 1.15;
+
   font-weight: 900;
+
   letter-spacing: -1px;
-  text-shadow: 0 3px 20px rgba(0,0,0,.8);
+
+  text-shadow:
+    0 3px 20px
+    rgba(0,0,0,.9);
 }
 
 .hero-title span {
+
   background:
     linear-gradient(
       90deg,
@@ -363,17 +447,27 @@ button:active {
       #9bdcff,
       #d68cff
     );
+
   -webkit-background-clip: text;
+  background-clip: text;
+
   color: transparent;
 }
 
 .hero-description {
+
   margin-top: 12px;
+
   max-width: 390px;
-  font-size: 13px;
+
+  font-size: 12px;
+
   line-height: 1.8;
+
   color: #d9def1;
-  text-shadow: 0 2px 12px #000;
+
+  text-shadow:
+    0 2px 12px #000;
 }
 
 
@@ -382,41 +476,61 @@ button:active {
 ===================================================== */
 
 .section {
-  padding: 28px 15px 0;
+
+  padding:
+    24px
+    15px
+    0;
 }
 
 .section-head {
+
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   margin-bottom: 14px;
 }
 
 .section-title {
-  font-size: 20px;
+
+  font-size: 19px;
+
   font-weight: 900;
 }
 
-.section-link {
-  border: 0;
-  background: transparent;
-  color: #8faaff;
-  font-size: 11px;
-  font-weight: 800;
+.section-sub {
+
+  font-size: 10px;
+
+  color: #687394;
+
+  letter-spacing: 1px;
 }
 
 
 /* =====================================================
-   横スクロール
+   HORIZONTAL LIST
 ===================================================== */
 
 .horizontal-list {
+
   display: flex;
+
   gap: 11px;
+
   overflow-x: auto;
-  padding: 3px 2px 12px;
+
+  padding:
+    3px
+    2px
+    12px;
+
   scrollbar-width: none;
-  scroll-snap-type: x proximity;
+
+  -webkit-overflow-scrolling: touch;
 }
 
 .horizontal-list::-webkit-scrollbar {
@@ -425,49 +539,86 @@ button:active {
 
 
 /* =====================================================
-   RANKING CARD
+   RANK CARD
 ===================================================== */
 
-.ranking-card {
-  flex: 0 0 145px;
-  min-height: 190px;
-  padding: 14px;
-  border-radius: 20px;
+.rank-card {
+
+  flex:
+    0 0
+    250px;
+
+  min-height: 90px;
+
+  display: flex;
+
+  align-items: center;
+
+  padding: 11px;
+
+  border-radius: 18px;
 
   background:
     linear-gradient(
-      145deg,
-      rgba(25,32,75,.98),
-      rgba(8,11,28,.98)
+      125deg,
+      rgba(25,34,82,.96),
+      rgba(7,11,31,.98)
     );
 
-  border: 1px solid rgba(120,140,255,.14);
+  border:
+    1px solid
+    rgba(120,140,255,.14);
 
   box-shadow:
-    0 10px 30px rgba(0,0,0,.25);
+    0 8px 25px
+    rgba(0,0,0,.22);
 
-  position: relative;
-  overflow: hidden;
-  scroll-snap-align: start;
+  cursor: pointer;
 }
 
-.rank-position {
-  font-size: 11px;
-  color: #ffd76a;
+.rank-number {
+
+  width: 30px;
+
+  text-align: center;
+
+  font-size: 15px;
+
   font-weight: 900;
+
+  color: #8792b5;
+}
+
+.rank-number.top {
+
+  font-size: 20px;
+
+  color: #ffd76a;
+
+  text-shadow:
+    0 0 12px
+    rgba(255,210,80,.6);
 }
 
 .rank-avatar {
-  width: 66px;
-  height: 66px;
-  margin: 10px auto 10px;
+
+  position: relative;
+
+  width: 54px;
+
+  height: 54px;
+
+  flex-shrink: 0;
+
   border-radius: 50%;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
-  font-size: 30px;
+  font-size: 25px;
 
   background:
     radial-gradient(
@@ -478,63 +629,90 @@ button:active {
     );
 
   box-shadow:
-    0 0 20px rgba(80,130,255,.30);
+    0 0 18px
+    rgba(80,130,255,.3);
+}
+
+.rank-live {
+
+  position: absolute;
+
+  right: -2px;
+
+  bottom: -2px;
+
+  width: 15px;
+
+  height: 15px;
+
+  border-radius: 50%;
+
+  background: #ff3d6e;
+
+  border:
+    3px solid
+    #11162e;
+
+  box-shadow:
+    0 0 9px
+    rgba(255,60,110,.8);
+}
+
+.rank-info {
+
+  min-width: 0;
+
+  flex: 1;
+
+  padding-left: 10px;
 }
 
 .rank-name {
-  font-size: 14px;
+
+  font-size: 13px;
+
   font-weight: 900;
-  text-align: center;
+
   white-space: nowrap;
+
   overflow: hidden;
+
   text-overflow: ellipsis;
 }
 
 .rank-score {
-  margin-top: 6px;
-  font-size: 9px;
-  color: #8995b8;
-  text-align: center;
+
+  margin-top: 4px;
+
+  font-size: 10px;
+
+  color: #8f9abd;
 }
 
 .rank-viewers {
-  margin-top: 8px;
+
+  margin-top: 4px;
+
   font-size: 10px;
-  color: #b2bddb;
-  text-align: center;
-}
 
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 999px;
-
-  background:
-    linear-gradient(
-      90deg,
-      #ff3e72,
-      #a52fff
-    );
-
-  font-size: 8px;
-  font-weight: 900;
-}
-
-.live-badge.offline {
-  background: rgba(80,90,130,.7);
+  color: #697595;
 }
 
 
 /* =====================================================
-   NEWCOMER
+   NEWCOMER CARD
 ===================================================== */
 
-.newcomer-card {
-  flex: 0 0 145px;
+.new-card {
+
+  flex:
+    0 0
+    150px;
+
   min-height: 180px;
+
   padding: 14px;
+
   border-radius: 20px;
 
   background:
@@ -544,28 +722,38 @@ button:active {
       rgba(8,11,28,.98)
     );
 
-  border: 1px solid rgba(120,140,255,.13);
+  border:
+    1px solid
+    rgba(120,140,255,.13);
 
-  scroll-snap-align: start;
+  cursor: pointer;
 }
 
 .new-avatar-wrap {
+
   position: relative;
-  width: 62px;
-  height: 62px;
+
+  width: 60px;
+
+  height: 60px;
+
   margin-bottom: 10px;
 }
 
 .new-avatar {
-  width: 62px;
-  height: 62px;
+
+  width: 60px;
+  height: 60px;
+
   border-radius: 50%;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
-  font-size: 28px;
+  font-size: 27px;
 
   background:
     radial-gradient(
@@ -577,380 +765,94 @@ button:active {
 }
 
 .live-dot {
+
   position: absolute;
+
   right: -1px;
+
   bottom: -1px;
 
-  width: 16px;
-  height: 16px;
+  width: 15px;
+
+  height: 15px;
 
   border-radius: 50%;
 
   background: #ff3d6e;
-  border: 3px solid #11162e;
+
+  border:
+    3px solid
+    #11162e;
 
   box-shadow:
-    0 0 9px rgba(255,60,110,.8);
+    0 0 9px
+    rgba(255,60,110,.8);
 }
 
 .new-name {
+
   font-size: 13px;
+
   font-weight: 900;
+
   white-space: nowrap;
+
   overflow: hidden;
+
   text-overflow: ellipsis;
 }
 
 .new-title {
+
   margin-top: 5px;
+
   font-size: 10px;
+
   line-height: 1.5;
+
   color: #8f9abb;
-  height: 30px;
+
+  height: 31px;
+
   overflow: hidden;
 }
 
+.new-badge {
 
-/* =====================================================
-   LIVE AREA
-===================================================== */
+  display: inline-block;
 
-.live-section {
-  display: none;
-}
-
-.live-section.show {
-  display: block;
-}
-
-.live-card {
-  padding: 18px;
-  border-radius: 20px;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(35,18,65,.98),
-      rgba(8,11,28,.98)
-    );
-
-  border:
-    1px solid
-    rgba(190,100,255,.20);
-
-  box-shadow:
-    0 12px 35px
-    rgba(0,0,0,.30);
-}
-
-.live-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-
-  color: #ff6b92;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.live-status-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #ff3d6e;
-  box-shadow: 0 0 10px #ff3d6e;
-}
-
-.live-title {
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.live-viewers {
-  margin-top: 5px;
-  color: #8995b8;
-  font-size: 11px;
-}
-
-
-/* =====================================================
-   LIVE PLAYER
-===================================================== */
-
-.player-overlay {
-  display: none;
-
-  position: fixed;
-  inset: 0;
-
-  z-index: 1000;
-
-  background:
-    rgba(1,2,9,.97);
-
-  padding:
-    20px
-    16px
-    calc(
-      20px +
-      env(safe-area-inset-bottom)
-    );
-}
-
-.player-overlay.show {
-  display: flex;
-  flex-direction: column;
-}
-
-.player-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  height: 50px;
-}
-
-.player-name {
-  font-size: 17px;
-  font-weight: 900;
-}
-
-.close-player {
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 50%;
-
-  background: rgba(80,90,130,.45);
-  color: white;
-
-  font-size: 20px;
-}
-
-.player-box {
-  margin-top: 20px;
-
-  flex: 1;
-
-  border-radius: 24px;
-
-  background:
-    radial-gradient(
-      circle at 50% 25%,
-      rgba(72,91,190,.25),
-      transparent 45%
-    ),
-    #070a18;
-
-  border: 1px solid rgba(120,140,255,.15);
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.player-icon {
-  width: 110px;
-  height: 110px;
-
-  border-radius: 50%;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 50px;
-
-  background:
-    radial-gradient(
-      circle,
-      #75d8ff,
-      #3555e8 55%,
-      #160d46
-    );
-
-  box-shadow:
-    0 0 45px
-    rgba(80,130,255,.35);
-}
-
-.player-live {
-  margin-top: 20px;
-
-  color: #ff5c85;
-
-  font-weight: 900;
-}
-
-.player-hint {
   margin-top: 8px;
 
-  color: #7d89ab;
+  padding: 4px 8px;
 
-  font-size: 11px;
-}
+  border-radius: 999px;
 
-audio {
-  display: none;
-}
+  font-size: 8px;
 
-
-/* =====================================================
-   BROADCASTER
-===================================================== */
-
-.broadcast-panel {
-  display: none;
-
-  position: fixed;
-  inset: 0;
-
-  z-index: 900;
-
-  background:
-    radial-gradient(
-      circle at 50% 15%,
-      rgba(60,80,180,.22),
-      transparent 40%
-    ),
-    #030510;
-
-  padding:
-    25px
-    18px
-    calc(
-      25px +
-      env(safe-area-inset-bottom)
-    );
-}
-
-.broadcast-panel.show {
-  display: flex;
-  flex-direction: column;
-}
-
-.broadcast-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.broadcast-title {
-  font-size: 22px;
   font-weight: 900;
-}
-
-.broadcast-close {
-  width: 42px;
-  height: 42px;
-  border: 0;
-  border-radius: 50%;
-
-  background: rgba(80,90,130,.4);
-  color: white;
-  font-size: 20px;
-}
-
-.broadcast-center {
-  flex: 1;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.broadcast-mic {
-  width: 140px;
-  height: 140px;
-
-  border-radius: 50%;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 60px;
-
-  background:
-    radial-gradient(
-      circle,
-      #75d8ff,
-      #3555e8 55%,
-      #160d46
-    );
-
-  box-shadow:
-    0 0 50px
-    rgba(80,130,255,.35);
-}
-
-.broadcast-state {
-  margin-top: 25px;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.broadcast-sub {
-  margin-top: 8px;
-  color: #7f8bab;
-  font-size: 11px;
-}
-
-.start-live-button {
-  width: 100%;
-  height: 58px;
-
-  border: 0;
-  border-radius: 18px;
 
   color: white;
-
-  font-size: 16px;
-  font-weight: 900;
 
   background:
     linear-gradient(
       90deg,
       #ff3e72,
-      #9f2fff
+      #a52fff
     );
-
-  box-shadow:
-    0 10px 30px
-    rgba(180,50,180,.25);
-}
-
-.stop-live-button {
-  width: 100%;
-  height: 58px;
-
-  border: 1px solid rgba(255,80,110,.35);
-  border-radius: 18px;
-
-  color: white;
-
-  font-size: 16px;
-  font-weight: 900;
-
-  background:
-    rgba(80,15,35,.8);
-
-  display: none;
 }
 
 
 /* =====================================================
-   MORE
+   MORE BUTTON
 ===================================================== */
 
 .more-button {
-  width: 100%;
-  height: 46px;
 
-  margin-top: 5px;
+  width: 100%;
+
+  height: 44px;
+
+  margin-top: 4px;
 
   border-radius: 14px;
 
@@ -961,190 +863,190 @@ audio {
   background:
     rgba(15,20,55,.75);
 
-  color: #aebbe0;
+  color: #b8c5ea;
 
   font-size: 12px;
+
+  font-weight: 900;
+}
+
+
+/* =====================================================
+   LIST PAGE
+===================================================== */
+
+.list-page {
+
+  padding:
+    78px
+    15px
+    30px;
+}
+
+.page-title {
+
+  font-size: 24px;
+
+  font-weight: 900;
+
+  margin-bottom: 6px;
+}
+
+.page-subtitle {
+
+  font-size: 11px;
+
+  color: #7884a7;
+
+  margin-bottom: 20px;
+}
+
+.back-button {
+
+  width: 100%;
+
+  height: 43px;
+
+  margin-bottom: 15px;
+
+  border-radius: 13px;
+
+  border:
+    1px solid
+    rgba(120,140,255,.15);
+
+  background:
+    rgba(15,20,55,.8);
+
+  color: #b9c6e8;
+
   font-weight: 800;
 }
 
 
 /* =====================================================
-   BOTTOM NAV
+   FULL RANK LIST
 ===================================================== */
 
-.bottom-nav {
-  position: fixed;
-
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  height: 86px;
-
-  z-index: 200;
-
-  display: grid;
-
-  grid-template-columns:
-    repeat(5, 1fr);
-
-  padding:
-    6px
-    7px
-    calc(
-      7px +
-      env(safe-area-inset-bottom)
-    );
-
-  background:
-    rgba(4,7,20,.96);
-
-  backdrop-filter: blur(20px);
-
-  border-top:
-    1px solid
-    rgba(120,140,255,.12);
-}
-
-.nav-item {
-  border: 0;
-  background: transparent;
-  color: #697496;
-
-  font-size: 9px;
+.full-rank-list {
 
   display: flex;
+
   flex-direction: column;
+
+  gap: 9px;
+}
+
+.full-rank-card {
+
+  min-height: 73px;
+
+  display: flex;
+
   align-items: center;
-  justify-content: center;
 
-  gap: 4px;
-}
+  padding: 10px;
 
-.nav-icon {
-  font-size: 20px;
-  line-height: 1;
-}
+  border-radius: 17px;
 
-.nav-item.active {
-  color: #bcd2ff;
-}
-
-.nav-item.active .nav-icon {
-  filter:
-    drop-shadow(
-      0 0 8px #5e8cff
+  background:
+    linear-gradient(
+      120deg,
+      rgba(20,28,72,.92),
+      rgba(8,12,32,.96)
     );
+
+  border:
+    1px solid
+    rgba(120,140,255,.11);
 }
 
-.nav-live {
-  position: relative;
+.full-rank-number {
+
+  width: 35px;
+
+  text-align: center;
+
+  font-size: 15px;
+
+  font-weight: 900;
+
+  color: #8c97ba;
 }
 
-.nav-live .nav-icon {
+.full-rank-number.top {
+  color: #ffd76a;
+}
+
+.full-rank-avatar {
+
   width: 48px;
   height: 48px;
-
-  margin-top: -23px;
 
   border-radius: 50%;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
+  font-size: 22px;
+
   background:
-    linear-gradient(
-      135deg,
-      #ff3e72,
-      #9f2fff
+    radial-gradient(
+      circle,
+      #75d8ff,
+      #3555e8 55%,
+      #160d46
     );
-
-  color: white;
-
-  border:
-    4px solid
-    #030510;
-
-  box-shadow:
-    0 0 20px
-    rgba(180,60,255,.45);
 }
 
-.nav-live span {
-  color: #c5cce4;
+.full-rank-info {
+
+  flex: 1;
+
+  min-width: 0;
+
+  padding-left: 10px;
+}
+
+.full-rank-name {
+
+  font-size: 13px;
+
+  font-weight: 900;
+}
+
+.full-rank-score {
+
+  margin-top: 4px;
+
+  font-size: 10px;
+
+  color: #8f9abd;
 }
 
 
 /* =====================================================
-   FULL PAGE
+   NEWCOMER FULL
 ===================================================== */
 
-.page {
-  display: none;
+.full-new-list {
 
-  position: fixed;
-  inset: 0;
-
-  z-index: 800;
-
-  overflow-y: auto;
-
-  background:
-    #030510;
-
-  padding:
-    25px
-    15px
-    100px;
-}
-
-.page.show {
-  display: block;
-}
-
-.page-header {
-  height: 50px;
-
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.page-back {
-  width: 40px;
-  height: 40px;
-
-  border: 0;
-  border-radius: 50%;
-
-  background: rgba(80,90,130,.4);
-
-  color: white;
-
-  font-size: 22px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 900;
-}
-
-.full-grid {
   display: grid;
 
   grid-template-columns:
     repeat(2, minmax(0, 1fr));
 
   gap: 10px;
-
-  margin-top: 15px;
 }
 
-.full-card {
-  min-height: 175px;
+.full-new-card {
 
-  padding: 15px;
+  min-height: 180px;
+
+  padding: 14px;
 
   border-radius: 19px;
 
@@ -1160,66 +1062,342 @@ audio {
     rgba(120,140,255,.13);
 }
 
-.full-avatar {
-  width: 60px;
-  height: 60px;
 
-  margin-bottom: 10px;
+/* =====================================================
+   LIVE PAGE
+===================================================== */
 
-  border-radius: 50%;
+.live-page {
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 100vh;
 
-  font-size: 28px;
-
-  background:
-    radial-gradient(
-      circle,
-      #75d8ff,
-      #3555e8 55%,
-      #160d46
-    );
+  padding:
+    78px
+    15px
+    30px;
 }
 
-.full-name {
-  font-size: 13px;
+.live-card {
+
+  padding: 25px 18px;
+
+  border-radius: 24px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(24,32,75,.97),
+      rgba(7,11,30,.99)
+    );
+
+  border:
+    1px solid
+    rgba(120,140,255,.15);
+
+  box-shadow:
+    0 12px 40px
+    rgba(0,0,0,.3);
+}
+
+.live-title {
+
+  font-size: 22px;
+
+  font-weight: 900;
+
+  margin-bottom: 8px;
+}
+
+.live-status {
+
+  font-size: 11px;
+
+  color: #8490b5;
+
+  margin-bottom: 20px;
+}
+
+.mic-button {
+
+  width: 100%;
+
+  height: 58px;
+
+  border: 0;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #6d4aff,
+      #b12cff
+    );
+
+  color: white;
+
+  font-size: 15px;
+
+  font-weight: 900;
+
+  box-shadow:
+    0 0 25px
+    rgba(125,70,255,.35);
+}
+
+.stop-button {
+
+  width: 100%;
+
+  height: 52px;
+
+  margin-top: 10px;
+
+  border: 0;
+
+  border-radius: 17px;
+
+  background:
+    rgba(255,50,90,.14);
+
+  border:
+    1px solid
+    rgba(255,70,100,.35);
+
+  color: #ff7d9a;
+
   font-weight: 900;
 }
 
-.full-info {
-  margin-top: 5px;
+.viewer-box {
 
-  color: #8792b3;
+  margin-top: 15px;
 
-  font-size: 10px;
+  padding: 15px;
+
+  border-radius: 16px;
+
+  background:
+    rgba(8,12,35,.8);
+
+  color: #9ca8ca;
+
+  font-size: 11px;
+
+  line-height: 1.8;
 }
 
 
 /* =====================================================
-   MOBILE
+   BOTTOM NAV
 ===================================================== */
 
-@media (max-width: 500px) {
+.bottom-nav {
 
-  .hero {
-    min-height: 590px;
-    background-size: auto 590px;
-    background-position: 57% top;
+  position: fixed;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  height: 82px;
+
+  z-index: 2000;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, 1fr);
+
+  padding:
+    6px
+    5px
+    calc(
+      6px +
+      env(safe-area-inset-bottom)
+    );
+
+  background:
+    rgba(4,7,20,.96);
+
+  backdrop-filter: blur(20px);
+
+  border-top:
+    1px solid
+    rgba(120,140,255,.12);
+}
+
+.nav-item {
+
+  position: relative;
+
+  border: 0;
+
+  background: transparent;
+
+  color: #697496;
+
+  font-size: 9px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 4px;
+}
+
+.nav-icon {
+
+  font-size: 20px;
+
+  line-height: 1;
+}
+
+.nav-item.active {
+
+  color: #c7d7ff;
+}
+
+.nav-item.active .nav-icon {
+
+  filter:
+    drop-shadow(
+      0 0 8px #5e8cff
+    );
+}
+
+
+/* =====================================================
+   LIVE BUTTON
+===================================================== */
+
+.live-nav {
+
+  margin-top: -25px;
+
+  width: 58px;
+
+  height: 58px;
+
+  border-radius: 50%;
+
+  border:
+    4px solid
+    #030510;
+
+  background:
+    linear-gradient(
+      145deg,
+      #8c5cff,
+      #d32cff
+    );
+
+  color: white;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-size: 25px;
+
+  box-shadow:
+    0 0 25px
+    rgba(145,70,255,.55);
+}
+
+.live-nav-label {
+
+  margin-top: 2px;
+
+  font-size: 9px;
+
+  color: #c8d2f0;
+
+  font-weight: 900;
+}
+
+
+/* =====================================================
+   DESKTOP
+===================================================== */
+
+@media (min-width: 700px) {
+
+  .hero-image {
+
+    max-height: 760px;
+
+    width: 100%;
+
+    object-fit: contain;
   }
 
   .hero-content {
-    padding: 30px 18px 25px;
+
+    max-width: 700px;
+
+    padding:
+      100px
+      50px
+      45px;
+  }
+
+  .section {
+
+    max-width: 1000px;
+
+    margin: auto;
+  }
+
+  .rank-card {
+
+    flex-basis: 280px;
+  }
+
+  .full-new-list {
+
+    grid-template-columns:
+      repeat(4, 1fr);
+  }
+
+}
+
+
+/* =====================================================
+   SMALL MOBILE
+===================================================== */
+
+@media (max-width: 380px) {
+
+  .hero-content {
+
+    padding:
+      50px
+      15px
+      22px;
   }
 
   .hero-title {
-    font-size: 30px;
+
+    font-size: 25px;
   }
 
   .hero-description {
-    font-size: 12px;
+
+    font-size: 11px;
   }
+
+  .rank-card {
+
+    flex-basis: 235px;
+  }
+
 }
 
 </style>
@@ -1240,7 +1418,22 @@ audio {
 </header>
 
 
+<!-- =================================================
+     HOME
+================================================= -->
+
+<main
+  id="homePage"
+  class="page active"
+>
+
 <section class="hero">
+
+  <img
+    class="hero-image"
+    src="/home.png"
+    alt="VoiceポタLive"
+  >
 
   <div class="hero-content">
 
@@ -1263,35 +1456,32 @@ audio {
 </section>
 
 
-<!-- 人気ランキング -->
+<!-- 人気 -->
 
 <section class="section">
 
   <div class="section-head">
 
     <div class="section-title">
-      🏆 人気トップ50
+      🏆 人気ライバー
     </div>
 
-    <button
-      class="section-link"
-      onclick="openRankingPage()"
-    >
-      もっと見る →
-    </button>
+    <div class="section-sub">
+      TOP 10
+    </div>
 
   </div>
 
   <div
+    id="rankingHorizontal"
     class="horizontal-list"
-    id="rankingList"
   ></div>
 
   <button
     class="more-button"
-    onclick="openRankingPage()"
+    onclick="showPage('rankingPage')"
   >
-    トップ50をすべて見る
+    トップ50をもっと見る →
   </button>
 
 </section>
@@ -1307,92 +1497,232 @@ audio {
       🌱 新人ライバー
     </div>
 
-    <button
-      class="section-link"
-      onclick="openNewcomerPage()"
-    >
-      もっと見る →
-    </button>
-
-  </div>
-
-  <div
-    class="horizontal-list"
-    id="newcomerList"
-  ></div>
-
-  <button
-    class="more-button"
-    onclick="openNewcomerPage()"
-  >
-    新人ライバーをすべて見る
-  </button>
-
-</section>
-
-
-<!-- 現在配信中 -->
-
-<section
-  class="section live-section"
-  id="liveSection"
->
-
-  <div class="section-head">
-
-    <div class="section-title">
-      🔴 現在配信中
+    <div class="section-sub">
+      人気順
     </div>
 
   </div>
 
-  <div id="liveList"></div>
+  <div
+    id="newHorizontal"
+    class="horizontal-list"
+  ></div>
+
+  <button
+    class="more-button"
+    onclick="showPage('newcomerPage')"
+  >
+    新人ライバーをもっと見る →
+  </button>
 
 </section>
 
+</main>
 
-<!-- 下部ナビ -->
+
+<!-- =================================================
+     TOP50
+================================================= -->
+
+<main
+  id="rankingPage"
+  class="page"
+>
+
+<div class="list-page">
+
+  <button
+    class="back-button"
+    onclick="showPage('homePage')"
+  >
+    ← ホームに戻る
+  </button>
+
+  <div class="page-title">
+    🏆 トップ50
+  </div>
+
+  <div class="page-subtitle">
+    人気順ランキング
+  </div>
+
+  <div
+    id="fullRanking"
+    class="full-rank-list"
+  ></div>
+
+</div>
+
+</main>
+
+
+<!-- =================================================
+     新人一覧
+================================================= -->
+
+<main
+  id="newcomerPage"
+  class="page"
+>
+
+<div class="list-page">
+
+  <button
+    class="back-button"
+    onclick="showPage('homePage')"
+  >
+    ← ホームに戻る
+  </button>
+
+  <div class="page-title">
+    🌱 新人ライバー
+  </div>
+
+  <div class="page-subtitle">
+    人気順・新人一覧
+  </div>
+
+  <div
+    id="fullNewcomers"
+    class="full-new-list"
+  ></div>
+
+</div>
+
+</main>
+
+
+<!-- =================================================
+     配信
+================================================= -->
+
+<main
+  id="livePage"
+  class="page"
+>
+
+<div class="live-page">
+
+  <div class="live-card">
+
+    <div class="live-title">
+      🎙️ 音声ライブ配信
+    </div>
+
+    <div
+      id="liveStatus"
+      class="live-status"
+    >
+      マイクを使って配信できます。
+    </div>
+
+    <button
+      id="startLiveButton"
+      class="mic-button"
+      onclick="startLive()"
+    >
+      🎙️ 配信を開始する
+    </button>
+
+    <button
+      id="stopLiveButton"
+      class="stop-button"
+      onclick="stopLive()"
+      style="display:none;"
+    >
+      ■ 配信を終了する
+    </button>
+
+    <div
+      id="viewerInfo"
+      class="viewer-box"
+    >
+      配信を開始すると、ここに視聴者の接続状況が表示されます。
+    </div>
+
+  </div>
+
+</div>
+
+</main>
+
+
+<!-- =================================================
+     BOTTOM NAV
+================================================= -->
 
 <nav class="bottom-nav">
 
   <button
+    id="navHome"
     class="nav-item active"
-    onclick="goHome()"
+    onclick="showPage('homePage')"
   >
-    <div class="nav-icon">⌂</div>
+
+    <div class="nav-icon">
+      ⌂
+    </div>
+
     ホーム
+
   </button>
+
 
   <button
     class="nav-item"
-    onclick="searchLive()"
+    onclick="showSearch()"
   >
-    <div class="nav-icon">⌕</div>
+
+    <div class="nav-icon">
+      ⌕
+    </div>
+
     探す
+
   </button>
 
+
   <button
-    class="nav-item nav-live"
-    onclick="openBroadcast()"
+    class="nav-item"
+    onclick="showPage('livePage')"
   >
-    <div class="nav-icon">🎙</div>
-    <span>配信する</span>
+
+    <div class="live-nav">
+      🎙️
+    </div>
+
+    <div class="live-nav-label">
+      配信
+    </div>
+
   </button>
+
 
   <button
     class="nav-item"
     onclick="showNotice()"
   >
-    <div class="nav-icon">♧</div>
+
+    <div class="nav-icon">
+      ♧
+    </div>
+
     お知らせ
+
   </button>
+
 
   <button
     class="nav-item"
     onclick="showProfile()"
   >
-    <div class="nav-icon">♙</div>
+
+    <div class="nav-icon">
+      ♙
+    </div>
+
     マイページ
+
   </button>
 
 </nav>
@@ -1401,414 +1731,72 @@ audio {
 
 
 <!-- =====================================================
-     ランキングページ
+     JAVASCRIPT
 ===================================================== -->
-
-<div
-  class="page"
-  id="rankingPage"
->
-
-  <div class="page-header">
-
-    <button
-      class="page-back"
-      onclick="closePages()"
-    >
-      ←
-    </button>
-
-    <div class="page-title">
-      🏆 人気トップ50
-    </div>
-
-  </div>
-
-  <div
-    class="full-grid"
-    id="fullRankingList"
-  ></div>
-
-</div>
-
-
-<!-- =====================================================
-     新人ページ
-===================================================== -->
-
-<div
-  class="page"
-  id="newcomerPage"
->
-
-  <div class="page-header">
-
-    <button
-      class="page-back"
-      onclick="closePages()"
-    >
-      ←
-    </button>
-
-    <div class="page-title">
-      🌱 新人ライバー
-    </div>
-
-  </div>
-
-  <div
-    class="full-grid"
-    id="fullNewcomerList"
-  ></div>
-
-</div>
-
-
-<!-- =====================================================
-     配信者画面
-===================================================== -->
-
-<div
-  class="broadcast-panel"
-  id="broadcastPanel"
->
-
-  <div class="broadcast-header">
-
-    <div class="broadcast-title">
-      🎙 配信する
-    </div>
-
-    <button
-      class="broadcast-close"
-      onclick="closeBroadcast()"
-    >
-      ×
-    </button>
-
-  </div>
-
-  <div class="broadcast-center">
-
-    <div class="broadcast-mic">
-      🎙️
-    </div>
-
-    <div
-      class="broadcast-state"
-      id="broadcastState"
-    >
-      配信準備完了
-    </div>
-
-    <div class="broadcast-sub">
-      マイクへのアクセスを許可して配信を開始します
-    </div>
-
-  </div>
-
-  <button
-    class="start-live-button"
-    id="startLiveButton"
-    onclick="startBroadcast()"
-  >
-    🔴 配信を開始する
-  </button>
-
-  <button
-    class="stop-live-button"
-    id="stopLiveButton"
-    onclick="stopBroadcast()"
-  >
-    ■ 配信を終了する
-  </button>
-
-</div>
-
-
-<!-- =====================================================
-     視聴画面
-===================================================== -->
-
-<div
-  class="player-overlay"
-  id="playerOverlay"
->
-
-  <div class="player-top">
-
-    <div
-      class="player-name"
-      id="playerName"
-    >
-      LIVE
-    </div>
-
-    <button
-      class="close-player"
-      onclick="closePlayer()"
-    >
-      ×
-    </button>
-
-  </div>
-
-  <div class="player-box">
-
-    <div
-      class="player-icon"
-      id="playerIcon"
-    >
-      🎙️
-    </div>
-
-    <div class="player-live">
-      🔴 LIVE
-    </div>
-
-    <div class="player-hint">
-      音声を接続しています…
-    </div>
-
-    <audio
-      id="remoteAudio"
-      autoplay
-      playsinline
-      controls="false"
-    ></audio>
-
-  </div>
-
-</div>
-
 
 <script>
 
 /* =====================================================
-   状態
+   データ
 ===================================================== */
 
-let socket = null;
+let rankingData = [];
 
-let myClientId = null;
-
-let myStream = null;
-
-let isBroadcasting = false;
-
-let currentLiveId = null;
-
-let currentViewerPeer = null;
-
-const broadcasterPeers = new Map();
-
-let liveData = [];
+let newcomerData = [];
 
 
 /* =====================================================
-   WebSocket接続
+   ページ
 ===================================================== */
 
-function connectSocket() {
+function showPage(id) {
 
-  const protocol =
-    location.protocol === "https:"
-      ? "wss:"
-      : "ws:";
+  document
+    .querySelectorAll(".page")
+    .forEach(page => {
 
-  socket =
-    new WebSocket(
-      protocol +
-      "//" +
-      location.host
-    );
+      page.classList.remove("active");
 
-  socket.onopen = function() {
+    });
 
-    console.log(
-      "WebSocket connected"
-    );
 
-  };
+  const page =
+    document.getElementById(id);
 
-  socket.onmessage = function(event) {
+  if (page) {
 
-    try {
+    page.classList.add("active");
 
-      const data =
-        JSON.parse(
-          event.data
-        );
+  }
 
-      handleSocketMessage(data);
 
-    } catch (error) {
+  window.scrollTo({
+    top: 0,
+    behavior: "instant"
+  });
 
-      console.log(
-        "message error",
-        error
+
+  document
+    .querySelectorAll(".nav-item")
+    .forEach(item => {
+
+      item.classList.remove("active");
+
+    });
+
+
+  if (id === "homePage") {
+
+    const nav =
+      document.getElementById(
+        "navHome"
       );
 
-    }
+    if (nav) {
 
-  };
-
-  socket.onclose = function() {
-
-    setTimeout(
-      connectSocket,
-      2000
-    );
-
-  };
-
-}
-
-
-/* =====================================================
-   WebSocketメッセージ
-===================================================== */
-
-function handleSocketMessage(data) {
-
-  if (
-    data.type ===
-    "welcome"
-  ) {
-
-    myClientId =
-      data.clientId;
-
-    updateLiveList(
-      data.liveStreams || []
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "live_list"
-  ) {
-
-    updateLiveList(
-      data.liveStreams || []
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "viewer_joined"
-  ) {
-
-    if (
-      !isBroadcasting
-    ) {
-      return;
-    }
-
-    createOfferForViewer(
-      data.viewerId
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "offer"
-  ) {
-
-    handleOffer(
-      data
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "answer"
-  ) {
-
-    handleAnswer(
-      data
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "ice"
-  ) {
-
-    handleIce(
-      data
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "live_started"
-  ) {
-
-    updateLiveList(
-      data.liveStreams || []
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "live_stopped"
-  ) {
-
-    updateLiveList(
-      data.liveStreams || []
-    );
-
-    if (
-      currentLiveId ===
-      data.liveId
-    ) {
-
-      closePlayer();
+      nav.classList.add("active");
 
     }
-
-    return;
-  }
-
-}
-
-
-/* =====================================================
-   送信
-===================================================== */
-
-function send(data) {
-
-  if (
-    socket &&
-    socket.readyState === WebSocket.OPEN
-  ) {
-
-    socket.send(
-      JSON.stringify(data)
-    );
 
   }
 
@@ -1816,1130 +1804,399 @@ function send(data) {
 
 
 /* =====================================================
-   ランキング表示
+   ランキング横スクロール
 ===================================================== */
 
 function renderRanking(list) {
 
-  const box =
-    document.getElementById(
-      "rankingList"
-    );
+  rankingData = Array.isArray(list)
+    ? list
+    : [];
 
-  box.innerHTML =
-    list
-      .slice(0, 10)
-      .map(function(user) {
-
-        return (
-
-          '<div class="ranking-card" ' +
-          'onclick="openRankingUser(\'' +
-          escapeHtml(user.id) +
-          '\')">' +
-
-            '<div class="rank-position">' +
-              '🏆 ' +
-              user.rank +
-            '</div>' +
-
-            '<div class="rank-avatar">' +
-              user.icon +
-            '</div>' +
-
-            '<div class="rank-name">' +
-              escapeHtml(user.name) +
-            '</div>' +
-
-            '<div class="rank-score">' +
-              '応援ポイント ' +
-              Number(user.score).toLocaleString() +
-            '</div>' +
-
-            '<div class="rank-viewers">' +
-              '👁 ' +
-              Number(user.viewers).toLocaleString() +
-            '</div>' +
-
-          '</div>'
-
-        );
-
-      })
-      .join("");
-
-}
-
-
-/* =====================================================
-   新人表示
-===================================================== */
-
-function renderNewcomers(list) {
 
   const box =
     document.getElementById(
-      "newcomerList"
+      "rankingHorizontal"
     );
 
+
+  if (!box) return;
+
+
   box.innerHTML =
-    list
+    rankingData
       .slice(0, 10)
-      .map(function(user) {
+      .map(
+        (user, index) => {
 
-        return (
+          const rank =
+            index + 1;
 
-          '<div class="newcomer-card" ' +
-          'onclick="openNewcomerUser(\'' +
-          escapeHtml(user.id) +
-          '\')">' +
 
-            '<div class="new-avatar-wrap">' +
+          return `
 
-              '<div class="new-avatar">' +
-                user.icon +
-              '</div>' +
+          <div
+            class="rank-card"
+            onclick="openLive('${escapeHtml(user.id)}')"
+          >
 
-              (
+            <div
+              class="
+                rank-number
+                ${rank <= 3 ? "top" : ""}
+              "
+            >
+              ${rank}
+            </div>
+
+            <div class="rank-avatar">
+
+              ${escapeHtml(user.icon)}
+
+              ${
                 user.live
-                  ? '<div class="live-dot"></div>'
-                  : ''
-              ) +
+                  ? `
+                    <div
+                      class="rank-live"
+                    ></div>
+                  `
+                  : ""
+              }
 
-            '</div>' +
+            </div>
 
-            '<div class="new-name">' +
-              escapeHtml(user.name) +
-            '</div>' +
+            <div class="rank-info">
 
-            '<div class="new-title">' +
-              escapeHtml(user.title) +
-            '</div>' +
+              <div class="rank-name">
+                ${escapeHtml(user.name)}
+              </div>
 
-            (
-              user.live
-                ? '<span class="live-badge">LIVE</span>'
-                : '<span class="live-badge offline">新人</span>'
-            ) +
+              <div class="rank-score">
+                応援ポイント
+                ${Number(
+                  user.score
+                ).toLocaleString()}
+              </div>
 
-          '</div>'
+              <div class="rank-viewers">
+                👁
+                ${Number(
+                  user.viewers
+                ).toLocaleString()}
+                人
+              </div>
 
-        );
+            </div>
 
-      })
+          </div>
+
+          `;
+
+        }
+      )
       .join("");
 
-}
-
-
-/* =====================================================
-   ランキングページ
-===================================================== */
-
-function openRankingPage() {
-
-  closePages();
-
-  document
-    .getElementById(
-      "rankingPage"
-    )
-    .classList.add(
-      "show"
-    );
 
   renderFullRanking();
 
 }
 
 
+/* =====================================================
+   TOP50
+===================================================== */
+
 function renderFullRanking() {
 
   const box =
     document.getElementById(
-      "fullRankingList"
+      "fullRanking"
     );
+
+
+  if (!box) return;
+
 
   box.innerHTML =
     rankingData
-      .map(function(user) {
+      .slice(0, 50)
+      .map(
+        (user, index) => {
 
-        return (
+          const rank =
+            index + 1;
 
-          '<div class="full-card" ' +
-          'onclick="openRankingUser(\'' +
-          escapeHtml(user.id) +
-          '\')">' +
 
-            '<div class="full-avatar">' +
-              user.icon +
-            '</div>' +
+          return `
 
-            '<div class="full-name">' +
-              user.rank +
-              '. ' +
-              escapeHtml(user.name) +
-            '</div>' +
+          <div
+            class="full-rank-card"
+            onclick="openLive('${escapeHtml(user.id)}')"
+          >
 
-            '<div class="full-info">' +
-              '応援 ' +
-              Number(user.score).toLocaleString() +
-              '<br>' +
-              '👁 ' +
-              Number(user.viewers).toLocaleString() +
-            '</div>' +
+            <div
+              class="
+                full-rank-number
+                ${rank <= 3 ? "top" : ""}
+              "
+            >
+              ${rank}
+            </div>
 
-          '</div>'
+            <div class="full-rank-avatar">
+              ${escapeHtml(user.icon)}
+            </div>
 
-        );
+            <div class="full-rank-info">
 
-      })
+              <div class="full-rank-name">
+                ${escapeHtml(user.name)}
+              </div>
+
+              <div class="full-rank-score">
+                応援ポイント
+                ${Number(
+                  user.score
+                ).toLocaleString()}
+               　
+                👁
+                ${Number(
+                  user.viewers
+                ).toLocaleString()}
+              </div>
+
+            </div>
+
+          </div>
+
+          `;
+
+        }
+      )
       .join("");
 
 }
 
 
 /* =====================================================
-   新人ページ
+   新人
 ===================================================== */
 
-function openNewcomerPage() {
+function renderNewcomers(list) {
 
-  closePages();
+  newcomerData = Array.isArray(list)
+    ? list
+    : [];
 
-  document
-    .getElementById(
-      "newcomerPage"
-    )
-    .classList.add(
-      "show"
+
+  newcomerData.sort(
+    (a, b) =>
+      Number(b.score || 0) -
+      Number(a.score || 0)
+  );
+
+
+  const box =
+    document.getElementById(
+      "newHorizontal"
     );
+
+
+  if (!box) return;
+
+
+  box.innerHTML =
+    newcomerData
+      .slice(0, 10)
+      .map(
+        user => `
+
+        <div
+          class="new-card"
+          onclick="openLive('${escapeHtml(user.id)}')"
+        >
+
+          <div class="new-avatar-wrap">
+
+            <div class="new-avatar">
+              ${escapeHtml(user.icon)}
+            </div>
+
+            ${
+              user.live
+                ? `
+                  <div
+                    class="live-dot"
+                  ></div>
+                `
+                : ""
+            }
+
+          </div>
+
+          <div class="new-name">
+            ${escapeHtml(user.name)}
+          </div>
+
+          <div class="new-title">
+            ${escapeHtml(user.title)}
+          </div>
+
+          ${
+            user.live
+              ? `
+                <span class="new-badge">
+                  LIVE
+                </span>
+              `
+              : `
+                <span
+                  class="new-badge"
+                  style="
+                    background:
+                    rgba(80,90,130,.7)
+                  "
+                >
+                  新人
+                </span>
+              `
+          }
+
+        </div>
+
+        `
+      )
+      .join("");
+
 
   renderFullNewcomers();
 
 }
 
 
+/* =====================================================
+   新人全員
+===================================================== */
+
 function renderFullNewcomers() {
 
   const box =
     document.getElementById(
-      "fullNewcomerList"
+      "fullNewcomers"
     );
+
+
+  if (!box) return;
+
 
   box.innerHTML =
     newcomerData
-      .map(function(user) {
-
-        return (
-
-          '<div class="full-card" ' +
-          'onclick="openNewcomerUser(\'' +
-          escapeHtml(user.id) +
-          '\')">' +
-
-            '<div class="full-avatar">' +
-              user.icon +
-            '</div>' +
-
-            '<div class="full-name">' +
-              escapeHtml(user.name) +
-            '</div>' +
-
-            '<div class="full-info">' +
-              escapeHtml(user.title) +
-              '<br><br>' +
-              (
-                user.live
-                  ? '🔴 LIVE'
-                  : '🌱 新人'
-              ) +
-            '</div>' +
-
-          '</div>'
-
-        );
-
-      })
-      .join("");
-
-}
-
-
-function closePages() {
-
-  document
-    .getElementById(
-      "rankingPage"
-    )
-    .classList.remove(
-      "show"
-    );
-
-  document
-    .getElementById(
-      "newcomerPage"
-    )
-    .classList.remove(
-      "show"
-    );
-
-}
-
-
-/* =====================================================
-   ユーザー
-===================================================== */
-
-function openRankingUser(id) {
-
-  const stream =
-    liveData.find(function(item) {
-
-      return item.broadcasterId === id;
-
-    });
-
-  if (stream) {
-
-    joinLive(
-      stream.broadcasterId,
-      stream.name,
-      stream.icon
-    );
-
-    return;
-  }
-
-  alert(
-    "このライバーは現在配信していません。"
-  );
-
-}
-
-
-function openNewcomerUser(id) {
-
-  const stream =
-    liveData.find(function(item) {
-
-      return item.broadcasterId === id;
-
-    });
-
-  if (stream) {
-
-    joinLive(
-      stream.broadcasterId,
-      stream.name,
-      stream.icon
-    );
-
-    return;
-  }
-
-  alert(
-    "このライバーは現在配信していません。"
-  );
-
-}
-
-
-/* =====================================================
-   配信一覧
-===================================================== */
-
-function updateLiveList(list) {
-
-  liveData =
-    Array.isArray(list)
-      ? list
-      : [];
-
-  const section =
-    document.getElementById(
-      "liveSection"
-    );
-
-  const box =
-    document.getElementById(
-      "liveList"
-    );
-
-  if (
-    liveData.length === 0
-  ) {
-
-    section.classList.remove(
-      "show"
-    );
-
-    box.innerHTML = "";
-
-    return;
-  }
-
-  section.classList.add(
-    "show"
-  );
-
-  box.innerHTML =
-    liveData
-      .map(function(stream) {
-
-        return (
-
-          '<div class="live-card" ' +
-          'onclick="joinLive(\'' +
-          escapeHtml(stream.broadcasterId) +
-          '\',\'' +
-          escapeHtml(stream.name) +
-          '\',\'' +
-          escapeHtml(stream.icon) +
-          '\')">' +
-
-            '<div class="live-status">' +
-              '<span class="live-status-dot"></span>' +
-              'LIVE配信中' +
-            '</div>' +
-
-            '<div class="live-title">' +
-              stream.icon +
-              ' ' +
-              escapeHtml(stream.name) +
-            '</div>' +
-
-            '<div class="live-viewers">' +
-              '👁 ' +
-              stream.viewers +
-              '人が視聴中' +
-            '</div>' +
-
-          '</div>'
-
-        );
-
-      })
-      .join("");
-
-}
-
-
-/* =====================================================
-   配信開始画面
-===================================================== */
-
-function openBroadcast() {
-
-  document
-    .getElementById(
-      "broadcastPanel"
-    )
-    .classList.add(
-      "show"
-    );
-
-}
-
-
-function closeBroadcast() {
-
-  if (
-    isBroadcasting
-  ) {
-
-    const ok =
-      confirm(
-        "配信を終了しますか？"
-      );
-
-    if (!ok) {
-      return;
-    }
-
-    stopBroadcast();
-
-  }
-
-  document
-    .getElementById(
-      "broadcastPanel"
-    )
-    .classList.remove(
-      "show"
-    );
-
-}
-
-
-/* =====================================================
-   配信開始
-===================================================== */
-
-async function startBroadcast() {
-
-  if (
-    isBroadcasting
-  ) {
-    return;
-  }
-
-  try {
-
-    const stream =
-      await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      });
-
-    myStream =
-      stream;
-
-    isBroadcasting =
-      true;
-
-    document
-      .getElementById(
-        "startLiveButton"
-      )
-      .style.display =
-      "none";
-
-    document
-      .getElementById(
-        "stopLiveButton"
-      )
-      .style.display =
-      "block";
-
-    document
-      .getElementById(
-        "broadcastState"
-      )
-      .textContent =
-      "🔴 LIVE配信中";
-
-    send({
-      type: "start_live",
-      name: "月夜ぼた",
-      icon: "🌙"
-    });
-
-  } catch (error) {
-
-    console.error(
-      error
-    );
-
-    alert(
-      "マイクを使用できませんでした。\n\n" +
-      "ブラウザのマイク許可を確認してください。"
-    );
-
-  }
-
-}
-
-
-/* =====================================================
-   配信終了
-===================================================== */
-
-function stopBroadcast() {
-
-  if (
-    !isBroadcasting
-  ) {
-    return;
-  }
-
-  send({
-    type: "stop_live"
-  });
-
-  broadcasterPeers.forEach(
-    function(peer) {
-
-      try {
-        peer.close();
-      } catch (e) {}
-
-    }
-  );
-
-  broadcasterPeers.clear();
-
-  if (myStream) {
-
-    myStream
-      .getTracks()
-      .forEach(
-        function(track) {
-
-          track.stop();
-
-        }
-      );
-
-  }
-
-  myStream =
-    null;
-
-  isBroadcasting =
-    false;
-
-  document
-    .getElementById(
-      "startLiveButton"
-    )
-    .style.display =
-    "block";
-
-  document
-    .getElementById(
-      "stopLiveButton"
-    )
-    .style.display =
-    "none";
-
-  document
-    .getElementById(
-      "broadcastState"
-    )
-    .textContent =
-    "配信準備完了";
-
-}
-
-
-/* =====================================================
-   視聴開始
-===================================================== */
-
-function joinLive(
-  broadcasterId,
-  name,
-  icon
-) {
-
-  if (
-    !socket ||
-    socket.readyState !== WebSocket.OPEN
-  ) {
-
-    alert(
-      "サーバーに接続中です。"
-    );
-
-    return;
-  }
-
-  if (
-    broadcasterId ===
-    myClientId
-  ) {
-
-    return;
-  }
-
-  currentLiveId =
-    broadcasterId;
-
-  document
-    .getElementById(
-      "playerName"
-    )
-    .textContent =
-    icon +
-    " " +
-    name;
-
-  document
-    .getElementById(
-      "playerIcon"
-    )
-    .textContent =
-    icon;
-
-  document
-    .getElementById(
-      "playerOverlay"
-    )
-    .classList.add(
-      "show"
-    );
-
-  send({
-    type: "join_live",
-    broadcasterId
-  });
-
-}
-
-
-/* =====================================================
-   視聴終了
-===================================================== */
-
-function closePlayer() {
-
-  send({
-    type: "leave_live",
-    broadcasterId:
-      currentLiveId
-  });
-
-  if (
-    currentViewerPeer
-  ) {
-
-    try {
-      currentViewerPeer.close();
-    } catch (e) {}
-
-  }
-
-  currentViewerPeer =
-    null;
-
-  currentLiveId =
-    null;
-
-  const audio =
-    document.getElementById(
-      "remoteAudio"
-    );
-
-  audio.srcObject =
-    null;
-
-  document
-    .getElementById(
-      "playerOverlay"
-    )
-    .classList.remove(
-      "show"
-    );
-
-}
-
-
-/* =====================================================
-   配信者側
-===================================================== */
-
-async function createOfferForViewer(
-  viewerId
-) {
-
-  if (
-    !myStream
-  ) {
-    return;
-  }
-
-  const pc =
-    new RTCPeerConnection({
-      iceServers: [
-        {
-          urls:
-            "stun:stun.l.google.com:19302"
-        },
-        {
-          urls:
-            "stun:stun1.l.google.com:19302"
-        }
-      ]
-    });
-
-  broadcasterPeers.set(
-    viewerId,
-    pc
-  );
-
-  myStream
-    .getTracks()
-    .forEach(
-      function(track) {
-
-        pc.addTrack(
-          track,
-          myStream
-        );
-
-      }
-    );
-
-  pc.onicecandidate =
-    function(event) {
-
-      if (
-        event.candidate
-      ) {
-
-        send({
-          type: "ice",
-          target: viewerId,
-          candidate:
-            event.candidate
-        });
-
-      }
-
-    };
-
-  pc.onconnectionstatechange =
-    function() {
-
-      if (
-        [
-          "failed",
-          "closed",
-          "disconnected"
-        ].includes(
-          pc.connectionState
-        )
-      ) {
-
-        try {
-          pc.close();
-        } catch (e) {}
-
-        broadcasterPeers.delete(
-          viewerId
-        );
-
-      }
-
-    };
-
-  const offer =
-    await pc.createOffer();
-
-  await pc.setLocalDescription(
-    offer
-  );
-
-  send({
-    type: "offer",
-    target: viewerId,
-    offer:
-      pc.localDescription
-  });
-
-}
-
-
-/* =====================================================
-   視聴者側
-===================================================== */
-
-async function handleOffer(
-  data
-) {
-
-  if (
-    data.target !==
-    myClientId
-  ) {
-    return;
-  }
-
-  if (
-    currentViewerPeer
-  ) {
-
-    try {
-      currentViewerPeer.close();
-    } catch (e) {}
-
-  }
-
-  const pc =
-    new RTCPeerConnection({
-      iceServers: [
-        {
-          urls:
-            "stun:stun.l.google.com:19302"
-        },
-        {
-          urls:
-            "stun:stun1.l.google.com:19302"
-        }
-      ]
-    });
-
-  currentViewerPeer =
-    pc;
-
-  pc.onicecandidate =
-    function(event) {
-
-      if (
-        event.candidate
-      ) {
-
-        send({
-          type: "ice",
-          target:
-            data.from,
-          candidate:
-            event.candidate
-        });
-
-      }
-
-    };
-
-  pc.ontrack =
-    function(event) {
-
-      const audio =
-        document.getElementById(
-          "remoteAudio"
-        );
-
-      if (
-        event.streams &&
-        event.streams[0]
-      ) {
-
-        audio.srcObject =
-          event.streams[0];
-
-        audio.play()
-          .catch(
-            function(error) {
-
-              console.log(
-                "audio play",
-                error
-              );
-
+      .map(
+        user => `
+
+        <div
+          class="full-new-card"
+          onclick="openLive('${escapeHtml(user.id)}')"
+        >
+
+          <div class="new-avatar-wrap">
+
+            <div class="new-avatar">
+              ${escapeHtml(user.icon)}
+            </div>
+
+            ${
+              user.live
+                ? `
+                  <div
+                    class="live-dot"
+                  ></div>
+                `
+                : ""
             }
-          );
 
-      }
+          </div>
 
-    };
+          <div class="new-name">
+            ${escapeHtml(user.name)}
+          </div>
 
-  pc.onconnectionstatechange =
-    function() {
+          <div class="new-title">
+            ${escapeHtml(user.title)}
+          </div>
 
-      const state =
-        pc.connectionState;
+          ${
+            user.live
+              ? `
+                <span class="new-badge">
+                  LIVE
+                </span>
+              `
+              : `
+                <span
+                  class="new-badge"
+                  style="
+                    background:
+                    rgba(80,90,130,.7)
+                  "
+                >
+                  新人
+                </span>
+              `
+          }
 
-      if (
-        state ===
-        "connected"
-      ) {
+        </div>
 
-        document
-          .querySelector(
-            ".player-hint"
-          )
-          .textContent =
-          "🔊 音声接続済み";
-
-      }
-
-      if (
-        state ===
-        "failed"
-      ) {
-
-        document
-          .querySelector(
-            ".player-hint"
-          )
-          .textContent =
-          "音声接続に失敗しました";
-
-      }
-
-    };
-
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(
-      data.offer
-    )
-  );
-
-  const answer =
-    await pc.createAnswer();
-
-  await pc.setLocalDescription(
-    answer
-  );
-
-  send({
-    type: "answer",
-    target:
-      data.from,
-    answer:
-      pc.localDescription
-  });
-
-}
-
-
-/* =====================================================
-   Answer
-===================================================== */
-
-async function handleAnswer(
-  data
-) {
-
-  if (
-    data.target !==
-    myClientId
-  ) {
-    return;
-  }
-
-  const pc =
-    broadcasterPeers.get(
-      data.from
-    );
-
-  if (!pc) {
-    return;
-  }
-
-  try {
-
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(
-        data.answer
+        `
       )
-    );
-
-  } catch (error) {
-
-    console.log(
-      "answer error",
-      error
-    );
-
-  }
+      .join("");
 
 }
 
 
 /* =====================================================
-   ICE
+   配信を見る
 ===================================================== */
 
-async function handleIce(
-  data
-) {
+function openLive(id) {
 
   if (
-    data.target !==
-    myClientId
+    liveBroadcasterInfo &&
+    liveBroadcasterInfo.id === id
   ) {
+
+    startViewer(id);
+
     return;
-  }
-
-  try {
-
-    if (
-      isBroadcasting
-    ) {
-
-      const pc =
-        broadcasterPeers.get(
-          data.from
-        );
-
-      if (
-        pc &&
-        data.candidate
-      ) {
-
-        await pc.addIceCandidate(
-          new RTCIceCandidate(
-            data.candidate
-          )
-        );
-
-      }
-
-      return;
-    }
-
-    if (
-      currentViewerPeer &&
-      data.candidate
-    ) {
-
-      await currentViewerPeer.addIceCandidate(
-        new RTCIceCandidate(
-          data.candidate
-        )
-      );
-
-    }
-
-  } catch (error) {
-
-    console.log(
-      "ICE error",
-      error
-    );
 
   }
+
+
+  alert(
+    "この配信は現在準備中です。\\n\\n" +
+    "ID: " +
+    id
+  );
 
 }
 
 
 /* =====================================================
-   NAV
+   検索
 ===================================================== */
 
-function goHome() {
+function showSearch() {
 
-  closePages();
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  alert(
+    "配信検索を準備中です。"
+  );
 
 }
 
 
-function searchLive() {
-
-  const section =
-    document.getElementById(
-      "liveSection"
-    );
-
-  if (
-    liveData.length
-  ) {
-
-    section.scrollIntoView({
-      behavior: "smooth"
-    });
-
-  } else {
-
-    alert(
-      "現在配信中のライバーはいません。"
-    );
-
-  }
-
-}
-
+/* =====================================================
+   お知らせ
+===================================================== */
 
 function showNotice() {
 
@@ -2950,17 +2207,21 @@ function showNotice() {
 }
 
 
+/* =====================================================
+   マイページ
+===================================================== */
+
 function showProfile() {
 
   alert(
-    "マイページは準備中です。"
+    "マイページを準備中です。"
   );
 
 }
 
 
 /* =====================================================
-   ESCAPE
+   HTML ESCAPE
 ===================================================== */
 
 function escapeHtml(value) {
@@ -2996,38 +2257,871 @@ function escapeHtml(value) {
 
 
 /* =====================================================
-   初期データ
+   WEBSOCKET
 ===================================================== */
 
-const rankingData =
-  ${JSON.stringify(
-    ranking.map(function(user, index) {
-      return {
-        id: user.id,
-        name: user.name,
-        score: user.score,
-        viewers: user.viewers,
-        icon: user.icon,
-        rank: index + 1
-      };
-    })
-  )};
+let socket = null;
 
-const newcomerData =
-  ${JSON.stringify(newcomers)};
+let myClientId = null;
+
+let isBroadcaster = false;
+
+let localStream = null;
+
+let peerConnections = {};
+
+let liveBroadcasterInfo = null;
+
+
+/* =====================================================
+   SOCKET CONNECT
+===================================================== */
+
+function connectSocket() {
+
+  const protocol =
+    location.protocol === "https:"
+      ? "wss:"
+      : "ws:";
+
+
+  socket =
+    new WebSocket(
+      protocol +
+      "//" +
+      location.host
+    );
+
+
+  socket.onopen = () => {
+
+    console.log(
+      "WebSocket connected"
+    );
+
+  };
+
+
+  socket.onmessage = async event => {
+
+    try {
+
+      const data =
+        JSON.parse(
+          event.data
+        );
+
+
+      /* -------------------------------
+         接続ID
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "connected"
+      ) {
+
+        myClientId =
+          data.clientId;
+
+      }
+
+
+      /* -------------------------------
+         ホームデータ
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "home_data"
+      ) {
+
+        renderRanking(
+          data.ranking
+        );
+
+        renderNewcomers(
+          data.newcomers
+        );
+
+      }
+
+
+      /* -------------------------------
+         配信状態
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "live_status"
+      ) {
+
+        if (data.live) {
+
+          liveBroadcasterInfo = {
+            id: data.id,
+            name: data.name
+          };
+
+          updateLiveState(
+            true,
+            data.name
+          );
+
+        } else {
+
+          liveBroadcasterInfo =
+            null;
+
+          updateLiveState(
+            false
+          );
+
+        }
+
+      }
+
+
+      /* -------------------------------
+         視聴者が入室
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "viewer_join"
+      ) {
+
+        if (
+          !isBroadcaster
+        ) return;
+
+
+        await createPeerForViewer(
+          data.viewerId
+        );
+
+      }
+
+
+      /* -------------------------------
+         OFFER
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "offer"
+      ) {
+
+        await handleOffer(
+          data
+        );
+
+      }
+
+
+      /* -------------------------------
+         ANSWER
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "answer"
+      ) {
+
+        await handleAnswer(
+          data
+        );
+
+      }
+
+
+      /* -------------------------------
+         ICE
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "ice"
+      ) {
+
+        await handleIce(
+          data
+        );
+
+      }
+
+
+      /* -------------------------------
+         配信終了
+      ------------------------------- */
+
+      if (
+        data.type ===
+        "live_ended"
+      ) {
+
+        stopAllPeerConnections();
+
+        updateLiveState(
+          false
+        );
+
+        if (
+          !isBroadcaster
+        ) {
+
+          alert(
+            "配信が終了しました。"
+          );
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "WebSocket message error",
+        error
+      );
+
+    }
+
+  };
+
+
+  socket.onclose = () => {
+
+    console.log(
+      "WebSocket disconnected"
+    );
+
+
+    setTimeout(
+      connectSocket,
+      2000
+    );
+
+  };
+
+
+  socket.onerror = error => {
+
+    console.error(
+      "WebSocket error",
+      error
+    );
+
+  };
+
+}
+
+
+/* =====================================================
+   配信開始
+===================================================== */
+
+async function startLive() {
+
+  if (!socket) {
+
+    alert(
+      "サーバーに接続中です。"
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    localStream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      });
+
+
+    isBroadcaster = true;
+
+
+    const name =
+      prompt(
+        "配信者名を入力してください",
+        "月夜ぼた"
+      ) ||
+      "月夜ぼた";
+
+
+    socket.send(
+      JSON.stringify({
+        type: "host_start",
+        name
+      })
+    );
+
+
+    document
+      .getElementById(
+        "startLiveButton"
+      )
+      .style.display =
+      "none";
+
+
+    document
+      .getElementById(
+        "stopLiveButton"
+      )
+      .style.display =
+      "block";
+
+
+    updateLiveState(
+      true,
+      name
+    );
+
+
+    document
+      .getElementById(
+        "viewerInfo"
+      )
+      .innerText =
+      "🔴 配信中です。\\n視聴者が接続すると音声配信が開始されます。";
+
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    alert(
+      "マイクを使用できませんでした。\\n\\n" +
+      "ブラウザのマイク許可を確認してください。"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   配信終了
+===================================================== */
+
+function stopLive() {
+
+  if (socket) {
+
+    socket.send(
+      JSON.stringify({
+        type: "host_stop"
+      })
+    );
+
+  }
+
+
+  if (localStream) {
+
+    localStream
+      .getTracks()
+      .forEach(
+        track =>
+          track.stop()
+      );
+
+    localStream = null;
+
+  }
+
+
+  stopAllPeerConnections();
+
+  isBroadcaster = false;
+
+  updateLiveState(
+    false
+  );
+
+
+  document
+    .getElementById(
+      "startLiveButton"
+    )
+    .style.display =
+    "block";
+
+
+  document
+    .getElementById(
+      "stopLiveButton"
+    )
+    .style.display =
+    "none";
+
+
+  document
+    .getElementById(
+      "viewerInfo"
+    )
+    .innerText =
+    "配信を終了しました。";
+
+}
+
+
+/* =====================================================
+   配信状態UI
+===================================================== */
+
+function updateLiveState(
+  live,
+  name
+) {
+
+  const status =
+    document.getElementById(
+      "liveStatus"
+    );
+
+
+  if (!status) return;
+
+
+  if (live) {
+
+    status.innerText =
+      "🔴 LIVE配信中" +
+      (
+        name
+          ? " ・ " + name
+          : ""
+      );
+
+  } else {
+
+    status.innerText =
+      "マイクを使って配信できます。";
+
+  }
+
+}
+
+
+/* =====================================================
+   視聴開始
+===================================================== */
+
+function startViewer(
+  hostId
+) {
+
+  if (!socket) {
+
+    alert(
+      "サーバーに接続されていません。"
+    );
+
+    return;
+
+  }
+
+
+  socket.send(
+    JSON.stringify({
+      type: "join_live",
+      hostId
+    })
+  );
+
+
+  alert(
+    "配信に接続しています。"
+  );
+
+}
+
+
+/* =====================================================
+   BROADCASTER
+===================================================== */
+
+async function createPeerForViewer(
+  viewerId
+) {
+
+  if (!localStream) return;
+
+
+  const pc =
+    new RTCPeerConnection({
+      iceServers: [
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        }
+      ]
+    });
+
+
+  peerConnections[
+    viewerId
+  ] = pc;
+
+
+  localStream
+    .getTracks()
+    .forEach(
+      track => {
+
+        pc.addTrack(
+          track,
+          localStream
+        );
+
+      }
+    );
+
+
+  pc.onicecandidate =
+    event => {
+
+      if (
+        event.candidate &&
+        socket
+      ) {
+
+        socket.send(
+          JSON.stringify({
+            type: "ice",
+            target: viewerId,
+            candidate:
+              event.candidate
+          })
+        );
+
+      }
+
+    };
+
+
+  pc.onconnectionstatechange =
+    () => {
+
+      console.log(
+        "Viewer connection:",
+        viewerId,
+        pc.connectionState
+      );
+
+
+      if (
+        pc.connectionState ===
+          "failed" ||
+        pc.connectionState ===
+          "closed" ||
+        pc.connectionState ===
+          "disconnected"
+      ) {
+
+        delete
+          peerConnections[
+            viewerId
+          ];
+
+      }
+
+    };
+
+
+  const offer =
+    await pc.createOffer();
+
+
+  await pc.setLocalDescription(
+    offer
+  );
+
+
+  socket.send(
+    JSON.stringify({
+      type: "offer",
+      target: viewerId,
+      offer:
+        pc.localDescription
+    })
+  );
+
+}
+
+
+/* =====================================================
+   VIEWER OFFER
+===================================================== */
+
+let viewerPeer = null;
+
+async function handleOffer(
+  data
+) {
+
+  if (isBroadcaster) return;
+
+
+  viewerPeer =
+    new RTCPeerConnection({
+      iceServers: [
+        {
+          urls:
+            "stun:stun.l.google.com:19302"
+        }
+      ]
+    });
+
+
+  viewerPeer.onicecandidate =
+    event => {
+
+      if (
+        event.candidate &&
+        socket
+      ) {
+
+        socket.send(
+          JSON.stringify({
+            type: "ice",
+            target:
+              data.from,
+            candidate:
+              event.candidate
+          })
+        );
+
+      }
+
+    };
+
+
+  viewerPeer.ontrack =
+    event => {
+
+      let audio =
+        document.getElementById(
+          "remoteAudio"
+        );
+
+
+      if (!audio) {
+
+        audio =
+          document.createElement(
+            "audio"
+          );
+
+        audio.id =
+          "remoteAudio";
+
+        audio.autoplay =
+          true;
+
+        audio.playsInline =
+          true;
+
+        audio.controls =
+          false;
+
+        document.body.appendChild(
+          audio
+        );
+
+      }
+
+
+      if (
+        event.streams &&
+        event.streams[0]
+      ) {
+
+        audio.srcObject =
+          event.streams[0];
+
+        audio
+          .play()
+          .catch(
+            error =>
+              console.log(
+                "audio play waiting",
+                error
+              )
+          );
+
+      }
+
+    };
+
+
+  await viewerPeer.setRemoteDescription(
+    new RTCSessionDescription(
+      data.offer
+    )
+  );
+
+
+  const answer =
+    await viewerPeer.createAnswer();
+
+
+  await viewerPeer.setLocalDescription(
+    answer
+  );
+
+
+  socket.send(
+    JSON.stringify({
+      type: "answer",
+      target: data.from,
+      answer:
+        viewerPeer.localDescription
+    })
+  );
+
+}
+
+
+/* =====================================================
+   ANSWER
+===================================================== */
+
+async function handleAnswer(
+  data
+) {
+
+  if (!isBroadcaster) return;
+
+
+  const pc =
+    peerConnections[
+      data.from
+    ];
+
+
+  if (!pc) return;
+
+
+  await pc.setRemoteDescription(
+    new RTCSessionDescription(
+      data.answer
+    )
+  );
+
+}
+
+
+/* =====================================================
+   ICE
+===================================================== */
+
+async function handleIce(
+  data
+) {
+
+  try {
+
+    if (isBroadcaster) {
+
+      const pc =
+        peerConnections[
+          data.from
+        ];
+
+
+      if (pc) {
+
+        await pc.addIceCandidate(
+          new RTCIceCandidate(
+            data.candidate
+          )
+        );
+
+      }
+
+    } else {
+
+      if (viewerPeer) {
+
+        await viewerPeer.addIceCandidate(
+          new RTCIceCandidate(
+            data.candidate
+          )
+        );
+
+      }
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "ICE error",
+      error
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   PEER終了
+===================================================== */
+
+function stopAllPeerConnections() {
+
+  Object
+    .values(peerConnections)
+    .forEach(
+      pc => {
+
+        try {
+
+          pc.close();
+
+        } catch (_) {}
+
+      }
+    );
+
+
+  peerConnections = {};
+
+
+  if (viewerPeer) {
+
+    try {
+
+      viewerPeer.close();
+
+    } catch (_) {}
+
+    viewerPeer = null;
+
+  }
+
+}
 
 
 /* =====================================================
    START
 ===================================================== */
-
-renderRanking(
-  rankingData
-);
-
-renderNewcomers(
-  newcomerData
-);
 
 connectSocket();
 
@@ -3044,17 +3138,23 @@ connectSocket();
 
 const server =
   http.createServer(
-    function(req, res) {
+    (req, res) => {
 
       const url =
         req.url.split("?")[0];
 
 
-      /* HOME */
+      /* -----------------------------------------------
+         ホーム・各ページ
+      ----------------------------------------------- */
 
       if (
         url === "/" ||
-        url === "/index.html"
+        url === "/index.html" ||
+        url === "/top50" ||
+        url === "/ranking" ||
+        url === "/newcomers" ||
+        url === "/live"
       ) {
 
         res.writeHead(
@@ -3073,10 +3173,13 @@ const server =
         );
 
         return;
+
       }
 
 
-      /* HOME IMAGE */
+      /* -----------------------------------------------
+         HOME IMAGE
+      ----------------------------------------------- */
 
       if (
         url === "/home.png"
@@ -3087,6 +3190,7 @@ const server =
             PUBLIC_DIR,
             "home.png"
           );
+
 
         if (
           fs.existsSync(
@@ -3105,12 +3209,18 @@ const server =
             }
           );
 
+
           fs.createReadStream(
             imagePath
-          ).pipe(res);
+          ).pipe(
+            res
+          );
+
 
           return;
+
         }
+
 
         res.writeHead(
           404,
@@ -3120,13 +3230,20 @@ const server =
           }
         );
 
+
         res.end(
           "home.png がありません"
         );
 
+
         return;
+
       }
 
+
+      /* -----------------------------------------------
+         404
+      ----------------------------------------------- */
 
       res.writeHead(
         404,
@@ -3135,6 +3252,7 @@ const server =
             "text/plain; charset=utf-8"
         }
       );
+
 
       res.end(
         "Not Found"
@@ -3145,7 +3263,7 @@ const server =
 
 
 /* =====================================================
-   WEBSOCKET SERVER
+   WEBSOCKET
 ===================================================== */
 
 const wss =
@@ -3154,80 +3272,43 @@ const wss =
   });
 
 
-/* =====================================================
-   Client ID
-===================================================== */
-
-function makeClientId() {
-
-  return (
-    Date.now().toString(36) +
-    "-" +
-    Math.random()
-      .toString(36)
-      .slice(2, 10)
-  );
-
-}
+const clients =
+  new Map();
 
 
-/* =====================================================
-   LIVE LIST
-===================================================== */
+function send(
+  ws,
+  data
+) {
 
-function getLiveList() {
+  if (
+    ws &&
+    ws.readyState ===
+      WebSocket.OPEN
+  ) {
 
-  return Array.from(
-    liveStreams.values()
-  ).map(
-    function(stream) {
+    ws.send(
+      JSON.stringify(
+        data
+      )
+    );
 
-      return {
-        broadcasterId:
-          stream.broadcasterId,
-
-        name:
-          stream.name,
-
-        icon:
-          stream.icon,
-
-        viewers:
-          stream.viewers.size
-      };
-
-    }
-  );
+  }
 
 }
 
 
-/* =====================================================
-   全員にLIVE一覧送信
-===================================================== */
-
-function broadcastLiveList() {
-
-  const message =
-    JSON.stringify({
-      type: "live_list",
-      liveStreams:
-        getLiveList()
-    });
+function broadcast(
+  data
+) {
 
   clients.forEach(
-    function(client) {
+    client => {
 
-      if (
-        client.ws.readyState ===
-        WebSocket.OPEN
-      ) {
-
-        client.ws.send(
-          message
-        );
-
-      }
+      send(
+        client.ws,
+        data
+      );
 
     }
   );
@@ -3236,21 +3317,32 @@ function broadcastLiveList() {
 
 
 /* =====================================================
-   WEBSOCKET CONNECTION
+   CONNECTION
 ===================================================== */
 
 wss.on(
   "connection",
-  function(ws) {
+  ws => {
 
     const clientId =
-      makeClientId();
+      Math.random()
+        .toString(36)
+        .slice(2) +
+      Date.now()
+        .toString(36);
+
+
+    const client = {
+      ws,
+      id: clientId,
+      role: "viewer",
+      name: ""
+    };
+
 
     clients.set(
       clientId,
-      {
-        ws
-      }
+      client
     );
 
 
@@ -3260,14 +3352,58 @@ wss.on(
     );
 
 
-    ws.send(
-      JSON.stringify({
-        type: "welcome",
-        clientId,
-        liveStreams:
-          getLiveList()
-      })
+    /* 接続ID */
+
+    send(
+      ws,
+      {
+        type:
+          "connected",
+
+        clientId
+      }
     );
+
+
+    /* ホームデータ */
+
+    send(
+      ws,
+      {
+        type:
+          "home_data",
+
+        ranking,
+
+        newcomers
+      }
+    );
+
+
+    /* 現在LIVEなら通知 */
+
+    if (
+      liveBroadcaster
+    ) {
+
+      send(
+        ws,
+        {
+          type:
+            "live_status",
+
+          live:
+            true,
+
+          id:
+            liveBroadcaster.id,
+
+          name:
+            liveBroadcaster.name
+        }
+      );
+
+    }
 
 
     /* =================================================
@@ -3276,278 +3412,240 @@ wss.on(
 
     ws.on(
       "message",
-      function(raw) {
-
-        let data;
+      raw => {
 
         try {
 
-          data =
+          const data =
             JSON.parse(
               raw.toString()
             );
 
-        } catch (error) {
 
-          return;
-
-        }
-
-
-        /* =============================================
-           配信開始
-        ============================================= */
-
-        if (
-          data.type ===
-          "start_live"
-        ) {
+          /* -------------------------------------------
+             配信開始
+          ------------------------------------------- */
 
           if (
-            liveStreams.has(
-              clientId
-            )
+            data.type ===
+            "host_start"
           ) {
 
-            return;
+            client.role =
+              "broadcaster";
 
-          }
+            client.name =
+              String(
+                data.name ||
+                "月夜ぼた"
+              );
 
-          liveStreams.set(
-            clientId,
-            {
-              broadcasterId:
+
+            liveBroadcaster = {
+
+              id:
                 clientId,
 
               name:
-                data.name ||
-                "月夜ぼた",
+                client.name,
 
-              icon:
-                data.icon ||
-                "🌙",
+              startedAt:
+                Date.now()
 
-              viewers:
-                new Set()
-            }
-          );
+            };
 
 
-          console.log(
-            "LIVE START:",
-            clientId
-          );
-
-
-          broadcastLiveList();
-
-          return;
-        }
-
-
-        /* =============================================
-           配信終了
-        ============================================= */
-
-        if (
-          data.type ===
-          "stop_live"
-        ) {
-
-          stopLive(
-            clientId
-          );
-
-          return;
-        }
-
-
-        /* =============================================
-           視聴者入室
-        ============================================= */
-
-        if (
-          data.type ===
-          "join_live"
-        ) {
-
-          const live =
-            liveStreams.get(
-              data.broadcasterId
+            console.log(
+              "LIVE START:",
+              client.name
             );
 
-          if (!live) {
 
-            ws.send(
-              JSON.stringify({
+            broadcast(
+              {
                 type:
-                  "live_stopped",
-                liveId:
-                  data.broadcasterId,
-                liveStreams:
-                  getLiveList()
-              })
+                  "live_status",
+
+                live:
+                  true,
+
+                id:
+                  clientId,
+
+                name:
+                  client.name
+              }
             );
+
 
             return;
 
           }
 
 
-          live.viewers.add(
-            clientId
-          );
-
-
-          const broadcaster =
-            clients.get(
-              data.broadcasterId
-            );
-
+          /* -------------------------------------------
+             配信終了
+          ------------------------------------------- */
 
           if (
-            broadcaster &&
-            broadcaster.ws.readyState ===
-              WebSocket.OPEN
+            data.type ===
+            "host_stop"
           ) {
 
-            broadcaster.ws.send(
-              JSON.stringify({
+            if (
+              liveBroadcaster &&
+              liveBroadcaster.id ===
+                clientId
+            ) {
+
+              liveBroadcaster =
+                null;
+
+
+              console.log(
+                "LIVE END:",
+                client.name
+              );
+
+
+              broadcast(
+                {
+                  type:
+                    "live_ended"
+                }
+              );
+
+
+              broadcast(
+                {
+                  type:
+                    "live_status",
+
+                  live:
+                    false
+                }
+              );
+
+            }
+
+
+            client.role =
+              "viewer";
+
+
+            return;
+
+          }
+
+
+          /* -------------------------------------------
+             視聴者入室
+          ------------------------------------------- */
+
+          if (
+            data.type ===
+            "join_live"
+          ) {
+
+            if (
+              !liveBroadcaster
+            ) {
+
+              send(
+                ws,
+                {
+                  type:
+                    "live_status",
+
+                  live:
+                    false
+                }
+              );
+
+
+              return;
+
+            }
+
+
+            const host =
+              clients.get(
+                liveBroadcaster.id
+              );
+
+
+            if (!host) {
+
+              return;
+
+            }
+
+
+            send(
+              host.ws,
+              {
                 type:
-                  "viewer_joined",
+                  "viewer_join",
 
                 viewerId:
                   clientId
-              })
+              }
             );
+
+
+            return;
 
           }
 
 
-          broadcastLiveList();
+          /* -------------------------------------------
+             OFFER / ANSWER / ICE
+          ------------------------------------------- */
 
-          return;
-        }
+          if (
+            data.type ===
+              "offer" ||
+            data.type ===
+              "answer" ||
+            data.type ===
+              "ice"
+          ) {
+
+            const target =
+              clients.get(
+                data.target
+              );
 
 
-        /* =============================================
-           視聴終了
-        ============================================= */
+            if (!target) {
 
-        if (
-          data.type ===
-          "leave_live"
-        ) {
+              return;
 
-          const live =
-            liveStreams.get(
-              data.broadcasterId
+            }
+
+
+            send(
+              target.ws,
+              {
+                ...data,
+
+                from:
+                  clientId
+              }
             );
 
-          if (live) {
 
-            live.viewers.delete(
-              clientId
-            );
+            return;
 
           }
 
-          broadcastLiveList();
+        } catch (error) {
 
-          return;
-        }
-
-
-        /* =============================================
-           WebRTC offer
-        ============================================= */
-
-        if (
-          data.type ===
-          "offer"
-        ) {
-
-          relayWebRTC(
-            clientId,
-            data.target,
-            {
-              type:
-                "offer",
-
-              from:
-                clientId,
-
-              target:
-                data.target,
-
-              offer:
-                data.offer
-            }
+          console.error(
+            "message error:",
+            error
           );
 
-          return;
-        }
-
-
-        /* =============================================
-           WebRTC answer
-        ============================================= */
-
-        if (
-          data.type ===
-          "answer"
-        ) {
-
-          relayWebRTC(
-            clientId,
-            data.target,
-            {
-              type:
-                "answer",
-
-              from:
-                clientId,
-
-              target:
-                data.target,
-
-              answer:
-                data.answer
-            }
-          );
-
-          return;
-        }
-
-
-        /* =============================================
-           ICE
-        ============================================= */
-
-        if (
-          data.type ===
-          "ice"
-        ) {
-
-          relayWebRTC(
-            clientId,
-            data.target,
-            {
-              type:
-                "ice",
-
-              from:
-                clientId,
-
-              target:
-                data.target,
-
-              candidate:
-                data.candidate
-            }
-          );
-
-          return;
         }
 
       }
@@ -3560,7 +3658,7 @@ wss.on(
 
     ws.on(
       "close",
-      function() {
+      () => {
 
         console.log(
           "WebSocket disconnected:",
@@ -3568,28 +3666,40 @@ wss.on(
         );
 
 
-        stopLive(
-          clientId
-        );
+        if (
+          liveBroadcaster &&
+          liveBroadcaster.id ===
+            clientId
+        ) {
+
+          liveBroadcaster =
+            null;
+
+
+          broadcast(
+            {
+              type:
+                "live_ended"
+            }
+          );
+
+
+          broadcast(
+            {
+              type:
+                "live_status",
+
+              live:
+                false
+            }
+          );
+
+        }
 
 
         clients.delete(
           clientId
         );
-
-
-        liveStreams.forEach(
-          function(live) {
-
-            live.viewers.delete(
-              clientId
-            );
-
-          }
-        );
-
-
-        broadcastLiveList();
 
       }
     );
@@ -3597,135 +3707,30 @@ wss.on(
 
     ws.on(
       "error",
-      function(error) {
+      error => {
 
-        console.log(
+        console.error(
           "WebSocket error:",
-          error.message
+          error
         );
 
       }
     );
 
-  }
-);
+  });
 
 
 /* =====================================================
-   WebRTC RELAY
-===================================================== */
-
-function relayWebRTC(
-  from,
-  target,
-  message
-) {
-
-  const targetClient =
-    clients.get(
-      target
-    );
-
-  if (
-    !targetClient
-  ) {
-    return;
-  }
-
-  if (
-    targetClient.ws.readyState !==
-    WebSocket.OPEN
-  ) {
-    return;
-  }
-
-  targetClient.ws.send(
-    JSON.stringify(
-      message
-    )
-  );
-
-}
-
-
-/* =====================================================
-   STOP LIVE
-===================================================== */
-
-function stopLive(
-  broadcasterId
-) {
-
-  const live =
-    liveStreams.get(
-      broadcasterId
-    );
-
-  if (!live) {
-    return;
-  }
-
-
-  live.viewers.forEach(
-    function(viewerId) {
-
-      const viewer =
-        clients.get(
-          viewerId
-        );
-
-      if (
-        viewer &&
-        viewer.ws.readyState ===
-          WebSocket.OPEN
-      ) {
-
-        viewer.ws.send(
-          JSON.stringify({
-            type:
-              "live_stopped",
-
-            liveId:
-              broadcasterId,
-
-            liveStreams:
-              getLiveList()
-          })
-        );
-
-      }
-
-    }
-  );
-
-
-  liveStreams.delete(
-    broadcasterId
-  );
-
-
-  console.log(
-    "LIVE STOP:",
-    broadcasterId
-  );
-
-
-  broadcastLiveList();
-
-}
-
-
-/* =====================================================
-   START SERVER
+   SERVER START
 ===================================================== */
 
 server.listen(
   PORT,
   HOST,
-  function() {
+  () => {
 
     console.log(
-      "===================================="
+      "======================================"
     );
 
     console.log(
@@ -3733,25 +3738,17 @@ server.listen(
     );
 
     console.log(
-      "PORT:",
+      "Port:",
       PORT
     );
 
     console.log(
-      "HOST:",
+      "Host:",
       HOST
     );
 
     console.log(
-      "WebRTC: ENABLED"
-    );
-
-    console.log(
-      "WebSocket: ENABLED"
-    );
-
-    console.log(
-      "===================================="
+      "======================================"
     );
 
   }

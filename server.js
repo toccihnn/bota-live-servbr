@@ -1,843 +1,983 @@
 const http = require("http");
-const fs = require("fs");
-const path = require("path");
 const WebSocket = require("ws");
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 8080;
 const HOST = "0.0.0.0";
 
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
+/*
+  VoiceボタLive
+  - WebRTC低遅延音声
+  - 人気トップ50
+  - 新人ライバー
+  - 横スクロール10人
+  - 一覧ページ
+  - ギフト
+  - いいね
+  - ブロック
+  - 配信画面カスタム
+  - 画像を切らない object-fit:contain
+*/
 
-/* =========================================================
-   VoiceポタLive
-   - WebRTC音声配信
-   - 配信開始 / 終了
-   - 視聴
-   - WebSocketシグナリング
-   - 人気ランキング
-   - 新人ライバー
-   - ギフト
-   - いいね
-   - ブロック
-   - 配信画像カスタム
-   - 横スクロール
-   - TOP50ページ
-   ========================================================= */
+const HERO_IMAGE_URL =
+  "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=90";
 
-const liveRooms = new Map();
-const sockets = new Map();
-
-/* =========================================================
-   データ
-   ========================================================= */
-
-const ranking = [
-  {
-    id: "live001",
-    name: "月夜ほたる",
-    viewers: 1280,
-    likes: 9320,
-    category: "歌・雑談",
-    image:
-      "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live002",
-    name: "夜空ミナ",
-    viewers: 980,
-    likes: 7210,
-    category: "雑談",
-    image:
-      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live003",
-    name: "青月レイ",
-    viewers: 860,
-    likes: 6800,
-    category: "歌枠",
-    image:
-      "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live004",
-    name: "星乃ルナ",
-    viewers: 740,
-    likes: 5910,
-    category: "弾き語り",
-    image:
-      "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live005",
-    name: "黒猫ミク",
-    viewers: 650,
-    likes: 5300,
-    category: "雑談",
-    image:
-      "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live006",
-    name: "月白カナ",
-    viewers: 590,
-    likes: 4700,
-    category: "歌・雑談",
-    image:
-      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live007",
-    name: "雨音しずく",
-    viewers: 510,
-    likes: 4200,
-    category: "癒し",
-    image:
-      "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live008",
-    name: "蒼井ソラ",
-    viewers: 480,
-    likes: 3900,
-    category: "雑談",
-    image:
-      "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live009",
-    name: "夜凪アオ",
-    viewers: 430,
-    likes: 3500,
-    category: "歌枠",
-    image:
-      "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "live010",
-    name: "白月ユイ",
-    viewers: 390,
-    likes: 3200,
-    category: "雑談",
-    image:
-      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=85"
-  }
+const RANK_IMAGES = [
+  "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=700&q=85",
+  "https://images.unsplash.com/photo-1503095396549-807759245b35?auto=format&fit=crop&w=700&q=85"
 ];
 
-const newcomers = [
-  {
-    id: "new001",
-    name: "新人ほしこ",
-    viewers: 180,
-    likes: 920,
-    category: "新人・雑談",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new002",
-    name: "新人あかり",
-    viewers: 155,
-    likes: 810,
-    category: "新人・歌",
-    image:
-      "https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new003",
-    name: "新人ゆら",
-    viewers: 132,
-    likes: 730,
-    category: "新人・雑談",
-    image:
-      "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new004",
-    name: "新人ナギ",
-    viewers: 118,
-    likes: 690,
-    category: "新人・歌",
-    image:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new005",
-    name: "新人ミオ",
-    viewers: 106,
-    likes: 630,
-    category: "新人・雑談",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new006",
-    name: "新人ルイ",
-    viewers: 94,
-    likes: 580,
-    category: "新人・歌",
-    image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new007",
-    name: "新人さくら",
-    viewers: 86,
-    likes: 520,
-    category: "新人・雑談",
-    image:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new008",
-    name: "新人レン",
-    viewers: 80,
-    likes: 480,
-    category: "新人・歌",
-    image:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new009",
-    name: "新人ひなた",
-    viewers: 75,
-    likes: 430,
-    category: "新人・雑談",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    id: "new010",
-    name: "新人そら",
-    viewers: 70,
-    likes: 400,
-    category: "新人・歌",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85"
-  }
+const HERO_COPY = "声でつながる、みんなの居場所。";
+const HERO_TITLE = "あなたの声が、誰かの夜を照らす。";
+
+const names = [
+  "月夜ぼた","蒼い月","花音","夜空りん","ミルキー","星乃こえ",
+  "しずく","月灯り","あかね","みお","ルナ","そらね",
+  "ゆら","ひなた","ことは","あお","みつき","ほたる",
+  "しおん","りつ","ねむ","すず","こはる","あんず",
+  "つむぎ","なぎ","ひかり","さくら","ゆめ","かえで",
+  "みなと","れん","あいり","ゆき","ましろ","うた",
+  "りお","こよみ","かなで","なな","つき","こまち",
+  "あおい","すみれ","ちさ","えま","ゆう","りんね",
+  "ほのか","せな"
 ];
 
-/* =========================================================
-   50人生成
-   ========================================================= */
+const top50 = names.map((name, i) => ({
+  rank: i + 1,
+  name,
+  viewers: Math.max(8, 1680 - i * 27),
+  likes: Math.max(30, 9800 - i * 91),
+  image: RANK_IMAGES[i % RANK_IMAGES.length],
+  live: i < 12,
+  room: "月光花の部屋"
+}));
 
-function makeExtraPeople(base, prefix, count) {
-  const result = [...base];
+const newcomers = Array.from({length: 30}, (_, i) => ({
+  rank: i + 1,
+  name:
+    [
+      "新人ぼた","はじめまして月","ことり声","新人ルナ","初配信あお",
+      "夜ふかし新人","新人かなで","星くず","新人しずく","月見うた"
+    ][i % 10] + (i >= 10 ? i + 1 : ""),
+  viewers: Math.max(1, 220 - i * 6),
+  likes: Math.max(10, 1300 - i * 31),
+  image: RANK_IMAGES[(i + 3) % RANK_IMAGES.length],
+  live: i < 6,
+  room: "新人ライバーの部屋"
+}));
 
-  while (result.length < count) {
-    const n = result.length + 1;
-
-    result.push({
-      id: prefix + String(n).padStart(3, "0"),
-      name:
-        prefix === "live"
-          ? "ライバー" + n
-          : "新人ライバー" + n,
-      viewers: Math.max(10, 350 - n * 5),
-      likes: Math.max(50, 3000 - n * 40),
-      category: prefix === "live" ? "雑談・歌" : "新人・雑談",
-      image:
-        "https://images.unsplash.com/photo-" +
-        [
-          "1516280440614-37939bbacd81",
-          "1516589178581-6cd7833ae3b2",
-          "1493225457124-a3eb161ffa5f",
-          "1524368535928-5b5e00ddc76b",
-          "1514525253161-7a46d19cd819",
-          "1534528741775-53994a69daeb"
-        ][n % 6] +
-        "?auto=format&fit=crop&w=900&q=85"
-    });
-  }
-
-  return result;
-}
-
-const allRanking = makeExtraPeople(ranking, "live", 50);
-const allNewcomers = makeExtraPeople(newcomers, "new", 50);
-
-/* =========================================================
-   HTML
-   ========================================================= */
-
-const HTML = `
-<!DOCTYPE html>
+const HTML = `<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 
 <meta
   name="viewport"
-  content="width=device-width,initial-scale=1.0,user-scalable=no"
+  content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
 >
 
-<title>VoiceポタLive</title>
+<title>VoiceボタLive</title>
 
 <style>
 
-* {
-  box-sizing: border-box;
+*{
+  box-sizing:border-box;
+}
+
+:root{
+  --bg:#050713;
+  --panel:#0d1125;
+  --panel2:#121938;
+  --line:#282d55;
+  --text:#fff;
+  --muted:#9da6c9;
+  --blue:#4fc8ff;
+  --violet:#8d67ff;
+  --pink:#f14cff;
+  --danger:#ff426d;
+  --green:#63f7ae;
 }
 
 html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100%;
-  background: #050509;
-  color: #fff;
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Noto Sans JP",
-    sans-serif;
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Arial,"Noto Sans JP",sans-serif;
 }
 
-body {
-  padding-bottom: 78px;
+body{
+  min-height:100vh;
+  overflow-x:hidden;
 }
 
-button {
-  font: inherit;
+button,
+input{
+  font:inherit;
 }
 
-img {
-  display: block;
-  max-width: 100%;
+button{
+  cursor:pointer;
 }
 
-.app {
-  width: 100%;
-  min-height: 100vh;
-  overflow-x: hidden;
+.hidden{
+  display:none!important;
 }
 
-.header {
-  height: 58px;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background: #08080e;
-  border-bottom: 1px solid #1d1d29;
-  position: sticky;
-  top: 0;
-  z-index: 50;
+#app{
+  min-height:100vh;
+  padding-bottom:92px;
 }
 
-.logo {
-  font-size: 20px;
-  font-weight: 800;
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:50;
+  height:62px;
+  padding:0 16px;
+
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+
+  background:rgba(5,7,19,.92);
+  backdrop-filter:blur(18px);
+
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+
+.brand{
+  font-size:21px;
+  font-weight:900;
+
+  background:linear-gradient(
+    90deg,
+    #fff,
+    #5bd6ff,
+    #cf74ff
+  );
+
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.online{
+  font-size:11px;
+  color:#8fffc0;
+
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+
+.online i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#5dffab;
+  box-shadow:0 0 12px #5dffab;
 }
+
+.page{
+  max-width:760px;
+  margin:auto;
+  padding:12px 12px 30px;
+}
+
+.hero{
+  position:relative;
+  overflow:hidden;
+
+  border-radius:28px;
+  min-height:560px;
+
+  background:#070914;
+  border:1px solid #2a2e58;
+
+  box-shadow:
+    0 20px 70px rgba(52,60,170,.22);
+}
+
+.hero-img-wrap{
+  position:absolute;
+  inset:0;
+
+  background:#02030a;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.hero-img{
+  width:100%;
+  height:100%;
+
+  object-fit:contain;
+  object-position:center;
 
-.logo span {
-  color: #7c5cff;
+  display:block;
+  opacity:.78;
 }
 
-.page {
-  padding: 0 14px 24px;
+.hero-shade{
+  position:absolute;
+  inset:0;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.08) 15%,
+      rgba(2,4,15,.25) 45%,
+      rgba(2,3,10,.96) 100%
+    );
 }
+
+.hero-content{
+  position:relative;
+  z-index:2;
+
+  min-height:560px;
 
-.hero {
-  margin-top: 14px;
-  border-radius: 18px;
-  overflow: hidden;
-  background: #0c0c14;
+  padding:32px 22px 25px;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
 }
+
+.pill{
+  align-self:flex-start;
+
+  padding:7px 11px;
 
-.hero-image {
-  width: 100%;
-  height: auto;
-  max-height: 560px;
-  object-fit: contain;
-  background: #000;
+  border:1px solid rgba(130,205,255,.35);
+  border-radius:999px;
+
+  background:rgba(10,20,50,.58);
+
+  font-size:11px;
 }
+
+.hero h1{
+  font-size:42px;
+  line-height:1.05;
 
-.hero-copy {
-  padding: 16px;
+  margin:14px 0 8px;
+
+  letter-spacing:-1.5px;
 }
 
-.hero-small {
-  color: #9f9fb0;
-  font-size: 13px;
+.hero .sub{
+  font-size:14px;
+  color:#d8dcf3;
+  letter-spacing:1px;
 }
 
-.hero-title {
-  font-size: 25px;
-  line-height: 1.3;
-  font-weight: 800;
-  margin: 8px 0;
+.hero .copy{
+  font-size:27px;
+  line-height:1.4;
+  font-weight:900;
+  margin-top:16px;
 }
 
-.hero-text {
-  color: #bdbdcc;
-  line-height: 1.7;
-  font-size: 14px;
+.hero .desc{
+  color:#c2c7dc;
+  font-size:12px;
+  line-height:1.8;
+  margin-top:10px;
 }
+
+.primary,
+.secondary{
+  width:100%;
+
+  border:0;
+  border-radius:17px;
+
+  padding:15px;
+  margin-top:14px;
 
-.section {
-  margin-top: 25px;
+  font-weight:900;
 }
 
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+.primary{
+  color:#fff;
+
+  background:
+    linear-gradient(
+      90deg,
+      #13caff,
+      #7564ff,
+      #df4cff
+    );
+
+  box-shadow:
+    0 12px 30px rgba(109,73,255,.3);
 }
-
-.section-title {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.more {
-  color: #8d79ff;
-  font-size: 13px;
-  border: 0;
-  background: transparent;
-  padding: 8px;
+
+.secondary{
+  color:#eee;
+
+  border:1px solid #41466e;
+
+  background:rgba(10,13,30,.75);
 }
 
-.horizontal {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 3px 1px 12px;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+.section{
+  margin-top:22px;
 }
+
+.section-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
 
-.horizontal::-webkit-scrollbar {
-  display: none;
+  margin:0 4px 10px;
 }
 
-.card {
-  flex: 0 0 138px;
-  scroll-snap-align: start;
-  background: #101018;
-  border: 1px solid #20202d;
-  border-radius: 15px;
-  overflow: hidden;
+.section-title{
+  font-size:20px;
+  font-weight:900;
 }
 
-.card-image-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 0.82;
-  background: #08080d;
-  overflow: hidden;
+.more{
+  font-size:12px;
+  color:#b28cff;
+
+  background:none;
+  border:0;
 }
+
+.scroller{
+  display:flex;
+  gap:10px;
+
+  overflow-x:auto;
 
-.card-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  padding:2px 2px 10px;
+
+  scroll-snap-type:x proximity;
 }
 
-.live-dot {
-  position: absolute;
-  left: 7px;
-  top: 7px;
-  padding: 4px 7px;
-  border-radius: 20px;
-  background: #ff315f;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
+.scroller::-webkit-scrollbar{
+  display:none;
 }
+
+.rank-card{
+  flex:0 0 112px;
+
+  scroll-snap-align:start;
+
+  border-radius:17px;
+  overflow:hidden;
 
-.card-body {
-  padding: 9px;
+  background:
+    linear-gradient(
+      145deg,
+      #151b3c,
+      #0c1024
+    );
+
+  border:1px solid #272d55;
+
+  position:relative;
 }
+
+.rank-img{
+  width:100%;
+  height:128px;
 
-.card-name {
-  font-size: 13px;
-  font-weight: 800;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display:block;
+
+  object-fit:contain;
+
+  background:#05060d;
 }
 
-.card-meta {
-  color: #9292a3;
-  font-size: 11px;
-  margin-top: 4px;
+.rank-body{
+  padding:8px;
 }
 
-.bottom-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 70px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  background: rgba(8,8,14,.96);
-  border-top: 1px solid #252532;
-  z-index: 100;
-  backdrop-filter: blur(15px);
+.rank-no{
+  font-size:10px;
+  color:#aeb5d2;
 }
+
+.rank-name{
+  font-size:12px;
+  font-weight:900;
 
-.nav-item {
-  border: 0;
-  background: transparent;
-  color: #858594;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  font-size: 10px;
+  margin-top:2px;
+
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
-.nav-icon {
-  font-size: 22px;
+.rank-meta{
+  font-size:9px;
+  color:#9199ba;
+
+  margin-top:4px;
 }
+
+.live-pill{
+  position:absolute;
+  top:7px;
+  left:7px;
 
-.nav-live {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  margin-top: -17px;
-  background: linear-gradient(135deg,#725cff,#d64cff);
-  color: #fff;
-  border: 5px solid #08080e;
-  font-size: 24px;
+  background:#f02c7d;
+  color:#fff;
+
+  padding:4px 7px;
+
+  border-radius:999px;
+
+  font-size:8px;
+  font-weight:900;
 }
+
+.features{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
 
-.list-page {
-  padding: 16px 14px 30px;
+  gap:10px;
+
+  margin-top:18px;
 }
+
+.feature{
+  padding:15px;
+
+  border-radius:18px;
 
-.list-title {
-  font-size: 24px;
-  font-weight: 900;
-  margin-bottom: 16px;
+  background:#0d1127;
+
+  border:1px solid #24294e;
 }
 
-.list {
-  display: grid;
-  gap: 12px;
+.feature b{
+  font-size:13px;
 }
+
+.feature p{
+  font-size:10px;
+  color:#8f98ba;
+
+  line-height:1.6;
 
-.list-card {
-  display: flex;
-  gap: 12px;
-  background: #101018;
-  border: 1px solid #20202d;
-  border-radius: 15px;
-  padding: 8px;
-  align-items: center;
+  margin:6px 0 0;
 }
+
+.bottom-nav{
+  position:fixed;
+
+  z-index:100;
+
+  left:0;
+  right:0;
+  bottom:0;
+
+  height:78px;
+
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+
+  align-items:center;
+
+  background:rgba(5,7,19,.95);
 
-.list-rank {
-  width: 30px;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 900;
-  color: #a99aff;
+  backdrop-filter:blur(18px);
+
+  border-top:1px solid rgba(255,255,255,.08);
+
+  padding-bottom:env(safe-area-inset-bottom);
 }
+
+.nav-item{
+  background:none;
+  border:0;
+
+  color:#7f88ad;
+
+  font-size:10px;
+  font-weight:700;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
 
-.list-image {
-  width: 76px;
-  height: 76px;
-  border-radius: 12px;
-  object-fit: cover;
-  background: #000;
+  gap:4px;
 }
 
-.list-info {
-  flex: 1;
-  min-width: 0;
+.nav-item.active{
+  color:#bd8cff;
 }
 
-.list-name {
-  font-weight: 800;
-  font-size: 15px;
+.nav-icon{
+  font-size:21px;
 }
+
+.nav-center{
+  width:54px;
+  height:54px;
+
+  margin-top:-26px;
+
+  border-radius:50%;
+
+  display:grid;
+  place-items:center;
+
+  background:
+    linear-gradient(
+      145deg,
+      #30d2ff,
+      #7766ff,
+      #e34cff
+    );
+
+  border:3px solid #111632;
+
+  box-shadow:
+    0 0 28px rgba(111,91,255,.65);
 
-.list-meta {
-  color: #9292a3;
-  font-size: 12px;
-  margin-top: 5px;
+  font-size:24px;
+  color:#fff;
 }
 
-.open-live {
-  border: 0;
-  background: #6d57ff;
-  color: #fff;
-  border-radius: 10px;
-  padding: 9px 11px;
-  font-weight: 800;
-  font-size: 11px;
+.page-view{
+  padding-top:4px;
 }
 
-/* =====================================================
-   配信画面
-   ===================================================== */
+.back{
+  border:0;
+  background:none;
 
-.live-page {
-  min-height: calc(100vh - 58px);
-  background: #050509;
+  color:#b18bff;
+
+  padding:8px 0;
+
+  font-weight:900;
 }
+
+.list-grid{
+  display:grid;
 
-.live-header {
-  height: 54px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border-bottom: 1px solid #20202a;
+  grid-template-columns:repeat(2,1fr);
+
+  gap:10px;
 }
+
+.list-card{
+  border:1px solid #282d55;
+  border-radius:18px;
+
+  overflow:hidden;
 
-.back-btn {
-  width: 38px;
-  height: 38px;
-  border: 0;
-  background: #15151e;
-  color: #fff;
-  border-radius: 50%;
-  font-size: 20px;
+  background:#0d1127;
 }
 
-.live-name {
-  flex: 1;
-  font-weight: 800;
+.list-card img{
+  width:100%;
+  height:160px;
+
+  object-fit:contain;
+
+  background:#05060d;
+
+  display:block;
 }
 
-.live-status {
-  color: #ff4c73;
-  font-size: 12px;
-  font-weight: 800;
+.list-card .lb{
+  padding:10px;
 }
 
-.live-visual {
-  width: 100%;
-  background: #000;
-  position: relative;
+.list-card .nm{
+  font-weight:900;
 }
 
-.live-image {
-  width: 100%;
-  height: auto;
-  max-height: 70vh;
-  object-fit: contain;
-  background: #000;
+.list-card .sm{
+  font-size:10px;
+
+  color:#9099b8;
+
+  margin-top:4px;
 }
+
+.live-screen{
+  position:fixed;
+
+  inset:0;
 
-.live-video {
-  width: 100%;
-  height: auto;
-  min-height: 280px;
-  max-height: 70vh;
-  object-fit: contain;
-  background: #000;
+  z-index:200;
+
+  background:#02030a;
+
+  color:#fff;
+
+  overflow:auto;
+
+  padding-bottom:28px;
 }
+
+.live-top{
+  height:58px;
+
+  display:flex;
+
+  align-items:center;
+
+  justify-content:space-between;
+
+  padding:0 14px;
+
+  position:sticky;
+
+  top:0;
+
+  z-index:3;
+
+  background:rgba(0,0,0,.72);
 
-.live-overlay {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  pointer-events: none;
+  backdrop-filter:blur(14px);
 }
 
-.live-info {
-  pointer-events: auto;
-  background: rgba(0,0,0,.55);
-  border-radius: 13px;
-  padding: 10px 12px;
+.live-title{
+  font-weight:900;
 }
 
-.live-info-title {
-  font-weight: 900;
+.live-dot{
+  color:#ff4d91;
+
+  font-size:11px;
+
+  font-weight:900;
 }
+
+.live-media{
+  width:100%;
+
+  height:min(68vh,620px);
+
+  background:#000;
+
+  display:flex;
 
-.live-info-sub {
-  color: #ddd;
-  font-size: 12px;
-  margin-top: 3px;
+  align-items:center;
+
+  justify-content:center;
+
+  border-bottom:1px solid #1d2140;
 }
+
+.live-media img{
+  width:100%;
+  height:100%;
 
-.live-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: auto;
+  object-fit:contain;
+
+  display:block;
 }
 
-.circle-action {
-  width: 48px;
-  height: 48px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(20,20,30,.88);
-  color: #fff;
-  font-size: 21px;
+.live-info{
+  padding:13px 14px;
 }
 
-.like-active {
-  background: #ff3571;
+.host-name{
+  font-size:19px;
+  font-weight:900;
 }
+
+.viewers{
+  font-size:11px;
 
-.live-content {
-  padding: 13px;
+  color:#9da6c9;
+
+  margin-top:3px;
 }
+
+.tagline{
+  color:#c7cbe0;
 
-.live-message {
-  color: #aaaabd;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size:12px;
+
+  line-height:1.7;
+
+  margin-top:10px;
 }
+
+.actions{
+  display:grid;
 
-.live-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 9px;
-  margin-top: 14px;
+  grid-template-columns:repeat(3,1fr);
+
+  gap:8px;
+
+  margin-top:13px;
 }
+
+.action{
+  border:0;
 
-.action-button {
-  border: 1px solid #292938;
-  border-radius: 12px;
-  padding: 12px 6px;
-  color: #fff;
-  background: #11111a;
-  font-weight: 800;
+  border-radius:14px;
+
+  padding:12px 6px;
+
+  font-weight:900;
+
+  color:#fff;
+
+  background:#151a38;
 }
 
-.gift-button {
-  background: linear-gradient(135deg,#ff8b45,#ff3e8d);
-  border: 0;
+.action.gift{
+  background:
+    linear-gradient(
+      90deg,
+      #ff3d9b,
+      #ff5c5c
+    );
 }
 
-.block-button {
-  color: #ff738d;
+.action.like{
+  background:
+    linear-gradient(
+      90deg,
+      #ff425f,
+      #ff78a5
+    );
 }
 
-.host-panel {
-  margin-top: 14px;
-  padding: 14px;
-  border-radius: 15px;
-  background: #101018;
-  border: 1px solid #252532;
+.action.block{
+  background:#2a0e1a;
 }
+
+.count{
+  font-size:10px;
+  opacity:.85;
 
-.host-title {
-  font-weight: 900;
-  margin-bottom: 10px;
+  margin-left:3px;
 }
+
+.custom-panel{
+  margin-top:12px;
+
+  padding:12px;
 
-.host-controls {
-  display: grid;
-  gap: 9px;
+  border-radius:16px;
+
+  background:#0d1128;
+
+  border:1px solid #252a4d;
 }
+
+.custom-panel h3{
+  font-size:13px;
 
-.control-button {
-  width: 100%;
-  border: 0;
-  border-radius: 12px;
-  padding: 13px;
-  background: #20202c;
-  color: #fff;
-  font-weight: 800;
+  margin:0 0 8px;
 }
 
-.control-button.primary {
-  background: #6d57ff;
+.custom-row{
+  display:flex;
+  gap:7px;
 }
+
+.custom-row input{
+  min-width:0;
+
+  flex:1;
+
+  border:1px solid #343a63;
 
-.control-button.danger {
-  background: #d82f54;
+  background:#070914;
+
+  color:#fff;
+
+  border-radius:11px;
+
+  padding:10px;
+
+  font-size:11px;
 }
+
+.small-btn{
+  border:0;
+
+  border-radius:11px;
+
+  padding:0 12px;
 
-.custom-input {
-  width: 100%;
-  border: 1px solid #30303d;
-  border-radius: 11px;
-  background: #08080e;
-  color: #fff;
-  padding: 12px;
+  background:#7564ff;
+
+  color:#fff;
+
+  font-weight:900;
 }
+
+.stop-live{
+  width:100%;
+
+  border:0;
+
+  border-radius:14px;
+
+  padding:14px;
 
-.hidden {
-  display: none !important;
+  margin-top:12px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #ff477c,
+      #a845ff
+    );
+
+  color:#fff;
+
+  font-weight:900;
 }
+
+.audio-on{
+  width:100%;
+
+  border:0;
+
+  border-radius:14px;
+
+  padding:14px;
 
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 86px;
-  transform: translateX(-50%);
-  background: rgba(25,25,35,.96);
-  border: 1px solid #39394a;
-  color: #fff;
-  padding: 11px 16px;
-  border-radius: 30px;
-  z-index: 300;
-  font-size: 13px;
+  margin-top:10px;
+
+  background:#ffbf3e;
+
+  color:#1c1200;
+
+  font-weight:900;
 }
+
+.gift-panel{
+  position:fixed;
+
+  left:10px;
+  right:10px;
+
+  bottom:88px;
 
-.gift-panel {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 78px;
-  background: #101018;
-  border: 1px solid #353547;
-  border-radius: 18px;
-  padding: 14px;
-  z-index: 200;
-  box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  z-index:220;
+
+  padding:12px;
+
+  border-radius:20px;
+
+  background:rgba(12,15,34,.98);
+
+  border:1px solid #3a3f6b;
+
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.5);
 }
+
+.gift-grid{
+  display:grid;
+
+  grid-template-columns:repeat(4,1fr);
 
-.gift-title {
-  font-weight: 900;
-  margin-bottom: 10px;
+  gap:8px;
 }
 
-.gift-grid {
-  display: grid;
-  grid-template-columns: repeat(4,1fr);
-  gap: 8px;
+.gift-btn{
+  border:0;
+
+  border-radius:14px;
+
+  padding:10px 3px;
+
+  background:#171c3d;
+
+  color:#fff;
 }
 
-.gift-item {
-  border: 1px solid #2b2b3a;
-  background: #171720;
-  color: #fff;
-  border-radius: 12px;
-  padding: 10px 5px;
+.gift-btn b{
+  display:block;
+  font-size:22px;
 }
 
-.gift-emoji {
-  font-size: 25px;
+.gift-btn span{
+  font-size:9px;
 }
+
+.status{
+  margin-top:10px;
+
+  padding:10px;
 
-.gift-name {
-  font-size: 10px;
-  margin-top: 3px;
+  border-radius:12px;
+
+  background:#0d1229;
+
+  border:1px solid #252b50;
+
+  color:#aab2d0;
+
+  text-align:center;
+
+  font-size:11px;
 }
+
+.log{
+  margin:10px 14px;
+
+  padding:10px;
 
-.close-gift {
-  margin-top: 10px;
-  width: 100%;
-  border: 0;
-  border-radius: 10px;
-  padding: 10px;
-  background: #292938;
-  color: #fff;
+  background:#05060d;
+
+  border-radius:12px;
+
+  min-height:60px;
+
+  max-height:140px;
+
+  overflow:auto;
+
+  color:#75ffc1;
+
+  font-size:10px;
+
+  white-space:pre-wrap;
 }
+
+@media(min-width:650px){
+
+  .hero h1{
+    font-size:58px;
+  }
+
+  .hero-content{
+    padding:45px 38px;
+  }
+
+  .list-grid{
+    grid-template-columns:repeat(4,1fr);
+  }
+
+  .rank-card{
+    flex-basis:140px;
+  }
+
+  .rank-img{
+    height:160px;
+  }
 
-.empty {
-  text-align: center;
-  color: #888899;
-  padding: 40px 10px;
 }
 
 </style>
@@ -845,2013 +985,2895 @@ img {
 
 <body>
 
-<div class="app" id="app"></div>
-<div id="toast" class="toast hidden"></div>
+<div id="app">
 
-<div class="bottom-nav" id="bottomNav">
-  <button class="nav-item" onclick="goHome()">
+<header class="topbar">
+  <div class="brand">VoiceボタLive</div>
+
+  <div class="online">
+    <i></i>
+    オンライン
+  </div>
+</header>
+
+<main class="page" id="homePage">
+
+<section class="hero">
+
+  <div class="hero-img-wrap">
+
+    <img
+      class="hero-img"
+      src="${HERO_IMAGE_URL}"
+      alt=""
+    >
+
+    <div class="hero-shade"></div>
+
+  </div>
+
+  <div class="hero-content">
+
+    <div class="pill">
+      🌙 月光花 × Voice
+    </div>
+
+    <h1>
+      VoiceボタLive
+    </h1>
+
+    <div class="sub">
+      ${HERO_COPY}
+    </div>
+
+    <div class="copy">
+      ${HERO_TITLE}
+    </div>
+
+    <div class="desc">
+      月明かりの下で、話して、聴いて、笑って。<br>
+      VoiceボタLiveで、あなたの声をもっと近くに。
+    </div>
+
+    <button
+      class="primary"
+      onclick="startHost()"
+    >
+      🎙️ 配信をはじめる
+    </button>
+
+    <button
+      class="secondary"
+      onclick="startViewer()"
+    >
+      👂 ライブを聴いてみる
+    </button>
+
+  </div>
+
+</section>
+
+<section class="section">
+
+  <div class="section-head">
+
+    <div class="section-title">
+      🏆 人気トップ50
+    </div>
+
+    <button
+      class="more"
+      onclick="openPage('top50')"
+    >
+      TOP 50 ›
+    </button>
+
+  </div>
+
+  <div
+    class="scroller"
+    id="topPreview"
+  ></div>
+
+</section>
+
+<section class="section">
+
+  <div class="section-head">
+
+    <div class="section-title">
+      🌱 新人ライバー
+    </div>
+
+    <button
+      class="more"
+      onclick="openPage('newcomers')"
+    >
+      新人をもっと見る ›
+    </button>
+
+  </div>
+
+  <div
+    class="scroller"
+    id="newPreview"
+  ></div>
+
+</section>
+
+<section class="features">
+
+  <div class="feature">
+    <b>🎙️ 高音質音声</b>
+    <p>
+      WebRTCによる低遅延音声配信。
+    </p>
+  </div>
+
+  <div class="feature">
+    <b>⚡ 低遅延</b>
+    <p>
+      Opusと受信側の低遅延設定。
+    </p>
+  </div>
+
+  <div class="feature">
+    <b>🎁 ギフト・いいね</b>
+    <p>
+      ライブ中にリアルタイム送信。
+    </p>
+  </div>
+
+  <div class="feature">
+    <b>🚫 ブロック</b>
+    <p>
+      視聴者側からブロックできます。
+    </p>
+  </div>
+
+</section>
+
+</main>
+
+<main
+  class="page page-view hidden"
+  id="listPage"
+>
+
+  <button
+    class="back"
+    onclick="openPage('home')"
+  >
+    ‹ ホームへ戻る
+  </button>
+
+  <h2 id="listTitle"></h2>
+
+  <div
+    class="list-grid"
+    id="listGrid"
+  ></div>
+
+</main>
+
+<nav class="bottom-nav">
+
+  <button
+    class="nav-item active"
+    onclick="openPage('home')"
+  >
     <span class="nav-icon">⌂</span>
     ホーム
   </button>
 
-  <button class="nav-item" onclick="showPage('ranking')">
+  <button
+    class="nav-item"
+    onclick="document.getElementById('topPreview').scrollIntoView({behavior:'smooth'})"
+  >
     <span class="nav-icon">⌕</span>
     探す
   </button>
 
-  <button class="nav-item nav-live" onclick="startBroadcast()">
-    ＋
+  <button
+    class="nav-item"
+    onclick="startHost()"
+  >
+    <span class="nav-center">🎙️</span>
+    配信
   </button>
 
-  <button class="nav-item" onclick="showToast('お知らせ機能')">
+  <button
+    class="nav-item"
+    onclick="alert('お知らせは準備中です')"
+  >
     <span class="nav-icon">♧</span>
     お知らせ
   </button>
 
-  <button class="nav-item" onclick="showToast('マイページ')">
+  <button
+    class="nav-item"
+    onclick="alert('マイページは準備中です')"
+  >
     <span class="nav-icon">♙</span>
     マイページ
   </button>
+
+</nav>
+
 </div>
+
+<div
+  id="liveScreen"
+  class="live-screen hidden"
+>
+
+  <div class="live-top">
+
+    <button
+      class="back"
+      style="color:#fff"
+      onclick="closeLive()"
+    >
+      ✕
+    </button>
+
+    <div class="live-title">
+      あなたの配信
+    </div>
+
+    <div class="live-dot">
+      ● LIVE
+    </div>
+
+  </div>
+
+  <div class="live-media">
+
+    <img
+      id="liveImage"
+      src="${RANK_IMAGES[0]}"
+      alt=""
+    >
+
+  </div>
+
+  <div class="live-info">
+
+    <div class="host-name">
+      あなたの配信
+    </div>
+
+    <div
+      class="viewers"
+      id="liveViewers"
+    >
+      視聴者 0人
+    </div>
+
+    <div class="tagline">
+      声でつながる、みんなの居場所。
+    </div>
+
+    <div class="actions">
+
+      <button
+        class="action gift"
+        onclick="toggleGifts()"
+      >
+        🎁 ギフト
+      </button>
+
+      <button
+        class="action like"
+        onclick="sendLike()"
+      >
+        ♥ いいね
+        <span
+          id="likeCount"
+          class="count"
+        >
+          0
+        </span>
+      </button>
+
+      <button
+        class="action block"
+        onclick="sendBlock()"
+      >
+        🚫 ブロック
+      </button>
+
+    </div>
+
+    <div
+      id="customPanel"
+      class="custom-panel hidden"
+    >
+
+      <h3>
+        🎨 配信画面カスタム
+      </h3>
+
+      <div class="custom-row">
+
+        <input
+          id="customUrl"
+          placeholder="画像URLを入力"
+        >
+
+        <button
+          class="small-btn"
+          onclick="applyCustomImage()"
+        >
+          変更
+        </button>
+
+      </div>
+
+      <button
+        class="secondary"
+        style="margin-top:8px"
+        onclick="resetCustomImage()"
+      >
+        初期画像に戻す
+      </button>
+
+    </div>
+
+    <button
+      class="secondary"
+      onclick="toggleCustom()"
+    >
+      🎨 配信画面カスタムを開く
+    </button>
+
+    <button
+      id="audioButton"
+      class="audio-on hidden"
+      onclick="enableAudio()"
+    >
+      🔊 音声をONにする
+    </button>
+
+    <button
+      class="stop-live"
+      onclick="stopLive()"
+    >
+      ⛔ 配信を終了する
+    </button>
+
+    <div
+      id="liveStatus"
+      class="status"
+    >
+      接続中...
+    </div>
+
+  </div>
+
+  <div
+    id="log"
+    class="log"
+  ></div>
+
+</div>
+
+<div
+  id="giftPanel"
+  class="gift-panel hidden"
+>
+
+  <div class="gift-grid">
+
+    <button
+      class="gift-btn"
+      onclick="sendGift('🌸','花')"
+    >
+      <b>🌸</b>
+      <span>花</span>
+    </button>
+
+    <button
+      class="gift-btn"
+      onclick="sendGift('⭐','星')"
+    >
+      <b>⭐</b>
+      <span>星</span>
+    </button>
+
+    <button
+      class="gift-btn"
+      onclick="sendGift('💎','ダイヤ')"
+    >
+      <b>💎</b>
+      <span>ダイヤ</span>
+    </button>
+
+    <button
+      class="gift-btn"
+      onclick="sendGift('🌙','月')"
+    >
+      <b>🌙</b>
+      <span>月</span>
+    </button>
+
+  </div>
+
+</div>
+
+<audio
+  id="remoteAudio"
+  autoplay
+  playsinline
+></audio>
 
 <script>
 
-/* =========================================================
-   共通
-   ========================================================= */
+"use strict";
 
-const state = {
-  ws: null,
-  wsReady: false,
-  socketId: null,
+const top50 = ${JSON.stringify(top50)};
+const newcomers = ${JSON.stringify(newcomers)};
+const defaultLiveImage = ${JSON.stringify(RANK_IMAGES[0])};
 
-  liveId: null,
-  isHost: false,
-  localStream: null,
+let ws = null;
+let myId = null;
+let myRole = null;
 
-  peers: {},
-  blocked: {},
+let localStream = null;
 
-  liked: false,
-  likes: 0,
+let viewerPeer = null;
+let viewerId = null;
 
-  currentImage: "",
+let viewerConnections = new Map();
 
-  reconnectTimer: null
-};
+let pendingCandidates = [];
+let hostPendingCandidates = new Map();
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+let reconnectTimer = null;
+
+let manuallyStopped = false;
+let roomJoined = false;
+
+let likeCount = 0;
+
+const room = "bota";
+
+const liveScreen =
+  document.getElementById("liveScreen");
+
+const liveStatus =
+  document.getElementById("liveStatus");
+
+const liveImage =
+  document.getElementById("liveImage");
+
+const liveLog =
+  document.getElementById("log");
+
+const remoteAudio =
+  document.getElementById("remoteAudio");
+
+function log(text){
+
+  console.log(text);
+
+  liveLog.textContent += text + "\\n";
+
+  liveLog.scrollTop =
+    liveLog.scrollHeight;
 }
 
-function showToast(text) {
-  const el = document.getElementById("toast");
+function setLiveStatus(text){
 
-  el.textContent = text;
-  el.classList.remove("hidden");
+  liveStatus.textContent = text;
 
-  clearTimeout(window.__toastTimer);
-
-  window.__toastTimer = setTimeout(() => {
-    el.classList.add("hidden");
-  }, 1800);
 }
 
-function wsSend(data) {
-  if (!state.ws) return;
+function renderCards(
+  list,
+  targetId,
+  limit
+){
 
-  if (state.ws.readyState !== WebSocket.OPEN) return;
+  const el =
+    document.getElementById(targetId);
 
-  state.ws.send(JSON.stringify(data));
-}
+  el.innerHTML =
+    list.slice(0,limit).map(x => \`
 
-function connectWS() {
-  if (
-    state.ws &&
-    (
-      state.ws.readyState === WebSocket.OPEN ||
-      state.ws.readyState === WebSocket.CONNECTING
-    )
-  ) {
-    return;
-  }
+      <article
+        class="rank-card"
+        onclick="startViewer()"
+      >
 
-  const protocol =
-    location.protocol === "https:"
-      ? "wss:"
-      : "ws:";
-
-  state.ws = new WebSocket(
-    protocol + "//" + location.host
-  );
-
-  state.ws.onopen = () => {
-    state.wsReady = true;
-
-    if (state.liveId) {
-      joinLiveSocket();
-    }
-  };
-
-  state.ws.onmessage = async event => {
-    try {
-      const data = JSON.parse(event.data);
-      await handleSocketMessage(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  state.ws.onclose = () => {
-    state.wsReady = false;
-
-    clearTimeout(state.reconnectTimer);
-
-    state.reconnectTimer = setTimeout(() => {
-      connectWS();
-    }, 1500);
-  };
-
-  state.ws.onerror = () => {
-    state.wsReady = false;
-  };
-}
-
-connectWS();
-
-/* =========================================================
-   ホーム
-   ========================================================= */
-
-async function getHomeData() {
-  const response = await fetch("/api/home");
-  return response.json();
-}
-
-function renderHome(data) {
-  const app = document.getElementById("app");
-
-  app.innerHTML = \`
-    <div class="header">
-      <div class="logo">
-        Voice<span>ポタLive</span>
-      </div>
-    </div>
-
-    <main class="page">
-
-      <section class="hero">
-        <img
-          class="hero-image"
-          src="\${escapeHtml(data.hero)}"
-          alt=""
-        >
-
-        <div class="hero-copy">
-          <div class="hero-small">
-            声でつながる、みんなの居場所。
-          </div>
-
-          <div class="hero-title">
-            あなたの声が、<br>
-            誰かの夜を照らす。
-          </div>
-
-          <div class="hero-text">
-            月明かりの下で、話して、聞いて、笑って。<br>
-            VoiceポタLiveで、あなたの声をもっと近くに。
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-
-        <div class="section-head">
-          <div class="section-title">
-            🏆 人気トップ50
-          </div>
-
-          <button
-            class="more"
-            onclick="showPage('ranking')"
-          >
-            TOP 50
-          </button>
-        </div>
-
-        <div class="horizontal">
-          \${data.ranking.slice(0,10).map((item,index) =>
-            renderCard(item,index)
-          ).join("")}
-        </div>
-
-      </section>
-
-      <section class="section">
-
-        <div class="section-head">
-          <div class="section-title">
-            🌱 新人ライバー
-          </div>
-
-          <button
-            class="more"
-            onclick="showPage('newcomers')"
-          >
-            もっと見る
-          </button>
-        </div>
-
-        <div class="horizontal">
-          \${data.newcomers.slice(0,10).map((item,index) =>
-            renderCard(item,index)
-          ).join("")}
-        </div>
-
-      </section>
-
-    </main>
-  \`;
-}
-
-function renderCard(item,index) {
-  return \`
-    <article
-      class="card"
-      onclick="openLive('\${escapeHtml(item.id)}')"
-    >
-      <div class="card-image-wrap">
+        \${x.live
+          ? '<div class="live-pill">LIVE</div>'
+          : ''
+        }
 
         <img
-          class="card-image"
-          src="\${escapeHtml(item.image)}"
+          class="rank-img"
+          src="\${x.image}"
           alt=""
           loading="lazy"
         >
 
-        <div class="live-dot">
-          LIVE
-        </div>
+        <div class="rank-body">
 
-      </div>
-
-      <div class="card-body">
-
-        <div class="card-name">
-          \${escapeHtml(item.name)}
-        </div>
-
-        <div class="card-meta">
-          👁 \${Number(item.viewers).toLocaleString()}
-          ・ ❤️ \${Number(item.likes).toLocaleString()}
-        </div>
-
-      </div>
-    </article>
-  \`;
-}
-
-async function goHome() {
-  try {
-    const data = await getHomeData();
-
-    state.liveId = null;
-    state.isHost = false;
-
-    document.getElementById("bottomNav")
-      .classList.remove("hidden");
-
-    renderHome(data);
-
-  } catch (error) {
-    console.error(error);
-    showToast("ホームの読み込みに失敗しました");
-  }
-}
-
-/* =========================================================
-   ランキングページ
-   ========================================================= */
-
-async function showPage(type) {
-
-  if (type === "ranking") {
-    const response = await fetch("/api/ranking");
-    const data = await response.json();
-
-    renderListPage(
-      "🏆 人気トップ50",
-      data
-    );
-
-    return;
-  }
-
-  if (type === "newcomers") {
-    const response = await fetch("/api/newcomers");
-    const data = await response.json();
-
-    renderListPage(
-      "🌱 新人ライバー",
-      data
-    );
-
-    return;
-  }
-}
-
-function renderListPage(title,data) {
-
-  document.getElementById("app").innerHTML = \`
-    <div class="header">
-      <div class="logo">
-        Voice<span>ポタLive</span>
-      </div>
-    </div>
-
-    <main class="list-page">
-
-      <div class="list-title">
-        \${escapeHtml(title)}
-      </div>
-
-      <div class="list">
-
-        \${data.map((item,index) => \`
-          <div class="list-card">
-
-            <div class="list-rank">
-              \${index + 1}
-            </div>
-
-            <img
-              class="list-image"
-              src="\${escapeHtml(item.image)}"
-              alt=""
-            >
-
-            <div class="list-info">
-
-              <div class="list-name">
-                \${escapeHtml(item.name)}
-              </div>
-
-              <div class="list-meta">
-                \${escapeHtml(item.category)}
-              </div>
-
-              <div class="list-meta">
-                👁 \${Number(item.viewers).toLocaleString()}
-                ・ ❤️ \${Number(item.likes).toLocaleString()}
-              </div>
-
-            </div>
-
-            <button
-              class="open-live"
-              onclick="openLive('\${escapeHtml(item.id)}')"
-            >
-              配信を見る
-            </button>
-
-          </div>
-        \`).join("")}
-
-      </div>
-
-    </main>
-  \`;
-}
-
-/* =========================================================
-   配信を見る
-   ========================================================= */
-
-function openLive(id) {
-
-  state.liveId = id;
-  state.isHost = false;
-  state.currentImage = "";
-
-  document.getElementById("bottomNav")
-    .classList.add("hidden");
-
-  renderLivePage();
-
-  connectWS();
-
-  setTimeout(() => {
-    joinLiveSocket();
-  }, 100);
-}
-
-function joinLiveSocket() {
-
-  if (!state.liveId) return;
-
-  wsSend({
-    type: "join",
-    liveId: state.liveId,
-    role: "viewer"
-  });
-}
-
-function renderLivePage() {
-
-  const app = document.getElementById("app");
-
-  app.innerHTML = \`
-    <div class="live-page">
-
-      <div class="live-header">
-
-        <button
-          class="back-btn"
-          onclick="goHome()"
-        >
-          ←
-        </button>
-
-        <div class="live-name">
-          VoiceポタLive
-        </div>
-
-        <div class="live-status">
-          ● LIVE
-        </div>
-
-      </div>
-
-      <div class="live-visual">
-
-        <img
-          id="liveImage"
-          class="live-image"
-          src=""
-          alt=""
-        >
-
-        <video
-          id="remoteVideo"
-          class="live-video hidden"
-          autoplay
-          playsinline
-          controls="false"
-        ></video>
-
-        <div class="live-overlay">
-
-          <div class="live-info">
-
-            <div
-              class="live-info-title"
-              id="liveTitle"
-            >
-              配信に接続中...
-            </div>
-
-            <div
-              class="live-info-sub"
-              id="viewerCount"
-            >
-              接続しています
-            </div>
-
+          <div class="rank-no">
+            #\${x.rank}
           </div>
 
-          <div class="live-actions">
+          <div class="rank-name">
+            \${x.name}
+          </div>
 
-            <button
-              id="likeCircle"
-              class="circle-action"
-              onclick="likeLive()"
-            >
-              ♥
-            </button>
-
-            <button
-              class="circle-action"
-              onclick="openGiftPanel()"
-            >
-              🎁
-            </button>
-
+          <div class="rank-meta">
+            👥 \${x.viewers}
+            ·
+            ♥ \${x.likes}
           </div>
 
         </div>
 
-      </div>
+      </article>
 
-      <div class="live-content">
+    \`).join("");
 
-        <div class="live-message">
-          声でつながる、みんなの居場所。
-        </div>
+}
 
-        <div class="live-buttons">
+function renderList(type){
 
-          <button
-            class="action-button gift-button"
-            onclick="openGiftPanel()"
-          >
-            🎁 ギフト
-          </button>
+  const list =
+    type === "top50"
+      ? top50
+      : newcomers;
 
-          <button
-            class="action-button"
-            onclick="likeLive()"
-          >
-            ❤️ いいね
-          </button>
+  document
+    .getElementById("homePage")
+    .classList
+    .add("hidden");
 
-          <button
-            class="action-button block-button"
-            onclick="blockLive()"
-          >
-            🚫 ブロック
-          </button>
+  document
+    .getElementById("listPage")
+    .classList
+    .remove("hidden");
 
-        </div>
+  document.getElementById("listTitle")
+    .textContent =
+      type === "top50"
+        ? "🏆 人気トップ50"
+        : "🌱 新人ライバー";
 
-      </div>
+  document.getElementById("listGrid")
+    .innerHTML =
+      list.map(x => \`
 
-      <div
-        id="giftPanel"
-        class="gift-panel hidden"
-      >
-
-        <div class="gift-title">
-          🎁 ギフトを送る
-        </div>
-
-        <div class="gift-grid">
-
-          <button class="gift-item" onclick="sendGift('🌹','バラ')">
-            <div class="gift-emoji">🌹</div>
-            <div class="gift-name">バラ</div>
-          </button>
-
-          <button class="gift-item" onclick="sendGift('❤️','ハート')">
-            <div class="gift-emoji">❤️</div>
-            <div class="gift-name">ハート</div>
-          </button>
-
-          <button class="gift-item" onclick="sendGift('⭐','スター')">
-            <div class="gift-emoji">⭐</div>
-            <div class="gift-name">スター</div>
-          </button>
-
-          <button class="gift-item" onclick="sendGift('💎','ダイヤ')">
-            <div class="gift-emoji">💎</div>
-            <div class="gift-name">ダイヤ</div>
-          </button>
-
-        </div>
-
-        <button
-          class="close-gift"
-          onclick="closeGiftPanel()"
+        <article
+          class="list-card"
+          onclick="startViewer()"
         >
-          閉じる
-        </button>
 
-      </div>
+          <img
+            src="\${x.image}"
+            alt=""
+            loading="lazy"
+          >
 
-    </div>
-  \`;
+          <div class="lb">
 
-  document.getElementById("liveImage").style.display = "none";
+            <div class="nm">
+              #\${x.rank}
+              \${x.name}
+            </div>
+
+            <div class="sm">
+              \${x.live
+                ? "🔴 LIVE"
+                : "⚪ 待機中"
+              }
+
+              👥 \${x.viewers}
+
+              ♥ \${x.likes}
+            </div>
+
+          </div>
+
+        </article>
+
+      \`).join("");
+
+  window.scrollTo(0,0);
+
 }
 
-/* =========================================================
-   いいね
-   ========================================================= */
+function openPage(page){
 
-function likeLive() {
+  if(page === "home"){
 
-  if (state.liked) {
-    showToast("いいね済みです");
-    return;
+    document
+      .getElementById("homePage")
+      .classList
+      .remove("hidden");
+
+    document
+      .getElementById("listPage")
+      .classList
+      .add("hidden");
+
+  }else{
+
+    renderList(page);
+
   }
 
-  state.liked = true;
+  history.replaceState(
+    {},
+    "",
+    page === "home"
+      ? location.pathname
+      : "?page="+page
+  );
 
-  const btn = document.getElementById("likeCircle");
+  window.scrollTo(0,0);
 
-  if (btn) {
-    btn.classList.add("like-active");
-  }
-
-  wsSend({
-    type: "like",
-    liveId: state.liveId
-  });
-
-  showToast("❤️ いいね！");
 }
 
-/* =========================================================
-   ブロック
-   ========================================================= */
+renderCards(
+  top50,
+  "topPreview",
+  10
+);
 
-function blockLive() {
+renderCards(
+  newcomers,
+  "newPreview",
+  10
+);
 
-  if (!state.liveId) return;
+const initialPage =
+  new URLSearchParams(
+    location.search
+  ).get("page");
 
-  state.blocked[state.liveId] = true;
+if(
+  initialPage === "top50" ||
+  initialPage === "newcomers"
+){
 
-  wsSend({
-    type: "block",
-    liveId: state.liveId
-  });
+  renderList(initialPage);
 
-  showToast("この配信をブロックしました");
-
-  setTimeout(() => {
-    goHome();
-  }, 700);
 }
 
-/* =========================================================
-   ギフト
-   ========================================================= */
+function getSocketURL(){
 
-function openGiftPanel() {
-  const panel = document.getElementById("giftPanel");
+  return (
+    location.protocol === "https:"
+      ? "wss://"
+      : "ws://"
+  ) + location.host;
 
-  if (panel) {
-    panel.classList.remove("hidden");
-  }
 }
 
-function closeGiftPanel() {
-  const panel = document.getElementById("giftPanel");
+function send(data){
 
-  if (panel) {
-    panel.classList.add("hidden");
-  }
-}
+  if(
+    ws &&
+    ws.readyState === WebSocket.OPEN
+  ){
 
-function sendGift(emoji,name) {
+    try{
 
-  wsSend({
-    type: "gift",
-    liveId: state.liveId,
-    gift: {
-      emoji,
-      name
+      ws.send(
+        JSON.stringify(data)
+      );
+
+    }catch(e){
+
+      log(
+        "送信エラー: " +
+        e.message
+      );
+
     }
-  });
 
-  closeGiftPanel();
+  }
 
-  showToast(emoji + " " + name + "を送りました！");
 }
 
-/* =========================================================
-   配信開始
-   ========================================================= */
+function connectSocket(){
 
-async function startBroadcast() {
+  return new Promise(
+    (resolve,reject)=>{
 
-  document.getElementById("bottomNav")
-    .classList.add("hidden");
+      if(
+        ws &&
+        ws.readyState === WebSocket.OPEN
+      ){
 
-  state.liveId =
-    "user-" +
-    Math.random()
-      .toString(36)
-      .slice(2,10);
+        resolve();
+        return;
 
-  state.isHost = true;
+      }
 
-  renderHostPage();
+      ws =
+        new WebSocket(
+          getSocketURL()
+        );
 
-  try {
+      let settled = false;
 
-    state.localStream =
-      await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
+      ws.onopen = ()=>{
+
+        log(
+          "WebSocket接続OK"
+        );
+
+        if(!settled){
+
+          settled = true;
+
+          resolve();
+
+        }
+
+        if(
+          myRole &&
+          !roomJoined
+        ){
+
+          send({
+            type:"join",
+            role:myRole,
+            room
+          });
+
+        }
+
+      };
+
+      ws.onerror = ()=>{
+
+        if(!settled){
+
+          settled = true;
+
+          reject(
+            new Error(
+              "WebSocket接続失敗"
+            )
+          );
+
+        }
+
+        log(
+          "WebSocketエラー"
+        );
+
+      };
+
+      ws.onclose = e=>{
+
+        roomJoined = false;
+
+        log(
+          "WebSocket切断 code=" +
+          e.code
+        );
+
+        if(
+          !manuallyStopped &&
+          myRole
+        ){
+
+          setLiveStatus(
+            "接続が切れました。再接続中..."
+          );
+
+          scheduleReconnect();
+
+        }
+
+      };
+
+      ws.onmessage = async e=>{
+
+        try{
+
+          await handleMessage(
+            JSON.parse(e.data)
+          );
+
+        }catch(err){
+
+          log(
+            "Message Error: " +
+            err.message
+          );
+
+        }
+
+      };
+
+    }
+  );
+
+}
+
+function scheduleReconnect(){
+
+  if(reconnectTimer)
+    return;
+
+  reconnectTimer =
+    setTimeout(
+      async ()=>{
+
+        reconnectTimer = null;
+
+        if(
+          manuallyStopped ||
+          !myRole
+        ){
+
+          return;
+
+        }
+
+        try{
+
+          await connectSocket();
+
+        }catch(e){
+
+          scheduleReconnect();
+
+        }
+
+      },
+      1500
+    );
+
+}
+
+async function startHost(){
+
+  manuallyStopped = false;
+
+  myRole = "host";
+
+  openLive();
+
+  try{
+
+    await connectSocket();
+
+    if(!roomJoined){
+
+      send({
+        type:"join",
+        role:"host",
+        room
       });
 
-    showToast("マイクを取得しました");
+    }
 
-    connectWS();
+    await startMicrophone();
 
-    wsSend({
-      type: "host_start",
-      liveId: state.liveId,
-      name: "ぼたもち",
-      image:
-        "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
+    setLiveStatus(
+      "🎙️ 配信中"
+    );
+
+    send({
+      type:"stream-started"
     });
 
-  } catch (error) {
+    send({
+      type:"live-meta",
+      image:liveImage.src
+    });
 
-    console.error(error);
+  }catch(e){
 
-    showToast(
-      "マイクを使用できません。ブラウザのマイク許可を確認してください。"
+    setLiveStatus(
+      "配信開始失敗: " +
+      e.message
     );
-  }
-}
 
-function renderHostPage() {
+    log(
+      "配信開始失敗: " +
+      e.message
+    );
 
-  document.getElementById("app").innerHTML = \`
-    <div class="live-page">
-
-      <div class="live-header">
-
-        <button
-          class="back-btn"
-          onclick="endBroadcast()"
-        >
-          ×
-        </button>
-
-        <div class="live-name">
-          あなたの配信
-        </div>
-
-        <div class="live-status">
-          ● LIVE
-        </div>
-
-      </div>
-
-      <div class="live-visual">
-
-        <img
-          id="hostImage"
-          class="live-image"
-          src="https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
-          alt=""
-        >
-
-        <div class="live-overlay">
-
-          <div class="live-info">
-
-            <div class="live-info-title">
-              あなたの配信
-            </div>
-
-            <div
-              id="hostViewerCount"
-              class="live-info-sub"
-            >
-              視聴者 0人
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="live-content">
-
-        <div class="live-message">
-          声でつながる、みんなの居場所。
-        </div>
-
-        <div class="live-buttons">
-
-          <button
-            class="action-button gift-button"
-            onclick="showToast('ギフトを受け取りました')"
-          >
-            🎁 ギフト
-          </button>
-
-          <button
-            class="action-button"
-            onclick="showToast('いいねを受け取りました')"
-          >
-            ❤️ いいね
-          </button>
-
-          <button
-            class="action-button"
-            onclick="showToast('ブロック管理')"
-          >
-            🚫 ブロック
-          </button>
-
-        </div>
-
-        <div class="host-panel">
-
-          <div class="host-title">
-            🎨 配信画面カスタム
-          </div>
-
-          <div class="host-controls">
-
-            <input
-              id="customImageUrl"
-              class="custom-input"
-              type="url"
-              placeholder="画像URLを入力"
-            >
-
-            <button
-              class="control-button primary"
-              onclick="changeBroadcastImage()"
-            >
-              画像を変更
-            </button>
-
-            <button
-              class="control-button"
-              onclick="resetBroadcastImage()"
-            >
-              初期画像に戻す
-            </button>
-
-            <button
-              class="control-button danger"
-              onclick="endBroadcast()"
-            >
-              配信を終了する
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  \`;
-}
-
-/* =========================================================
-   配信画像変更
-   ========================================================= */
-
-function changeBroadcastImage() {
-
-  const input =
-    document.getElementById("customImageUrl");
-
-  if (!input) return;
-
-  const url = input.value.trim();
-
-  if (!url) {
-    showToast("画像URLを入力してください");
-    return;
   }
 
-  const image =
-    document.getElementById("hostImage");
-
-  if (!image) return;
-
-  image.src = url;
-
-  state.currentImage = url;
-
-  wsSend({
-    type: "image",
-    liveId: state.liveId,
-    image: url
-  });
-
-  showToast("配信画像を変更しました");
 }
 
-function resetBroadcastImage() {
+async function startViewer(){
 
-  const url =
-    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85";
+  manuallyStopped = false;
 
-  const image =
-    document.getElementById("hostImage");
+  myRole = "viewer";
 
-  if (image) {
-    image.src = url;
-  }
+  openLive();
 
-  state.currentImage = url;
+  setLiveStatus(
+    "配信を接続中..."
+  );
 
-  wsSend({
-    type: "image",
-    liveId: state.liveId,
-    image: url
-  });
+  try{
 
-  showToast("初期画像に戻しました");
-}
+    await connectSocket();
 
-/* =========================================================
-   配信終了
-   ========================================================= */
+    if(!roomJoined){
 
-function endBroadcast() {
+      send({
+        type:"join",
+        role:"viewer",
+        room
+      });
 
-  wsSend({
-    type: "host_end",
-    liveId: state.liveId
-  });
-
-  Object.keys(state.peers).forEach(id => {
-
-    try {
-      state.peers[id].close();
-    } catch (_) {}
-
-  });
-
-  state.peers = {};
-
-  if (state.localStream) {
-
-    state.localStream
-      .getTracks()
-      .forEach(track => track.stop());
-
-    state.localStream = null;
-  }
-
-  state.liveId = null;
-  state.isHost = false;
-
-  showToast("配信を終了しました");
-
-  setTimeout(() => {
-    goHome();
-  }, 500);
-}
-
-/* =========================================================
-   WebRTC
-   ========================================================= */
-
-const rtcConfig = {
-  iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302"
-    },
-    {
-      urls: "stun:stun1.l.google.com:19302"
     }
-  ]
-};
 
-async function createHostPeer(viewerId) {
+  }catch(e){
 
-  if (!state.localStream) return;
+    setLiveStatus(
+      "接続失敗"
+    );
 
-  if (state.peers[viewerId]) {
-
-    try {
-      state.peers[viewerId].close();
-    } catch (_) {}
+    log(e.message);
 
   }
 
-  const pc =
-    new RTCPeerConnection(rtcConfig);
+}
 
-  state.peers[viewerId] = pc;
+function openLive(){
 
-  state.localStream
-    .getTracks()
-    .forEach(track => {
-      pc.addTrack(
-        track,
-        state.localStream
+  liveScreen
+    .classList
+    .remove("hidden");
+
+  document.body.style.overflow =
+    "hidden";
+
+}
+
+function closeLive(){
+
+  if(myRole){
+
+    stopLive();
+
+  }else{
+
+    liveScreen
+      .classList
+      .add("hidden");
+
+    document.body.style.overflow =
+      "";
+
+  }
+
+}
+
+async function startMicrophone(){
+
+  if(
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  ){
+
+    throw new Error(
+      "マイク機能が利用できません"
+    );
+
+  }
+
+  localStream =
+    await navigator.mediaDevices
+      .getUserMedia({
+
+        audio:{
+          echoCancellation:false,
+          noiseSuppression:false,
+          autoGainControl:false,
+          channelCount:1,
+          sampleRate:48000
+        },
+
+        video:false
+
+      });
+
+  log(
+    "マイク取得OK / LOW LATENCY AUDIO"
+  );
+
+}
+
+function optimizeOpusSDP(sdp){
+
+  if(!sdp)
+    return sdp;
+
+  const lines =
+    sdp.split("\\r\\n");
+
+  let payload = null;
+
+  for(
+    const line of lines
+  ){
+
+    const m =
+      line.match(
+        /^a=rtpmap:(\\d+) opus\\/48000\\/2/i
       );
+
+    if(m){
+
+      payload = m[1];
+
+      break;
+
+    }
+
+  }
+
+  if(!payload)
+    return sdp;
+
+  const fmtp =
+    "a=fmtp:" +
+    payload +
+    " minptime=10;" +
+    "useinbandfec=0;" +
+    "stereo=0;" +
+    "sprop-stereo=0;" +
+    "maxaveragebitrate=32000";
+
+  let replaced = false;
+
+  const out =
+    lines.map(line=>{
+
+      if(
+        line.startsWith(
+          "a=fmtp:"+payload+" "
+        )
+      ){
+
+        replaced = true;
+
+        return fmtp;
+
+      }
+
+      return line;
+
     });
 
-  pc.onicecandidate = event => {
+  if(!replaced){
 
-    if (!event.candidate) return;
+    const i =
+      out.findIndex(
+        x =>
+          x.startsWith(
+            "a=rtpmap:"+payload
+          )
+      );
 
-    wsSend({
-      type: "ice",
-      target: viewerId,
-      candidate: event.candidate
-    });
-  };
+    if(i >= 0){
 
-  pc.onconnectionstatechange = () => {
+      out.splice(
+        i+1,
+        0,
+        fmtp
+      );
 
-    const status =
-      pc.connectionState;
+    }
 
-    console.log(
-      "Host peer:",
-      viewerId,
-      status
+  }
+
+  const pi =
+    out.findIndex(
+      x =>
+        /^a=ptime:/i.test(x)
     );
 
-    if (
-      status === "failed" ||
-      status === "closed" ||
-      status === "disconnected"
-    ) {
+  if(pi >= 0){
 
-      try {
-        pc.close();
-      } catch (_) {}
+    out[pi] =
+      "a=ptime:10";
 
-      delete state.peers[viewerId];
-    }
-  };
+  }else{
 
-  const offer =
-    await pc.createOffer({
-      offerToReceiveAudio: false,
-      offerToReceiveVideo: false
-    });
+    out.push(
+      "a=ptime:10"
+    );
 
-  await pc.setLocalDescription(offer);
+  }
 
-  wsSend({
-    type: "offer",
-    target: viewerId,
-    offer: pc.localDescription
-  });
+  return out.join(
+    "\\r\\n"
+  );
+
 }
 
-async function handleOffer(data) {
+function applyReceiverLowLatency(
+  receiver
+){
 
-  if (state.isHost) return;
+  try{
+
+    if(
+      "playoutDelayHint"
+      in receiver
+    ){
+
+      receiver.playoutDelayHint =
+        0;
+
+    }
+
+  }catch(e){}
+
+  try{
+
+    if(
+      "jitterBufferTarget"
+      in receiver
+    ){
+
+      receiver.jitterBufferTarget =
+        0;
+
+    }
+
+  }catch(e){}
+
+}
+
+function makePeerConnection(){
+
+  return new RTCPeerConnection({
+
+    iceServers:[
+      {
+        urls:
+          "stun:stun.l.google.com:19302"
+      },
+      {
+        urls:
+          "stun:stun1.l.google.com:19302"
+      }
+    ],
+
+    bundlePolicy:
+      "max-bundle",
+
+    rtcpMuxPolicy:
+      "require",
+
+    iceCandidatePoolSize:
+      0
+
+  });
+
+}
+
+function createHostPeer(viewer){
+
+  const old =
+    viewerConnections.get(
+      viewer
+    );
+
+  if(old){
+
+    try{
+      old.close();
+    }catch(e){}
+
+  }
 
   const pc =
-    new RTCPeerConnection(rtcConfig);
+    makePeerConnection();
 
-  state.peers[data.from] = pc;
+  viewerConnections.set(
+    viewer,
+    pc
+  );
 
-  pc.onicecandidate = event => {
+  if(localStream){
 
-    if (!event.candidate) return;
+    for(
+      const track of
+      localStream.getAudioTracks()
+    ){
 
-    wsSend({
-      type: "ice",
-      target: data.from,
-      candidate: event.candidate
-    });
-  };
+      const sender =
+        pc.addTrack(
+          track,
+          localStream
+        );
 
-  pc.ontrack = event => {
+      try{
 
-    const video =
-      document.getElementById("remoteVideo");
+        const p =
+          sender.getParameters();
 
-    if (!video) return;
+        if(!p.encodings)
+          p.encodings=[{}];
 
-    if (event.streams && event.streams[0]) {
+        p.encodings[0].maxBitrate =
+          32000;
 
-      video.srcObject =
-        event.streams[0];
+        p.encodings[0].priority =
+          "high";
 
-      video.classList.remove("hidden");
+        sender
+          .setParameters(p)
+          .catch(()=>{});
 
-      video.play()
-        .catch(() => {});
+      }catch(e){}
 
-      const image =
-        document.getElementById("liveImage");
-
-      if (image) {
-        image.style.display = "none";
-      }
     }
+
+  }
+
+  pc.onicecandidate = e=>{
+
+    if(e.candidate){
+
+      send({
+        type:"signal",
+        target:viewer,
+        signal:{
+          type:"candidate",
+          candidate:e.candidate
+        }
+      });
+
+    }
+
   };
 
-  pc.onconnectionstatechange = () => {
+  pc.onconnectionstatechange = ()=>{
 
-    console.log(
-      "Viewer peer:",
+    log(
+      "視聴者 " +
+      viewer +
+      " : " +
       pc.connectionState
     );
 
-    if (
-      pc.connectionState === "failed" ||
-      pc.connectionState === "closed"
-    ) {
-
-      try {
-        pc.close();
-      } catch (_) {}
-
-    }
   };
 
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(data.offer)
-  );
+  return pc;
 
-  const answer =
-    await pc.createAnswer();
-
-  await pc.setLocalDescription(answer);
-
-  wsSend({
-    type: "answer",
-    target: data.from,
-    answer: pc.localDescription
-  });
 }
 
-async function handleAnswer(data) {
+async function sendOffer(viewer){
 
-  const pc =
-    state.peers[data.from];
+  try{
 
-  if (!pc) return;
-
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(data.answer)
-  );
-}
-
-async function handleIce(data) {
-
-  const pc =
-    state.peers[data.from];
-
-  if (!pc) return;
-
-  try {
-
-    await pc.addIceCandidate(
-      new RTCIceCandidate(data.candidate)
-    );
-
-  } catch (error) {
-
-    console.error(
-      "ICE error",
-      error
-    );
-  }
-}
-
-/* =========================================================
-   WebSocket受信
-   ========================================================= */
-
-async function handleSocketMessage(data) {
-
-  if (data.type === "hello") {
-
-    state.socketId =
-      data.socketId;
-
-    return;
-  }
-
-  if (data.type === "host_viewer_joined") {
-
-    if (!state.isHost) return;
-
-    await createHostPeer(
-      data.viewerId
-    );
-
-    const count =
-      document.getElementById(
-        "hostViewerCount"
+    const pc =
+      createHostPeer(
+        viewer
       );
 
-    if (count) {
-      count.textContent =
+    let offer =
+      await pc.createOffer({
+        offerToReceiveAudio:false
+      });
+
+    offer = {
+      type:"offer",
+      sdp:
+        optimizeOpusSDP(
+          offer.sdp
+        )
+    };
+
+    await pc.setLocalDescription(
+      offer
+    );
+
+    send({
+      type:"signal",
+      target:viewer,
+      signal:offer
+    });
+
+  }catch(e){
+
+    log(
+      "Offerエラー: " +
+      e.message
+    );
+
+  }
+
+}
+
+function createViewerPeer(){
+
+  if(viewerPeer)
+    return viewerPeer;
+
+  viewerPeer =
+    makePeerConnection();
+
+  viewerPeer.onicecandidate =
+    e=>{
+
+      if(
+        e.candidate &&
+        viewerId
+      ){
+
+        send({
+          type:"signal",
+          target:viewerId,
+          signal:{
+            type:"candidate",
+            candidate:e.candidate
+          }
+        });
+
+      }
+
+    };
+
+  viewerPeer.ontrack =
+    e=>{
+
+      const receiver =
+        e.receiver;
+
+      if(receiver){
+
+        applyReceiverLowLatency(
+          receiver
+        );
+
+      }
+
+      let stream =
+        e.streams &&
+        e.streams[0];
+
+      if(!stream){
+
+        stream =
+          new MediaStream();
+
+        stream.addTrack(
+          e.track
+        );
+
+      }
+
+      remoteAudio.srcObject =
+        stream;
+
+      remoteAudio.volume = 1;
+
+      remoteAudio.muted = false;
+
+      const p =
+        remoteAudio.play();
+
+      if(p){
+
+        p.catch(()=>{
+
+          document
+            .getElementById(
+              "audioButton"
+            )
+            .classList
+            .remove("hidden");
+
+          setLiveStatus(
+            "🔊 音声ONを押してください"
+          );
+
+        });
+
+      }
+
+      setLiveStatus(
+        "🔴 配信中 / 音声受信中"
+      );
+
+      log(
+        "音声トラック受信"
+      );
+
+    };
+
+  viewerPeer.onconnectionstatechange =
+    ()=>{
+
+      if(!viewerPeer)
+        return;
+
+      if(
+        viewerPeer.connectionState ===
+        "connected"
+      ){
+
+        setLiveStatus(
+          "🔴 配信中"
+        );
+
+      }
+
+      if(
+        viewerPeer.connectionState ===
+        "failed"
+      ){
+
+        setLiveStatus(
+          "WebRTC接続失敗"
+        );
+
+      }
+
+    };
+
+  return viewerPeer;
+
+}
+
+async function handleViewerSignal(msg){
+
+  const pc =
+    createViewerPeer();
+
+  if(msg.type === "offer"){
+
+    try{
+
+      await pc.setRemoteDescription({
+        type:"offer",
+        sdp:msg.sdp
+      });
+
+      for(
+        const c of
+        pendingCandidates
+      ){
+
+        try{
+
+          await pc.addIceCandidate(
+            c
+          );
+
+        }catch(e){}
+
+      }
+
+      pendingCandidates = [];
+
+      let answer =
+        await pc.createAnswer();
+
+      answer = {
+        type:"answer",
+        sdp:
+          optimizeOpusSDP(
+            answer.sdp
+          )
+      };
+
+      await pc.setLocalDescription(
+        answer
+      );
+
+      send({
+        type:"signal",
+        target:viewerId,
+        signal:answer
+      });
+
+    }catch(e){
+
+      log(
+        "Offer処理エラー: " +
+        e.message
+      );
+
+    }
+
+    return;
+
+  }
+
+  if(msg.type === "candidate"){
+
+    const c =
+      new RTCIceCandidate(
+        msg.candidate
+      );
+
+    if(
+      pc.remoteDescription
+    ){
+
+      try{
+
+        await pc.addIceCandidate(
+          c
+        );
+
+      }catch(e){}
+
+    }else{
+
+      pendingCandidates.push(
+        c
+      );
+
+    }
+
+  }
+
+}
+
+async function handleHostSignal(msg){
+
+  const pc =
+    viewerConnections.get(
+      msg.from
+    );
+
+  if(!pc)
+    return;
+
+  if(
+    msg.signal.type ===
+    "answer"
+  ){
+
+    await pc.setRemoteDescription({
+      type:"answer",
+      sdp:msg.signal.sdp
+    });
+
+    const list =
+      hostPendingCandidates.get(
+        msg.from
+      ) || [];
+
+    for(
+      const c of list
+    ){
+
+      try{
+
+        await pc.addIceCandidate(
+          c
+        );
+
+      }catch(e){}
+
+    }
+
+    hostPendingCandidates.delete(
+      msg.from
+    );
+
+    return;
+
+  }
+
+  if(
+    msg.signal.type ===
+    "candidate"
+  ){
+
+    const c =
+      new RTCIceCandidate(
+        msg.signal.candidate
+      );
+
+    if(
+      pc.remoteDescription
+    ){
+
+      try{
+
+        await pc.addIceCandidate(
+          c
+        );
+
+      }catch(e){}
+
+    }else{
+
+      if(
+        !hostPendingCandidates.has(
+          msg.from
+        )
+      ){
+
+        hostPendingCandidates.set(
+          msg.from,
+          []
+        );
+
+      }
+
+      hostPendingCandidates
+        .get(msg.from)
+        .push(c);
+
+    }
+
+  }
+
+}
+
+async function handleMessage(msg){
+
+  if(msg.type === "welcome"){
+
+    myId =
+      msg.id;
+
+    return;
+
+  }
+
+  if(msg.type === "join-ok"){
+
+    roomJoined = true;
+
+    return;
+
+  }
+
+  if(msg.type === "room-status"){
+
+    document
+      .getElementById(
+        "liveViewers"
+      )
+      .textContent =
         "視聴者 " +
-        Number(data.viewerCount || 0) +
+        msg.viewers +
         "人";
-    }
 
-    return;
-  }
+    if(
+      myRole === "viewer" &&
+      !msg.live
+    ){
 
-  if (data.type === "offer") {
-
-    await handleOffer(data);
-
-    return;
-  }
-
-  if (data.type === "answer") {
-
-    await handleAnswer(data);
-
-    return;
-  }
-
-  if (data.type === "ice") {
-
-    await handleIce(data);
-
-    return;
-  }
-
-  if (data.type === "live_info") {
-
-    const title =
-      document.getElementById(
-        "liveTitle"
+      setLiveStatus(
+        "配信者を待っています..."
       );
 
-    if (title) {
-      title.textContent =
-        data.name || "配信中";
-    }
-
-    const count =
-      document.getElementById(
-        "viewerCount"
-      );
-
-    if (count) {
-      count.textContent =
-        "👁 " +
-        Number(data.viewers || 0) +
-        "人が視聴中";
-    }
-
-    const image =
-      document.getElementById(
-        "liveImage"
-      );
-
-    if (image && data.image) {
-
-      image.src =
-        data.image;
-
-      image.style.display =
-        "block";
-
-      state.currentImage =
-        data.image;
     }
 
     return;
+
   }
 
-  if (data.type === "image") {
+  if(msg.type === "viewer-joined"){
 
-    const image =
-      document.getElementById(
-        "liveImage"
+    if(myRole === "host"){
+
+      await sendOffer(
+        msg.viewerId
       );
 
-    if (image && data.image) {
-
-      image.src =
-        data.image;
-
-      image.style.display =
-        "block";
-
-      state.currentImage =
-        data.image;
     }
 
     return;
+
   }
 
-  if (data.type === "like") {
+  if(msg.type === "signal"){
 
-    showToast(
-      "❤️ いいね！"
+    if(myRole === "host"){
+
+      await handleHostSignal(
+        msg
+      );
+
+    }else{
+
+      viewerId =
+        msg.from;
+
+      await handleViewerSignal(
+        msg.signal
+      );
+
+    }
+
+    return;
+
+  }
+
+  if(
+    msg.type ===
+    "stream-started"
+  ){
+
+    setLiveStatus(
+      "🔴 配信中"
     );
 
     return;
+
   }
 
-  if (data.type === "gift") {
+  if(
+    msg.type ===
+      "stream-stopped" ||
+    msg.type ===
+      "host-left"
+  ){
 
-    showToast(
-      String(data.gift?.emoji || "🎁") +
-      " ギフトが届きました！"
+    setLiveStatus(
+      "配信終了"
+    );
+
+    remoteAudio.srcObject =
+      null;
+
+    return;
+
+  }
+
+  if(
+    msg.type ===
+    "viewer-left"
+  ){
+
+    const pc =
+      viewerConnections.get(
+        msg.viewerId
+      );
+
+    if(pc){
+
+      try{
+        pc.close();
+      }catch(e){}
+
+      viewerConnections.delete(
+        msg.viewerId
+      );
+
+    }
+
+    hostPendingCandidates.delete(
+      msg.viewerId
     );
 
     return;
+
   }
 
-  if (data.type === "live_ended") {
+  if(msg.type === "live-meta"){
 
-    showToast(
-      "配信が終了しました"
-    );
+    if(
+      myRole === "viewer" &&
+      msg.image
+    ){
 
-    setTimeout(() => {
-      goHome();
-    }, 800);
+      liveImage.src =
+        msg.image;
+
+    }
 
     return;
+
   }
+
+  if(msg.type === "like-count"){
+
+    document
+      .getElementById(
+        "likeCount"
+      )
+      .textContent =
+        msg.count;
+
+    return;
+
+  }
+
+  if(msg.type === "gift"){
+
+    log(
+      "🎁 " +
+      msg.gift +
+      " が届きました"
+    );
+
+    return;
+
+  }
+
+  if(msg.type === "blocked"){
+
+    setLiveStatus(
+      "この配信者をブロックしました"
+    );
+
+    return;
+
+  }
+
 }
 
-/* =========================================================
-   初期表示
-   ========================================================= */
+async function enableAudio(){
 
-goHome();
+  try{
+
+    remoteAudio.muted =
+      false;
+
+    remoteAudio.volume =
+      1;
+
+    await remoteAudio.play();
+
+    document
+      .getElementById(
+        "audioButton"
+      )
+      .classList
+      .add("hidden");
+
+    setLiveStatus(
+      "🔴 配信中 / 音声ON"
+    );
+
+  }catch(e){
+
+    log(
+      "音声再生エラー: " +
+      e.message
+    );
+
+  }
+
+}
+
+function sendLike(){
+
+  send({
+    type:"like"
+  });
+
+}
+
+function toggleGifts(){
+
+  document
+    .getElementById(
+      "giftPanel"
+    )
+    .classList
+    .toggle("hidden");
+
+}
+
+function sendGift(
+  icon,
+  name
+){
+
+  send({
+    type:"gift",
+    gift:
+      icon +
+      " " +
+      name
+  });
+
+  document
+    .getElementById(
+      "giftPanel"
+    )
+    .classList
+    .add("hidden");
+
+  log(
+    "🎁 " +
+    name +
+    " を送信"
+  );
+
+}
+
+function sendBlock(){
+
+  if(
+    confirm(
+      "この配信者をブロックしますか？"
+    )
+  ){
+
+    send({
+      type:"block"
+    });
+
+  }
+
+}
+
+function toggleCustom(){
+
+  document
+    .getElementById(
+      "customPanel"
+    )
+    .classList
+    .toggle("hidden");
+
+}
+
+function applyCustomImage(){
+
+  const url =
+    document
+      .getElementById(
+        "customUrl"
+      )
+      .value
+      .trim();
+
+  if(!url)
+    return;
+
+  liveImage.src =
+    url;
+
+  if(myRole === "host"){
+
+    send({
+      type:"live-meta",
+      image:url
+    });
+
+  }
+
+}
+
+function resetCustomImage(){
+
+  liveImage.src =
+    defaultLiveImage;
+
+  if(myRole === "host"){
+
+    send({
+      type:"live-meta",
+      image:defaultLiveImage
+    });
+
+  }
+
+}
+
+function stopLive(){
+
+  manuallyStopped = true;
+
+  roomJoined = false;
+
+  if(reconnectTimer){
+
+    clearTimeout(
+      reconnectTimer
+    );
+
+    reconnectTimer =
+      null;
+
+  }
+
+  if(localStream){
+
+    for(
+      const t of
+      localStream.getTracks()
+    ){
+
+      t.stop();
+
+    }
+
+    localStream =
+      null;
+
+  }
+
+  for(
+    const pc of
+    viewerConnections.values()
+  ){
+
+    try{
+      pc.close();
+    }catch(e){}
+
+  }
+
+  viewerConnections.clear();
+
+  hostPendingCandidates.clear();
+
+  if(viewerPeer){
+
+    try{
+      viewerPeer.close();
+    }catch(e){}
+
+    viewerPeer =
+      null;
+
+  }
+
+  pendingCandidates = [];
+
+  if(
+    ws &&
+    ws.readyState ===
+    WebSocket.OPEN
+  ){
+
+    send({
+      type:"stream-stopped"
+    });
+
+  }
+
+  if(ws){
+
+    try{
+
+      ws.close(
+        1000,
+        "user stopped"
+      );
+
+    }catch(e){}
+
+    ws =
+      null;
+
+  }
+
+  remoteAudio.srcObject =
+    null;
+
+  remoteAudio.muted =
+    true;
+
+  myRole =
+    null;
+
+  viewerId =
+    null;
+
+  document
+    .getElementById(
+      "giftPanel"
+    )
+    .classList
+    .add("hidden");
+
+  liveScreen
+    .classList
+    .add("hidden");
+
+  document.body.style.overflow =
+    "";
+
+  setLiveStatus(
+    "停止しました"
+  );
+
+}
+
+remoteAudio.autoplay =
+  true;
+
+remoteAudio.playsInline =
+  true;
+
+remoteAudio.volume =
+  1;
+
+document.addEventListener(
+  "click",
+  ()=>{
+    if(
+      myRole === "viewer" &&
+      remoteAudio.srcObject &&
+      remoteAudio.paused
+    ){
+
+      remoteAudio.muted =
+        false;
+
+      remoteAudio
+        .play()
+        .then(
+          ()=>{
+            document
+              .getElementById(
+                "audioButton"
+              )
+              .classList
+              .add("hidden");
+          }
+        )
+        .catch(
+          ()=>{}
+        );
+
+    }
+  },
+  {
+    passive:true
+  }
+);
 
 </script>
 
 </body>
-</html>
-`;
+</html>`;
 
-/* =========================================================
-   HTTP
-   ========================================================= */
+const server =
+  http.createServer(
+    (req,res)=>{
 
-server.on("request", (req,res) => {
+      if(req.url === "/health"){
 
-  const url =
-    new URL(
-      req.url,
-      "http://" + req.headers.host
-    );
-
-  if (url.pathname === "/api/home") {
-
-    res.writeHead(200, {
-      "Content-Type":
-        "application/json; charset=utf-8",
-      "Cache-Control":
-        "no-store"
-    });
-
-    res.end(
-      JSON.stringify({
-        hero:
-          "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=90",
-
-        ranking:
-          allRanking,
-
-        newcomers:
-          allNewcomers
-      })
-    );
-
-    return;
-  }
-
-  if (url.pathname === "/api/ranking") {
-
-    res.writeHead(200, {
-      "Content-Type":
-        "application/json; charset=utf-8",
-      "Cache-Control":
-        "no-store"
-    });
-
-    res.end(
-      JSON.stringify(allRanking)
-    );
-
-    return;
-  }
-
-  if (url.pathname === "/api/newcomers") {
-
-    res.writeHead(200, {
-      "Content-Type":
-        "application/json; charset=utf-8",
-      "Cache-Control":
-        "no-store"
-    });
-
-    res.end(
-      JSON.stringify(allNewcomers)
-    );
-
-    return;
-  }
-
-  if (url.pathname === "/health") {
-
-    res.writeHead(200, {
-      "Content-Type":
-        "text/plain; charset=utf-8"
-    });
-
-    res.end("OK");
-
-    return;
-  }
-
-  res.writeHead(200, {
-    "Content-Type":
-      "text/html; charset=utf-8",
-    "Cache-Control":
-      "no-store"
-  });
-
-  res.end(HTML);
-});
-
-/* =========================================================
-   WebSocket
-   ========================================================= */
-
-wss.on("connection", ws => {
-
-  const socketId =
-    Math.random()
-      .toString(36)
-      .slice(2,12);
-
-  sockets.set(socketId, {
-    ws,
-    liveId: null,
-    role: null
-  });
-
-  send(ws, {
-    type: "hello",
-    socketId
-  });
-
-  ws.on("message", raw => {
-
-    let data;
-
-    try {
-      data =
-        JSON.parse(
-          raw.toString()
-        );
-    } catch (error) {
-
-      return;
-    }
-
-    handleServerMessage(
-      socketId,
-      data
-    );
-  });
-
-  ws.on("close", () => {
-
-    const client =
-      sockets.get(socketId);
-
-    if (client) {
-
-      if (client.liveId) {
-
-        const room =
-          liveRooms.get(
-            client.liveId
-          );
-
-        if (room) {
-
-          if (client.role === "host") {
-
-            room.host =
-              null;
-
-            room.viewers.forEach(
-              viewerId => {
-
-                const viewer =
-                  sockets.get(
-                    viewerId
-                  );
-
-                if (viewer) {
-
-                  send(
-                    viewer.ws,
-                    {
-                      type:
-                        "live_ended"
-                    }
-                  );
-
-                  viewer.liveId =
-                    null;
-                }
-              }
-            );
-
-            liveRooms.delete(
-              client.liveId
-            );
-
-          } else {
-
-            room.viewers.delete(
-              socketId
-            );
-
-            if (room.host) {
-
-              const host =
-                sockets.get(
-                  room.host
-                );
-
-              if (host) {
-
-                send(
-                  host.ws,
-                  {
-                    type:
-                      "viewer_left",
-                    viewerId:
-                      socketId,
-                    viewerCount:
-                      room.viewers.size
-                  }
-                );
-              }
-            }
-          }
-        }
-      }
-
-      sockets.delete(
-        socketId
-      );
-    }
-  });
-
-  ws.on("error", () => {});
-});
-
-/* =========================================================
-   WSメッセージ処理
-   ========================================================= */
-
-function handleServerMessage(
-  socketId,
-  data
-) {
-
-  const client =
-    sockets.get(socketId);
-
-  if (!client) return;
-
-  if (data.type === "host_start") {
-
-    const liveId =
-      String(data.liveId);
-
-    let room =
-      liveRooms.get(liveId);
-
-    if (!room) {
-
-      room = {
-        host: socketId,
-        name:
-          data.name || "ライバー",
-        image:
-          data.image || "",
-        viewers:
-          new Set(),
-        likes: 0
-      };
-
-      liveRooms.set(
-        liveId,
-        room
-      );
-
-    } else {
-
-      room.host =
-        socketId;
-
-      room.name =
-        data.name ||
-        room.name;
-
-      room.image =
-        data.image ||
-        room.image;
-    }
-
-    client.liveId =
-      liveId;
-
-    client.role =
-      "host";
-
-    return;
-  }
-
-  if (data.type === "host_end") {
-
-    const liveId =
-      data.liveId;
-
-    const room =
-      liveRooms.get(liveId);
-
-    if (!room) return;
-
-    if (room.host !== socketId) {
-      return;
-    }
-
-    room.viewers.forEach(
-      viewerId => {
-
-        const viewer =
-          sockets.get(
-            viewerId
-          );
-
-        if (viewer) {
-
-          send(
-            viewer.ws,
-            {
-              type:
-                "live_ended"
-            }
-          );
-
-          viewer.liveId =
-            null;
-
-          viewer.role =
-            null;
-        }
-      }
-    );
-
-    liveRooms.delete(
-      liveId
-    );
-
-    return;
-  }
-
-  if (data.type === "join") {
-
-    const liveId =
-      String(data.liveId);
-
-    const room =
-      liveRooms.get(liveId);
-
-    client.liveId =
-      liveId;
-
-    client.role =
-      "viewer";
-
-    if (!room) {
-
-      send(
-        client.ws,
-        {
-          type:
-            "live_info",
-          name:
-            "配信を準備中です",
-          image: "",
-          viewers: 0
-        }
-      );
-
-      return;
-    }
-
-    room.viewers.add(
-      socketId
-    );
-
-    send(
-      client.ws,
-      {
-        type:
-          "live_info",
-        name:
-          room.name,
-        image:
-          room.image,
-        viewers:
-          room.viewers.size
-      }
-    );
-
-    if (room.host) {
-
-      const host =
-        sockets.get(
-          room.host
-        );
-
-      if (host) {
-
-        send(
-          host.ws,
+        res.writeHead(
+          200,
           {
-            type:
-              "host_viewer_joined",
-            viewerId:
-              socketId,
-            viewerCount:
-              room.viewers.size
+            "Content-Type":
+              "text/plain; charset=utf-8"
           }
         );
+
+        res.end("OK");
+
+        return;
+
       }
-    }
 
-    return;
-  }
+      res.writeHead(
+        200,
+        {
+          "Content-Type":
+            "text/html; charset=utf-8",
 
-  if (data.type === "offer") {
-
-    sendToSocket(
-      data.target,
-      {
-        type:
-          "offer",
-        from:
-          socketId,
-        offer:
-          data.offer
-      }
-    );
-
-    return;
-  }
-
-  if (data.type === "answer") {
-
-    sendToSocket(
-      data.target,
-      {
-        type:
-          "answer",
-        from:
-          socketId,
-        answer:
-          data.answer
-      }
-    );
-
-    return;
-  }
-
-  if (data.type === "ice") {
-
-    sendToSocket(
-      data.target,
-      {
-        type:
-          "ice",
-        from:
-          socketId,
-        candidate:
-          data.candidate
-      }
-    );
-
-    return;
-  }
-
-  if (data.type === "like") {
-
-    const room =
-      liveRooms.get(
-        data.liveId
+          "Cache-Control":
+            "no-store"
+        }
       );
 
-    if (!room) return;
-
-    room.likes++;
-
-    broadcastRoom(
-      data.liveId,
-      {
-        type:
-          "like"
-      },
-      socketId
-    );
-
-    return;
-  }
-
-  if (data.type === "gift") {
-
-    broadcastRoom(
-      data.liveId,
-      {
-        type:
-          "gift",
-        gift:
-          data.gift
-      },
-      socketId
-    );
-
-    return;
-  }
-
-  if (data.type === "block") {
-
-    return;
-  }
-
-  if (data.type === "image") {
-
-    const room =
-      liveRooms.get(
-        data.liveId
+      res.end(
+        HTML
       );
 
-    if (!room) return;
-
-    if (room.host !== socketId) {
-      return;
     }
-
-    room.image =
-      String(data.image || "");
-
-    broadcastRoom(
-      data.liveId,
-      {
-        type:
-          "image",
-        image:
-          room.image
-      }
-    );
-
-    return;
-  }
-}
-
-/* =========================================================
-   ヘルパー
-   ========================================================= */
-
-function send(ws,data) {
-
-  if (!ws) return;
-
-  if (
-    ws.readyState !==
-    WebSocket.OPEN
-  ) {
-    return;
-  }
-
-  try {
-
-    ws.send(
-      JSON.stringify(data)
-    );
-
-  } catch (_) {}
-}
-
-function sendToSocket(
-  socketId,
-  data
-) {
-
-  const client =
-    sockets.get(
-      socketId
-    );
-
-  if (!client) return;
-
-  send(
-    client.ws,
-    data
   );
+
+const wss =
+  new WebSocket.Server({
+    server,
+    perMessageDeflate:false
+  });
+
+let nextId =
+  1;
+
+const clients =
+  new Map();
+
+let likeCount =
+  0;
+
+function send(
+  ws,
+  data
+){
+
+  if(
+    ws &&
+    ws.readyState ===
+    WebSocket.OPEN
+  ){
+
+    try{
+
+      ws.send(
+        JSON.stringify(data)
+      );
+
+    }catch(e){
+
+      console.log(
+        "[SEND ERROR]",
+        e.message
+      );
+
+    }
+
+  }
+
 }
 
 function broadcastRoom(
-  liveId,
+  room,
   data,
-  exceptId
-) {
+  exceptId=null
+){
 
-  const room =
-    liveRooms.get(
-      liveId
-    );
+  for(
+    const c of
+    clients.values()
+  ){
 
-  if (!room) return;
+    if(
+      c.room === room &&
+      c.id !== exceptId
+    ){
 
-  if (room.host) {
+      send(
+        c.ws,
+        data
+      );
 
-    if (room.host !== exceptId) {
-
-      const host =
-        sockets.get(
-          room.host
-        );
-
-      if (host) {
-        send(
-          host.ws,
-          data
-        );
-      }
     }
+
   }
 
-  room.viewers.forEach(
-    viewerId => {
-
-      if (
-        viewerId === exceptId
-      ) {
-        return;
-      }
-
-      const viewer =
-        sockets.get(
-          viewerId
-        );
-
-      if (viewer) {
-
-        send(
-          viewer.ws,
-          data
-        );
-      }
-    }
-  );
 }
 
-/* =========================================================
-   起動
-   ========================================================= */
+function updateRoomStatus(
+  room
+){
+
+  let host =
+    false;
+
+  let streaming =
+    false;
+
+  let viewers =
+    0;
+
+  for(
+    const c of
+    clients.values()
+  ){
+
+    if(
+      c.room !== room
+    ){
+
+      continue;
+
+    }
+
+    if(
+      c.role === "host"
+    ){
+
+      host =
+        true;
+
+      if(c.streaming)
+        streaming =
+          true;
+
+    }
+
+    if(
+      c.role === "viewer"
+    ){
+
+      viewers++;
+
+    }
+
+  }
+
+  for(
+    const c of
+    clients.values()
+  ){
+
+    if(
+      c.room === room
+    ){
+
+      send(
+        c.ws,
+        {
+          type:"room-status",
+          live:
+            host &&
+            streaming,
+          viewers
+        }
+      );
+
+    }
+
+  }
+
+}
+
+wss.on(
+  "connection",
+  ws=>{
+
+    const id =
+      String(
+        nextId++
+      );
+
+    const client = {
+      id,
+      ws,
+      role:null,
+      room:"bota",
+      streaming:false,
+      isAlive:true,
+      blocked:false
+    };
+
+    clients.set(
+      id,
+      client
+    );
+
+    send(
+      ws,
+      {
+        type:"welcome",
+        id
+      }
+    );
+
+    ws.on(
+      "pong",
+      ()=>{
+        client.isAlive =
+          true;
+      }
+    );
+
+    ws.on(
+      "message",
+      raw=>{
+
+        let msg;
+
+        try{
+
+          msg =
+            JSON.parse(
+              raw.toString()
+            );
+
+        }catch(e){
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+          "join"
+        ){
+
+          client.role =
+            msg.role === "host"
+              ? "host"
+              : "viewer";
+
+          client.room =
+            msg.room ||
+            "bota";
+
+          if(
+            client.role ===
+            "host"
+          ){
+
+            for(
+              const other of
+              clients.values()
+            ){
+
+              if(
+                other.id !== id &&
+                other.room ===
+                  client.room &&
+                other.role ===
+                  "host"
+              ){
+
+                send(
+                  ws,
+                  {
+                    type:"join-error",
+                    text:
+                      "このルームには既に配信者がいます"
+                  }
+                );
+
+                return;
+
+              }
+
+            }
+
+          }
+
+          send(
+            ws,
+            {
+              type:"join-ok"
+            }
+          );
+
+          if(
+            client.role ===
+            "host"
+          ){
+
+            for(
+              const other of
+              clients.values()
+            ){
+
+              if(
+                other.id !== id &&
+                other.room ===
+                  client.room &&
+                other.role ===
+                  "viewer"
+              ){
+
+                send(
+                  ws,
+                  {
+                    type:"viewer-joined",
+                    viewerId:
+                      other.id
+                  }
+                );
+
+              }
+
+            }
+
+          }else{
+
+            for(
+              const other of
+              clients.values()
+            ){
+
+              if(
+                other.room ===
+                  client.room &&
+                other.role ===
+                  "host"
+              ){
+
+                send(
+                  other.ws,
+                  {
+                    type:"viewer-joined",
+                    viewerId:id
+                  }
+                );
+
+                if(
+                  other.streaming
+                ){
+
+                  send(
+                    ws,
+                    {
+                      type:
+                        "stream-started"
+                    }
+                  );
+
+                }
+
+              }
+
+            }
+
+          }
+
+          updateRoomStatus(
+            client.room
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+          "signal"
+        ){
+
+          const target =
+            clients.get(
+              msg.target
+            );
+
+          if(
+            !target ||
+            target.room !==
+              client.room
+          ){
+
+            return;
+
+          }
+
+          send(
+            target.ws,
+            {
+              type:"signal",
+              from:client.id,
+              signal:msg.signal
+            }
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+            "stream-started" &&
+          client.role ===
+            "host"
+        ){
+
+          client.streaming =
+            true;
+
+          console.log(
+            "[LIVE START]",
+            id
+          );
+
+          broadcastRoom(
+            client.room,
+            {
+              type:
+                "stream-started"
+            }
+          );
+
+          updateRoomStatus(
+            client.room
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+            "stream-stopped" &&
+          client.role ===
+            "host"
+        ){
+
+          client.streaming =
+            false;
+
+          console.log(
+            "[LIVE STOP]",
+            id
+          );
+
+          broadcastRoom(
+            client.room,
+            {
+              type:
+                "stream-stopped"
+            }
+          );
+
+          updateRoomStatus(
+            client.room
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+          "live-meta"
+        ){
+
+          broadcastRoom(
+            client.room,
+            {
+              type:"live-meta",
+              image:
+                msg.image
+            },
+            client.id
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+          "like"
+        ){
+
+          likeCount++;
+
+          broadcastRoom(
+            client.room,
+            {
+              type:"like-count",
+              count:
+                likeCount
+            }
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+          "gift"
+        ){
+
+          broadcastRoom(
+            client.room,
+            {
+              type:"gift",
+              gift:
+                String(
+                  msg.gift ||
+                  "🎁 ギフト"
+                )
+            },
+            client.id
+          );
+
+          return;
+
+        }
+
+        if(
+          msg.type ===
+          "block"
+        ){
+
+          client.blocked =
+            true;
+
+          send(
+            ws,
+            {
+              type:"blocked"
+            }
+          );
+
+          return;
+
+        }
+
+      }
+    );
+
+    ws.on(
+      "close",
+      ()=>{
+
+        const room =
+          client.room;
+
+        const role =
+          client.role;
+
+        clients.delete(
+          id
+        );
+
+        if(
+          role ===
+          "host"
+        ){
+
+          for(
+            const other of
+            clients.values()
+          ){
+
+            if(
+              other.room ===
+                room &&
+              other.role ===
+                "viewer"
+            ){
+
+              send(
+                other.ws,
+                {
+                  type:
+                    "host-left"
+                }
+              );
+
+            }
+
+          }
+
+        }
+
+        if(
+          role ===
+          "viewer"
+        ){
+
+          for(
+            const other of
+            clients.values()
+          ){
+
+            if(
+              other.room ===
+                room &&
+              other.role ===
+                "host"
+            ){
+
+              send(
+                other.ws,
+                {
+                  type:
+                    "viewer-left",
+                  viewerId:
+                    id
+                }
+              );
+
+            }
+
+          }
+
+        }
+
+        updateRoomStatus(
+          room
+        );
+
+      }
+    );
+
+    ws.on(
+      "error",
+      e=>{
+        console.log(
+          "[WS ERROR]",
+          id,
+          e.message
+        );
+      }
+    );
+
+  }
+);
+
+const heartbeat =
+  setInterval(
+    ()=>{
+
+      for(
+        const c of
+        clients.values()
+      ){
+
+        if(
+          c.isAlive ===
+          false
+        ){
+
+          try{
+            c.ws.terminate();
+          }catch(e){}
+
+          continue;
+
+        }
+
+        c.isAlive =
+          false;
+
+        try{
+
+          c.ws.ping();
+
+        }catch(e){}
+
+      }
+
+    },
+    25000
+  );
+
+wss.on(
+  "close",
+  ()=>{
+    clearInterval(
+      heartbeat
+    );
+  }
+);
+
+server.on(
+  "error",
+  e=>{
+    console.error(
+      "[SERVER ERROR]",
+      e
+    );
+  }
+);
 
 server.listen(
   PORT,
   HOST,
-  () => {
+  ()=>{
+    console.log(
+      "================================="
+    );
 
     console.log(
-      "VoiceポタLive server listening on " +
-      HOST +
-      ":" +
+      "VoiceボタLive integrated server"
+    );
+
+    console.log(
+      "LOW LATENCY AUDIO + RANKING + GIFTS"
+    );
+
+    console.log(
+      "LISTENING ON",
       PORT
     );
 
-  }
-);
-
-server.on("error", error => {
-
-  console.error(
-    "SERVER ERROR:",
-    error
-  );
-
-});
-
-process.on(
-  "uncaughtException",
-  error => {
-
-    console.error(
-      "UNCAUGHT EXCEPTION:",
-      error
+    console.log(
+      "================================="
     );
-
-  }
-);
-
-process.on(
-  "unhandledRejection",
-  error => {
-
-    console.error(
-      "UNHANDLED REJECTION:",
-      error
-    );
-
   }
 );

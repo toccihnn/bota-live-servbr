@@ -20,6 +20,7 @@ const HTML = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+
 <meta charset="UTF-8">
 
 <meta
@@ -58,17 +59,13 @@ body {
   overflow-x: hidden;
 }
 
-/* =====================================================
-   アプリ全体
-===================================================== */
-
 .app {
   min-height: 100vh;
   padding-bottom: 82px;
 }
 
 /* =====================================================
-   ヘッダー
+   HEADER
 ===================================================== */
 
 .header {
@@ -88,9 +85,11 @@ body {
   z-index: 100;
 
   background: rgba(3,5,16,.78);
+
   backdrop-filter: blur(18px);
 
-  border-bottom: 1px solid rgba(120,140,255,.12);
+  border-bottom:
+    1px solid rgba(120,140,255,.12);
 }
 
 .logo {
@@ -122,13 +121,17 @@ body {
 .online-dot {
   width: 7px;
   height: 7px;
+
   border-radius: 50%;
+
   background: #4effb0;
-  box-shadow: 0 0 12px #4effb0;
+
+  box-shadow:
+    0 0 12px #4effb0;
 }
 
 /* =====================================================
-   ヒーロー
+   HERO
 ===================================================== */
 
 .hero {
@@ -152,20 +155,18 @@ body {
 
   background-size: cover;
 
-  /*
-    画像の人物と月が綺麗に見える位置
-  */
   background-position: center top;
 
   display: flex;
+
   align-items: flex-end;
 }
 
-/* 暗いグラデーション */
 .hero::after {
   content: "";
 
   position: absolute;
+
   inset: 0;
 
   pointer-events: none;
@@ -183,10 +184,6 @@ body {
     );
 }
 
-/* =====================================================
-   ヒーロー上のボタン
-===================================================== */
-
 .hero-top {
   position: absolute;
 
@@ -197,11 +194,13 @@ body {
   z-index: 5;
 
   display: flex;
+
   justify-content: space-between;
 }
 
 .tag {
   display: inline-flex;
+
   align-items: center;
 
   padding: 7px 13px;
@@ -209,23 +208,19 @@ body {
   border-radius: 999px;
 
   font-size: 11px;
+
   font-weight: 700;
 
   color: #dfe7ff;
 
-  background: rgba(10,16,48,.65);
+  background:
+    rgba(10,16,48,.65);
 
-  border: 1px solid rgba(120,150,255,.3);
+  border:
+    1px solid rgba(120,150,255,.3);
 
   backdrop-filter: blur(10px);
-
-  box-shadow:
-    0 0 20px rgba(70,100,255,.12);
 }
-
-/* =====================================================
-   ヒーロー下部
-===================================================== */
 
 .hero-content {
   position: relative;
@@ -242,20 +237,19 @@ body {
 
 .hero-small {
   font-size: 12px;
+
   font-weight: 700;
 
   color: #b7c9ff;
 
   margin-bottom: 7px;
-
-  text-shadow:
-    0 0 12px rgba(90,130,255,.7);
 }
 
 .hero-title {
   margin: 0;
 
-  font-size: clamp(28px, 8vw, 48px);
+  font-size:
+    clamp(28px, 8vw, 48px);
 
   line-height: 1.15;
 
@@ -277,6 +271,7 @@ body {
     );
 
   -webkit-background-clip: text;
+
   color: transparent;
 }
 
@@ -296,13 +291,14 @@ body {
 }
 
 /* =====================================================
-   ボタン
+   BUTTON
 ===================================================== */
 
 .buttons {
   display: grid;
 
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:
+    1fr 1fr;
 
   gap: 10px;
 
@@ -319,14 +315,12 @@ body {
   border-radius: 17px;
 
   font-size: 14px;
+
   font-weight: 900;
 
   color: white;
 
   cursor: pointer;
-
-  box-shadow:
-    0 8px 30px rgba(70,90,255,.25);
 
   transition:
     transform .15s ease,
@@ -348,25 +342,29 @@ body {
 }
 
 .listen-button {
-  background: rgba(15,20,55,.78);
+  background:
+    rgba(15,20,55,.78);
 
-  border: 1px solid rgba(130,150,255,.4);
+  border:
+    1px solid rgba(130,150,255,.4);
 
   backdrop-filter: blur(12px);
 }
 
 /* =====================================================
-   セクション
+   SECTION
 ===================================================== */
 
 .section {
-  padding: 24px 16px 0;
+  padding:
+    24px 16px 0;
 }
 
 .section-head {
   display: flex;
 
   align-items: center;
+
   justify-content: space-between;
 
   margin-bottom: 13px;
@@ -374,22 +372,27 @@ body {
 
 .section-title {
   font-size: 20px;
+
   font-weight: 900;
 }
 
 .section-sub {
   font-size: 10px;
+
   color: #7580a5;
+
   letter-spacing: 1px;
 }
 
 /* =====================================================
-   ライブ一覧
+   LIVE LIST
 ===================================================== */
 
 .live-list {
   display: flex;
+
   flex-direction: column;
+
   gap: 10px;
 }
 
@@ -399,6 +402,7 @@ body {
   min-height: 92px;
 
   display: flex;
+
   align-items: center;
 
   padding: 14px;
@@ -412,10 +416,13 @@ body {
       rgba(8,12,32,.95)
     );
 
-  border: 1px solid rgba(120,140,255,.12);
+  border:
+    1px solid rgba(120,140,255,.12);
 
   box-shadow:
     0 8px 30px rgba(0,0,0,.2);
+
+  cursor: pointer;
 }
 
 .live-avatar {
@@ -427,7 +434,9 @@ body {
   border-radius: 50%;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
   font-size: 26px;
@@ -446,6 +455,7 @@ body {
 
 .live-info {
   min-width: 0;
+
   flex: 1;
 
   padding-left: 12px;
@@ -453,10 +463,13 @@ body {
 
 .live-name {
   font-weight: 800;
+
   font-size: 14px;
 
   white-space: nowrap;
+
   overflow: hidden;
+
   text-overflow: ellipsis;
 }
 
@@ -468,7 +481,9 @@ body {
   font-size: 12px;
 
   white-space: nowrap;
+
   overflow: hidden;
+
   text-overflow: ellipsis;
 }
 
@@ -482,6 +497,7 @@ body {
   border-radius: 999px;
 
   font-size: 9px;
+
   font-weight: 900;
 
   color: white;
@@ -503,19 +519,22 @@ body {
 
   color: #737d9e;
 
-  background: rgba(10,14,35,.7);
+  background:
+    rgba(10,14,35,.7);
 
-  border: 1px solid rgba(100,120,200,.1);
+  border:
+    1px solid rgba(100,120,200,.1);
 }
 
 /* =====================================================
-   特徴
+   FEATURES
 ===================================================== */
 
 .features {
   display: grid;
 
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns:
+    repeat(2, 1fr);
 
   gap: 10px;
 
@@ -536,7 +555,8 @@ body {
       rgba(8,11,28,.95)
     );
 
-  border: 1px solid rgba(120,140,255,.12);
+  border:
+    1px solid rgba(120,140,255,.12);
 }
 
 .feature-icon {
@@ -547,6 +567,7 @@ body {
 
 .feature-title {
   font-size: 13px;
+
   font-weight: 900;
 }
 
@@ -561,7 +582,7 @@ body {
 }
 
 /* =====================================================
-   下部ナビ
+   BOTTOM NAV
 ===================================================== */
 
 .bottom-nav {
@@ -583,7 +604,10 @@ body {
   padding:
     7px
     8px
-    calc(7px + env(safe-area-inset-bottom));
+    calc(
+      7px +
+      env(safe-area-inset-bottom)
+    );
 
   background:
     rgba(4,7,20,.92);
@@ -604,9 +628,11 @@ body {
   font-size: 10px;
 
   display: flex;
+
   flex-direction: column;
 
   align-items: center;
+
   justify-content: center;
 
   gap: 4px;
@@ -614,6 +640,7 @@ body {
 
 .nav-icon {
   font-size: 20px;
+
   line-height: 1;
 }
 
@@ -621,15 +648,9 @@ body {
   color: #bcd2ff;
 }
 
-.nav-item.active .nav-icon {
-  filter:
-    drop-shadow(
-      0 0 8px #5e8cff
-    );
-}
-
 .nav-live {
   width: 50px;
+
   height: 50px;
 
   margin-top: -20px;
@@ -637,7 +658,9 @@ body {
   border-radius: 50%;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
   font-size: 24px;
@@ -660,7 +683,7 @@ body {
 }
 
 /* =====================================================
-   モバイル調整
+   MOBILE
 ===================================================== */
 
 @media (max-width: 500px) {
@@ -668,11 +691,9 @@ body {
   .hero {
     min-height: 590px;
 
-    background-size: auto 590px;
+    background-size:
+      auto 590px;
 
-    /*
-      スマホでも人物と月が見える位置
-    */
     background-position:
       57% top;
   }
@@ -728,6 +749,7 @@ body {
 
   .section {
     max-width: 1000px;
+
     margin: auto;
   }
 }
@@ -739,10 +761,6 @@ body {
 
 <div class="app">
 
-<!-- =================================================
-     HEADER
-================================================= -->
-
 <header class="header">
 
   <div class="logo">
@@ -750,16 +768,15 @@ body {
   </div>
 
   <div class="online">
+
     <span class="online-dot"></span>
+
     オンライン
+
   </div>
 
 </header>
 
-
-<!-- =================================================
-     HERO
-================================================= -->
 
 <section class="hero">
 
@@ -783,14 +800,25 @@ body {
     </div>
 
     <h1 class="hero-title">
-      <span>あなたの声が、</span><br>
+
+      <span>
+        あなたの声が、
+      </span>
+
+      <br>
+
       誰かの夜を照らす。
+
     </h1>
 
     <div class="hero-description">
+
       月明かりの下で、話して、聴いて、笑って。<br>
+
       VoiceポタLiveで、あなたの声をもっと近くに。
+
     </div>
+
 
     <div class="buttons">
 
@@ -800,6 +828,7 @@ body {
       >
         🎙️ 配信をはじめる
       </button>
+
 
       <button
         class="main-button listen-button"
@@ -814,10 +843,6 @@ body {
 
 </section>
 
-
-<!-- =================================================
-     LIVE
-================================================= -->
 
 <section
   class="section"
@@ -850,10 +875,6 @@ body {
 
 </section>
 
-
-<!-- =================================================
-     FEATURES
-================================================= -->
 
 <section class="section">
 
@@ -940,18 +961,19 @@ body {
 </section>
 
 
-<!-- =================================================
-     BOTTOM NAV
-================================================= -->
-
 <nav class="bottom-nav">
 
   <button
     class="nav-item active"
     onclick="goHome()"
   >
-    <div class="nav-icon">⌂</div>
+
+    <div class="nav-icon">
+      ⌂
+    </div>
+
     ホーム
+
   </button>
 
 
@@ -959,8 +981,13 @@ body {
     class="nav-item"
     onclick="searchLive()"
   >
-    <div class="nav-icon">⌕</div>
+
+    <div class="nav-icon">
+      ⌕
+    </div>
+
     探す
+
   </button>
 
 
@@ -968,10 +995,13 @@ body {
     class="nav-item"
     onclick="startLive()"
   >
+
     <div class="nav-live">
       🎙️
     </div>
+
     配信
+
   </button>
 
 
@@ -979,8 +1009,13 @@ body {
     class="nav-item"
     onclick="showNotice()"
   >
-    <div class="nav-icon">♧</div>
+
+    <div class="nav-icon">
+      ♧
+    </div>
+
     お知らせ
+
   </button>
 
 
@@ -988,8 +1023,13 @@ body {
     class="nav-item"
     onclick="showProfile()"
   >
-    <div class="nav-icon">♙</div>
+
+    <div class="nav-icon">
+      ♙
+    </div>
+
     マイページ
+
   </button>
 
 </nav>
@@ -1000,7 +1040,7 @@ body {
 <script>
 
 /* =====================================================
-   ボタン
+   BUTTONS
 ===================================================== */
 
 function scrollLive() {
@@ -1070,10 +1110,11 @@ function goHome() {
 
 
 /* =====================================================
-   WebSocket
+   WEBSOCKET
 ===================================================== */
 
 let socket = null;
+
 
 function connectSocket() {
 
@@ -1082,6 +1123,7 @@ function connectSocket() {
       ? "wss:"
       : "ws:";
 
+
   socket =
     new WebSocket(
       protocol +
@@ -1089,7 +1131,8 @@ function connectSocket() {
       location.host
     );
 
-  socket.onopen = () => {
+
+  socket.onopen = function() {
 
     console.log(
       "WebSocket connected"
@@ -1097,12 +1140,16 @@ function connectSocket() {
 
   };
 
-  socket.onmessage = event => {
+
+  socket.onmessage = function(event) {
 
     try {
 
       const data =
-        JSON.parse(event.data);
+        JSON.parse(
+          event.data
+        );
+
 
       if (
         data.type ===
@@ -1126,7 +1173,8 @@ function connectSocket() {
 
   };
 
-  socket.onclose = () => {
+
+  socket.onclose = function() {
 
     setTimeout(
       connectSocket,
@@ -1139,25 +1187,23 @@ function connectSocket() {
 
 
 /* =====================================================
-   ライブ一覧
+   LIVE LIST
 ===================================================== */
 
-function renderLiveList(
-  lives
-) {
+function renderLiveList(lives) {
 
   const list =
     document.getElementById(
       "liveList"
     );
 
+
   if (!lives.length) {
 
-    list.innerHTML = `
-      <div class="empty">
-        現在配信中のライブはありません
-      </div>
-    `;
+    list.innerHTML =
+      '<div class="empty">' +
+        '現在配信中のライブはありません' +
+      '</div>';
 
     return;
 
@@ -1165,44 +1211,61 @@ function renderLiveList(
 
 
   list.innerHTML =
-    lives.map(
-      live => `
+    lives.map(function(live) {
 
-        <div
-          class="live-card"
-          onclick="listenLive('${escapeHtml(live.id)}')"
-        >
+      const id =
+        escapeHtml(
+          live.id || ""
+        );
 
-          <div class="live-avatar">
-            🎙️
-          </div>
 
-          <div class="live-info">
+      const name =
+        escapeHtml(
+          live.name ||
+          "Voice配信者"
+        );
 
-            <div class="live-name">
-              ${escapeHtml(
-                live.name ||
-                "Voice配信者"
-              )}
-            </div>
 
-            <div class="live-title">
-              ${escapeHtml(
-                live.title ||
-                "音声ライブ配信中"
-              )}
-            </div>
+      const title =
+        escapeHtml(
+          live.title ||
+          "音声ライブ配信中"
+        );
 
-            <span class="live-badge">
-              LIVE
-            </span>
 
-          </div>
+      return (
 
-        </div>
-      `
-    )
-    .join("");
+        '<div ' +
+          'class="live-card" ' +
+          'onclick="listenLive(\\'' +
+          id +
+          '\\')">' +
+
+          '<div class="live-avatar">' +
+            '🎙️' +
+          '</div>' +
+
+          '<div class="live-info">' +
+
+            '<div class="live-name">' +
+              name +
+            '</div>' +
+
+            '<div class="live-title">' +
+              title +
+            '</div>' +
+
+            '<span class="live-badge">' +
+              'LIVE' +
+            '</span>' +
+
+          '</div>' +
+
+        '</div>'
+
+      );
+
+    }).join("");
 
 }
 
@@ -1218,27 +1281,30 @@ function listenLive(id) {
 }
 
 
-function escapeHtml(
-  value
-) {
+function escapeHtml(value) {
 
   return String(value)
+
     .replace(
       /&/g,
       "&amp;"
     )
+
     .replace(
       /</g,
       "&lt;"
     )
+
     .replace(
       />/g,
       "&gt;"
     )
+
     .replace(
       /"/g,
       "&quot;"
     )
+
     .replace(
       /'/g,
       "&#039;"
@@ -1266,11 +1332,7 @@ connectSocket();
 
 const server =
   http.createServer(
-    (req, res) => {
-
-      /*
-       * ホーム
-       */
+    function(req, res) {
 
       if (
         req.url === "/" ||
@@ -1294,10 +1356,6 @@ const server =
       }
 
 
-      /*
-       * home.png
-       */
-
       if (
         req.url === "/home.png"
       ) {
@@ -1308,10 +1366,9 @@ const server =
             "home.png"
           );
 
+
         if (
-          fs.existsSync(
-            imagePath
-          )
+          fs.existsSync(imagePath)
         ) {
 
           res.writeHead(
@@ -1325,6 +1382,7 @@ const server =
             }
           );
 
+
           fs.createReadStream(
             imagePath
           ).pipe(res);
@@ -1333,6 +1391,7 @@ const server =
 
         }
 
+
         res.writeHead(
           404,
           {
@@ -1340,6 +1399,7 @@ const server =
               "text/plain; charset=utf-8"
           }
         );
+
 
         res.end(
           "home.png がありません"
@@ -1357,7 +1417,9 @@ const server =
         }
       );
 
-      res.end("Not Found");
+      res.end(
+        "Not Found"
+      );
 
     }
   );
@@ -1369,7 +1431,7 @@ const server =
 
 const wss =
   new WebSocket.Server({
-    server
+    server: server
   });
 
 
@@ -1379,7 +1441,7 @@ const clients =
 
 wss.on(
   "connection",
-  ws => {
+  function(ws) {
 
     clients.add(ws);
 
@@ -1388,16 +1450,12 @@ wss.on(
     );
 
 
-    /*
-     * 現在のライブ一覧を送る
-     */
-
     sendLiveList();
 
 
     ws.on(
       "message",
-      message => {
+      function(message) {
 
         let data;
 
@@ -1408,16 +1466,12 @@ wss.on(
               message.toString()
             );
 
-        } catch {
+        } catch (error) {
 
           return;
 
         }
 
-
-        /*
-         * シグナリング用
-         */
 
         for (
           const client of clients
@@ -1430,9 +1484,7 @@ wss.on(
           ) {
 
             client.send(
-              JSON.stringify(
-                data
-              )
+              JSON.stringify(data)
             );
 
           }
@@ -1445,7 +1497,7 @@ wss.on(
 
     ws.on(
       "close",
-      () => {
+      function() {
 
         clients.delete(ws);
 
@@ -1500,7 +1552,7 @@ function sendLiveList() {
 server.listen(
   PORT,
   HOST,
-  () => {
+  function() {
 
     console.log(
       "================================="

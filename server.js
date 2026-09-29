@@ -12,6 +12,7 @@ if (!fs.existsSync(PUBLIC_DIR)) {
   fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 }
 
+
 /* =====================================================
    HTML
 ===================================================== */
@@ -28,11 +29,15 @@ const HTML = `
   content="width=device-width,initial-scale=1.0,user-scalable=no"
 >
 
-<meta name="theme-color" content="#050718">
+<meta name="theme-color" content="#030510">
 
 <title>VoiceポタLive</title>
 
 <style>
+
+/* =====================================================
+   RESET
+===================================================== */
 
 * {
   box-sizing: border-box;
@@ -43,10 +48,13 @@ html,
 body {
   margin: 0;
   padding: 0;
+
   width: 100%;
   min-height: 100%;
+
   background: #030510;
   color: white;
+
   font-family:
     -apple-system,
     BlinkMacSystemFont,
@@ -59,10 +67,22 @@ body {
   overflow-x: hidden;
 }
 
+button {
+  font-family: inherit;
+}
+
+
+/* =====================================================
+   APP
+===================================================== */
+
 .app {
   min-height: 100vh;
-  padding-bottom: 82px;
+
+  padding-bottom:
+    calc(82px + env(safe-area-inset-bottom));
 }
+
 
 /* =====================================================
    HEADER
@@ -78,13 +98,15 @@ body {
   padding: 0 18px;
 
   position: fixed;
+
   top: 0;
   left: 0;
   right: 0;
 
   z-index: 100;
 
-  background: rgba(3,5,16,.78);
+  background:
+    rgba(3,5,16,.78);
 
   backdrop-filter: blur(18px);
 
@@ -94,7 +116,9 @@ body {
 
 .logo {
   font-size: 18px;
+
   font-weight: 900;
+
   letter-spacing: -0.5px;
 
   background:
@@ -106,15 +130,19 @@ body {
     );
 
   -webkit-background-clip: text;
+
   color: transparent;
 }
 
 .online {
   display: flex;
+
   align-items: center;
+
   gap: 6px;
 
   font-size: 11px;
+
   color: #aeb9d8;
 }
 
@@ -130,6 +158,7 @@ body {
     0 0 12px #4effb0;
 }
 
+
 /* =====================================================
    HERO
 ===================================================== */
@@ -140,54 +169,74 @@ body {
   margin-top: 58px;
 
   width: 100%;
-  min-height: 570px;
 
   overflow: hidden;
 
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0,0,0,0) 45%,
-      rgba(3,5,16,.75) 88%,
-      #030510 100%
-    ),
-    url("/home.png");
+  background: #030510;
 
-  background-size: cover;
-
-  background-position: center top;
-
-  display: flex;
-
-  align-items: flex-end;
+  display: block;
 }
 
-.hero::after {
-  content: "";
 
+/* =====================================================
+   HOME IMAGE
+   ★ 画像全体を表示
+===================================================== */
+
+.hero-image {
+  display: block;
+
+  width: 100%;
+  height: auto;
+
+  /*
+    画像を切らない
+    元画像の縦横比をそのまま維持
+  */
+
+  object-fit: contain;
+
+  position: relative;
+
+  z-index: 1;
+}
+
+
+/* =====================================================
+   HERO OVERLAY
+===================================================== */
+
+.hero-overlay {
   position: absolute;
 
   inset: 0;
+
+  z-index: 2;
 
   pointer-events: none;
 
   background:
     linear-gradient(
-      90deg,
-      rgba(2,4,15,.08),
-      rgba(2,4,15,0) 60%
-    ),
-    linear-gradient(
-      0deg,
-      #030510 0%,
-      rgba(3,5,16,.05) 40%
+      180deg,
+      rgba(3,5,16,.03) 0%,
+      rgba(3,5,16,.02) 30%,
+      rgba(3,5,16,.15) 50%,
+      rgba(3,5,16,.58) 72%,
+      rgba(3,5,16,.92) 92%,
+      #030510 100%
     );
 }
+
+
+/* =====================================================
+   HERO TOP TAG
+===================================================== */
 
 .hero-top {
   position: absolute;
 
   top: 22px;
+
   left: 18px;
   right: 18px;
 
@@ -196,6 +245,8 @@ body {
   display: flex;
 
   justify-content: space-between;
+
+  gap: 10px;
 }
 
 .tag {
@@ -203,7 +254,8 @@ body {
 
   align-items: center;
 
-  padding: 7px 13px;
+  padding:
+    7px 13px;
 
   border-radius: 999px;
 
@@ -220,10 +272,22 @@ body {
     1px solid rgba(120,150,255,.3);
 
   backdrop-filter: blur(10px);
+
+  box-shadow:
+    0 0 20px rgba(70,100,255,.12);
 }
 
+
+/* =====================================================
+   HERO CONTENT
+===================================================== */
+
 .hero-content {
-  position: relative;
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
 
   z-index: 5;
 
@@ -243,6 +307,9 @@ body {
   color: #b7c9ff;
 
   margin-bottom: 7px;
+
+  text-shadow:
+    0 0 12px rgba(90,130,255,.7);
 }
 
 .hero-title {
@@ -290,8 +357,9 @@ body {
     0 2px 12px #000;
 }
 
+
 /* =====================================================
-   BUTTON
+   BUTTONS
 ===================================================== */
 
 .buttons {
@@ -322,6 +390,9 @@ body {
 
   cursor: pointer;
 
+  box-shadow:
+    0 8px 30px rgba(70,90,255,.25);
+
   transition:
     transform .15s ease,
     opacity .15s ease;
@@ -329,6 +400,8 @@ body {
 
 .main-button:active {
   transform: scale(.96);
+
+  opacity: .9;
 }
 
 .start-button {
@@ -350,6 +423,7 @@ body {
 
   backdrop-filter: blur(12px);
 }
+
 
 /* =====================================================
    SECTION
@@ -383,6 +457,7 @@ body {
 
   letter-spacing: 1px;
 }
+
 
 /* =====================================================
    LIVE LIST
@@ -436,7 +511,6 @@ body {
   display: flex;
 
   align-items: center;
-
   justify-content: center;
 
   font-size: 26px;
@@ -492,7 +566,8 @@ body {
 
   margin-top: 6px;
 
-  padding: 3px 8px;
+  padding:
+    3px 8px;
 
   border-radius: 999px;
 
@@ -511,7 +586,8 @@ body {
 }
 
 .empty {
-  padding: 35px 20px;
+  padding:
+    35px 20px;
 
   text-align: center;
 
@@ -525,6 +601,7 @@ body {
   border:
     1px solid rgba(100,120,200,.1);
 }
+
 
 /* =====================================================
    FEATURES
@@ -542,7 +619,8 @@ body {
 }
 
 .feature {
-  padding: 18px 14px;
+  padding:
+    18px 14px;
 
   min-height: 115px;
 
@@ -581,6 +659,7 @@ body {
   color: #8f9abb;
 }
 
+
 /* =====================================================
    BOTTOM NAV
 ===================================================== */
@@ -592,7 +671,8 @@ body {
   right: 0;
   bottom: 0;
 
-  height: 76px;
+  height:
+    calc(76px + env(safe-area-inset-bottom));
 
   z-index: 200;
 
@@ -604,10 +684,7 @@ body {
   padding:
     7px
     8px
-    calc(
-      7px +
-      env(safe-area-inset-bottom)
-    );
+    calc(7px + env(safe-area-inset-bottom));
 
   background:
     rgba(4,7,20,.92);
@@ -636,6 +713,8 @@ body {
   justify-content: center;
 
   gap: 4px;
+
+  cursor: pointer;
 }
 
 .nav-icon {
@@ -648,9 +727,15 @@ body {
   color: #bcd2ff;
 }
 
+.nav-item.active .nav-icon {
+  filter:
+    drop-shadow(
+      0 0 8px #5e8cff
+    );
+}
+
 .nav-live {
   width: 50px;
-
   height: 50px;
 
   margin-top: -20px;
@@ -660,7 +745,6 @@ body {
   display: flex;
 
   align-items: center;
-
   justify-content: center;
 
   font-size: 24px;
@@ -682,6 +766,7 @@ body {
     0 0 28px rgba(80,110,255,.7);
 }
 
+
 /* =====================================================
    MOBILE
 ===================================================== */
@@ -689,13 +774,21 @@ body {
 @media (max-width: 500px) {
 
   .hero {
-    min-height: 590px;
+    width: 100%;
 
-    background-size:
-      auto 590px;
+    min-height: 0;
+  }
 
-    background-position:
-      57% top;
+  /*
+    ★ 画像全体をそのまま表示
+  */
+
+  .hero-image {
+    width: 100%;
+
+    height: auto;
+
+    object-fit: contain;
   }
 
   .hero-content {
@@ -714,7 +807,8 @@ body {
   }
 
   .buttons {
-    grid-template-columns: 1fr;
+    grid-template-columns:
+      1fr;
   }
 
   .main-button {
@@ -727,11 +821,12 @@ body {
   }
 }
 
-@media (min-width: 700px) {
 
-  .hero {
-    min-height: 680px;
-  }
+/* =====================================================
+   TABLET / PC
+===================================================== */
+
+@media (min-width: 700px) {
 
   .hero-content {
     max-width: 650px;
@@ -750,16 +845,23 @@ body {
   .section {
     max-width: 1000px;
 
-    margin: auto;
+    margin:
+      0 auto;
   }
 }
 
 </style>
 </head>
 
+
 <body>
 
 <div class="app">
+
+
+<!-- =================================================
+     HEADER
+================================================= -->
 
 <header class="header">
 
@@ -778,7 +880,28 @@ body {
 </header>
 
 
+<!-- =================================================
+     HERO
+================================================= -->
+
 <section class="hero">
+
+
+  <!-- ★ home.png 全体表示 -->
+
+  <img
+    class="hero-image"
+    src="/home.png"
+    alt="VoiceポタLive"
+  >
+
+
+  <!-- 暗いグラデーション -->
+
+  <div class="hero-overlay"></div>
+
+
+  <!-- 上部タグ -->
 
   <div class="hero-top">
 
@@ -792,6 +915,8 @@ body {
 
   </div>
 
+
+  <!-- 文字 -->
 
   <div class="hero-content">
 
@@ -811,6 +936,7 @@ body {
 
     </h1>
 
+
     <div class="hero-description">
 
       月明かりの下で、話して、聴いて、笑って。<br>
@@ -822,11 +948,14 @@ body {
 
     <div class="buttons">
 
+
       <button
         class="main-button start-button"
         onclick="startLive()"
       >
+
         🎙️ 配信をはじめる
+
       </button>
 
 
@@ -834,8 +963,11 @@ body {
         class="main-button listen-button"
         onclick="scrollLive()"
       >
+
         🎧 ライブを聴いてみる
+
       </button>
+
 
     </div>
 
@@ -843,6 +975,10 @@ body {
 
 </section>
 
+
+<!-- =================================================
+     LIVE
+===================================================== -->
 
 <section
   class="section"
@@ -868,13 +1004,19 @@ body {
   >
 
     <div class="empty">
+
       現在配信中のライブはありません
+
     </div>
 
   </div>
 
 </section>
 
+
+<!-- =================================================
+     FEATURES
+===================================================== -->
 
 <section class="section">
 
@@ -888,6 +1030,7 @@ body {
 
 
   <div class="features">
+
 
     <div class="feature">
 
@@ -956,12 +1099,18 @@ body {
 
     </div>
 
+
   </div>
 
 </section>
 
 
+<!-- =================================================
+     BOTTOM NAV
+===================================================== -->
+
 <nav class="bottom-nav">
+
 
   <button
     class="nav-item active"
@@ -1032,7 +1181,9 @@ body {
 
   </button>
 
+
 </nav>
+
 
 </div>
 
@@ -1040,19 +1191,28 @@ body {
 <script>
 
 /* =====================================================
-   BUTTONS
+   SCROLL
 ===================================================== */
 
 function scrollLive() {
 
-  document
-    .getElementById("liveSection")
-    .scrollIntoView({
-      behavior: "smooth"
-    });
+  const section =
+    document.getElementById(
+      "liveSection"
+    );
+
+  if (!section) return;
+
+  section.scrollIntoView({
+    behavior: "smooth"
+  });
 
 }
 
+
+/* =====================================================
+   START LIVE
+===================================================== */
 
 function startLive() {
 
@@ -1072,6 +1232,10 @@ function startLive() {
 }
 
 
+/* =====================================================
+   SEARCH
+===================================================== */
+
 function searchLive() {
 
   alert(
@@ -1080,6 +1244,10 @@ function searchLive() {
 
 }
 
+
+/* =====================================================
+   NOTICE
+===================================================== */
 
 function showNotice() {
 
@@ -1090,6 +1258,10 @@ function showNotice() {
 }
 
 
+/* =====================================================
+   PROFILE
+===================================================== */
+
 function showProfile() {
 
   alert(
@@ -1098,6 +1270,10 @@ function showProfile() {
 
 }
 
+
+/* =====================================================
+   HOME
+===================================================== */
 
 function goHome() {
 
@@ -1115,8 +1291,26 @@ function goHome() {
 
 let socket = null;
 
+let reconnectTimer = null;
+
 
 function connectSocket() {
+
+  if (
+    socket &&
+    (
+      socket.readyState ===
+      WebSocket.OPEN ||
+
+      socket.readyState ===
+      WebSocket.CONNECTING
+    )
+  ) {
+
+    return;
+
+  }
+
 
   const protocol =
     location.protocol === "https:"
@@ -1132,56 +1326,80 @@ function connectSocket() {
     );
 
 
-  socket.onopen = function() {
+  socket.onopen = () => {
 
     console.log(
-      "WebSocket connected"
+      "[WS] connected"
     );
 
   };
 
 
-  socket.onmessage = function(event) {
+  socket.onmessage =
+    event => {
 
-    try {
+      try {
 
-      const data =
-        JSON.parse(
-          event.data
-        );
+        const data =
+          JSON.parse(
+            event.data
+          );
 
 
-      if (
-        data.type ===
-        "live_list"
-      ) {
+        if (
+          data.type ===
+          "live_list"
+        ) {
 
-        renderLiveList(
-          data.lives || []
+          renderLiveList(
+            data.lives || []
+          );
+
+        }
+
+      } catch (error) {
+
+        console.log(
+          "[WS] message error",
+          error
         );
 
       }
 
-    } catch (error) {
+    };
+
+
+  socket.onerror =
+    error => {
 
       console.log(
-        "message error",
+        "[WS] error",
         error
       );
 
-    }
-
-  };
+    };
 
 
-  socket.onclose = function() {
+  socket.onclose =
+    () => {
 
-    setTimeout(
-      connectSocket,
-      2000
-    );
+      console.log(
+        "[WS] disconnected"
+      );
 
-  };
+
+      clearTimeout(
+        reconnectTimer
+      );
+
+
+      reconnectTimer =
+        setTimeout(
+          connectSocket,
+          2000
+        );
+
+    };
 
 }
 
@@ -1190,7 +1408,9 @@ function connectSocket() {
    LIVE LIST
 ===================================================== */
 
-function renderLiveList(lives) {
+function renderLiveList(
+  lives
+) {
 
   const list =
     document.getElementById(
@@ -1198,12 +1418,16 @@ function renderLiveList(lives) {
     );
 
 
+  if (!list) return;
+
+
   if (!lives.length) {
 
-    list.innerHTML =
-      '<div class="empty">' +
-        '現在配信中のライブはありません' +
-      '</div>';
+    list.innerHTML = `
+      <div class="empty">
+        現在配信中のライブはありません
+      </div>
+    `;
 
     return;
 
@@ -1211,64 +1435,57 @@ function renderLiveList(lives) {
 
 
   list.innerHTML =
-    lives.map(function(live) {
+    lives
+      .map(
+        live => `
 
-      const id =
-        escapeHtml(
-          live.id || ""
-        );
+          <div
+            class="live-card"
+            onclick="listenLive('${escapeHtml(live.id)}')"
+          >
 
+            <div class="live-avatar">
+              🎙️
+            </div>
 
-      const name =
-        escapeHtml(
-          live.name ||
-          "Voice配信者"
-        );
+            <div class="live-info">
 
+              <div class="live-name">
 
-      const title =
-        escapeHtml(
-          live.title ||
-          "音声ライブ配信中"
-        );
+                ${escapeHtml(
+                  live.name ||
+                  "Voice配信者"
+                )}
 
+              </div>
 
-      return (
+              <div class="live-title">
 
-        '<div ' +
-          'class="live-card" ' +
-          'onclick="listenLive(\\'' +
-          id +
-          '\\')">' +
+                ${escapeHtml(
+                  live.title ||
+                  "音声ライブ配信中"
+                )}
 
-          '<div class="live-avatar">' +
-            '🎙️' +
-          '</div>' +
+              </div>
 
-          '<div class="live-info">' +
+              <span class="live-badge">
+                LIVE
+              </span>
 
-            '<div class="live-name">' +
-              name +
-            '</div>' +
+            </div>
 
-            '<div class="live-title">' +
-              title +
-            '</div>' +
+          </div>
 
-            '<span class="live-badge">' +
-              'LIVE' +
-            '</span>' +
-
-          '</div>' +
-
-        '</div>'
-
-      );
-
-    }).join("");
+        `
+      )
+      .join("");
 
 }
 
+
+/* =====================================================
+   LISTEN LIVE
+===================================================== */
 
 function listenLive(id) {
 
@@ -1281,7 +1498,13 @@ function listenLive(id) {
 }
 
 
-function escapeHtml(value) {
+/* =====================================================
+   ESCAPE HTML
+===================================================== */
+
+function escapeHtml(
+  value
+) {
 
   return String(value)
 
@@ -1332,7 +1555,11 @@ connectSocket();
 
 const server =
   http.createServer(
-    function(req, res) {
+    (req, res) => {
+
+      /*
+       * ホーム
+       */
 
       if (
         req.url === "/" ||
@@ -1346,7 +1573,7 @@ const server =
               "text/html; charset=utf-8",
 
             "Cache-Control":
-              "no-cache"
+              "no-cache, no-store, must-revalidate"
           }
         );
 
@@ -1355,6 +1582,10 @@ const server =
         return;
       }
 
+
+      /*
+       * home.png
+       */
 
       if (
         req.url === "/home.png"
@@ -1368,7 +1599,9 @@ const server =
 
 
         if (
-          fs.existsSync(imagePath)
+          fs.existsSync(
+            imagePath
+          )
         ) {
 
           res.writeHead(
@@ -1386,6 +1619,7 @@ const server =
           fs.createReadStream(
             imagePath
           ).pipe(res);
+
 
           return;
 
@@ -1405,9 +1639,14 @@ const server =
           "home.png がありません"
         );
 
+
         return;
       }
 
+
+      /*
+       * その他
+       */
 
       res.writeHead(
         404,
@@ -1416,6 +1655,7 @@ const server =
             "text/plain; charset=utf-8"
         }
       );
+
 
       res.end(
         "Not Found"
@@ -1431,7 +1671,7 @@ const server =
 
 const wss =
   new WebSocket.Server({
-    server: server
+    server
   });
 
 
@@ -1441,23 +1681,30 @@ const clients =
 
 wss.on(
   "connection",
-  function(ws) {
+  ws => {
 
     clients.add(ws);
 
+
     console.log(
-      "WebSocket client connected"
+      "[CONNECT]",
+      clients.size
     );
 
+
+    /*
+     * 現在のライブ一覧
+     */
 
     sendLiveList();
 
 
     ws.on(
       "message",
-      function(message) {
+      message => {
 
         let data;
+
 
         try {
 
@@ -1466,12 +1713,21 @@ wss.on(
               message.toString()
             );
 
-        } catch (error) {
+        } catch {
+
+          console.log(
+            "[WS] invalid JSON"
+          );
 
           return;
 
         }
 
+
+        /*
+         * 接続中の他クライアントへ
+         * シグナリング情報を転送
+         */
 
         for (
           const client of clients
@@ -1497,15 +1753,31 @@ wss.on(
 
     ws.on(
       "close",
-      function() {
+      () => {
 
         clients.delete(ws);
 
+
         console.log(
-          "WebSocket client disconnected"
+          "[CLOSE]",
+          clients.size
         );
 
+
         sendLiveList();
+
+      }
+    );
+
+
+    ws.on(
+      "error",
+      error => {
+
+        console.log(
+          "[WS ERROR]",
+          error.message
+        );
 
       }
     );
@@ -1519,6 +1791,13 @@ wss.on(
 ===================================================== */
 
 function sendLiveList() {
+
+  /*
+   * 現段階では空。
+   *
+   * 次の段階で
+   * 配信開始した人をここへ登録する。
+   */
 
   const data =
     JSON.stringify({
@@ -1552,7 +1831,7 @@ function sendLiveList() {
 server.listen(
   PORT,
   HOST,
-  function() {
+  () => {
 
     console.log(
       "================================="
@@ -1565,6 +1844,16 @@ server.listen(
     console.log(
       "PORT:",
       PORT
+    );
+
+    console.log(
+      "HOST:",
+      HOST
+    );
+
+    console.log(
+      "HOME IMAGE:",
+      "/home.png"
     );
 
     console.log(

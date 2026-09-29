@@ -12,756 +12,209 @@ const HTML = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1.0,user-scalable=no"
->
-
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <title>VoiceボタLive</title>
 
 <style>
-
-*{
-  box-sizing:border-box;
+*{box-sizing:border-box}
+html,body{
+  margin:0;padding:0;width:100%;min-height:100%;
+  background:#000;color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif
 }
-
-html,
-body{
-  margin:0;
-  padding:0;
-  width:100%;
-  min-height:100%;
-  background:#000;
-  color:#fff;
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Noto Sans JP",
-    sans-serif;
-}
-
-body{
-  overflow-x:hidden;
-}
-
-button,
-input{
-  font-family:inherit;
-}
-
+body{overflow-x:hidden}
+button,input{font-family:inherit}
 .app{
-  width:100%;
-  max-width:480px;
-  min-height:100vh;
-  margin:auto;
-
+  width:100%;max-width:480px;min-height:100vh;margin:auto;
   background:
-    radial-gradient(
-      circle at 70% 0%,
-      rgba(120,70,190,.35),
-      transparent 35%
-    ),
-    linear-gradient(
-      180deg,
-      #08070d,
-      #020204
-    );
-
-  position:relative;
-  overflow:hidden;
+    radial-gradient(circle at 70% 0%,rgba(120,70,190,.35),transparent 35%),
+    linear-gradient(180deg,#08070d,#020204);
+  position:relative;overflow:hidden
 }
-
 .header{
-  height:62px;
-  padding:0 17px;
-
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-
-  border-bottom:
-    1px solid rgba(255,255,255,.08);
-
-  background:
-    rgba(5,4,9,.94);
-
-  position:sticky;
-  top:0;
-  z-index:50;
+  height:62px;padding:0 17px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(5,4,9,.94);position:sticky;top:0;z-index:50
 }
+.logo{font-size:21px;font-weight:900}
+.logo .bota{color:#dc82ff}
+.logo .live{color:#8dbfff}
+.status{font-size:11px;color:#aaa}
 
-.logo{
-  font-size:21px;
-  font-weight:900;
-}
-
-.logo .bota{
-  color:#dc82ff;
-}
-
-.logo .live{
-  color:#8dbfff;
-}
-
-.status{
-  font-size:11px;
-  color:#aaa;
-}
-
-.screen{
-  display:none;
-  min-height:calc(100vh - 62px);
-  padding-bottom:80px;
-}
-
-.screen.active{
-  display:block;
-}
+.screen{display:none;min-height:calc(100vh - 62px);padding-bottom:80px}
+.screen.active{display:block}
 
 .card{
-  margin:14px;
-  padding:16px;
-  border-radius:20px;
-
-  background:
-    rgba(17,12,23,.94);
-
-  border:
-    1px solid rgba(255,255,255,.08);
+  margin:14px;padding:16px;border-radius:20px;
+  background:rgba(17,12,23,.94);
+  border:1px solid rgba(255,255,255,.08)
 }
-
-.cardTitle{
-  font-size:17px;
-  font-weight:900;
-  margin-bottom:14px;
-}
-
-/* HOME */
+.cardTitle{font-size:17px;font-weight:900;margin-bottom:14px}
 
 .homeHero{
-  margin:14px;
-  border-radius:24px;
-  overflow:hidden;
-
-  border:
-    1px solid rgba(190,130,255,.25);
-
-  background:#090711;
+  margin:14px;border-radius:24px;overflow:hidden;
+  border:1px solid rgba(190,130,255,.25);background:#090711
 }
-
 .moonScene{
-  height:245px;
-  position:relative;
-  overflow:hidden;
-
+  height:245px;position:relative;overflow:hidden;
   background:
-    radial-gradient(
-      circle at 72% 27%,
-      rgba(235,242,255,.95) 0 7%,
-      rgba(169,196,255,.4) 8%,
-      transparent 23%
-    ),
-    linear-gradient(
-      180deg,
-      #09091b,
-      #080512 55%,
-      #020204
-    );
+    radial-gradient(circle at 72% 27%,rgba(235,242,255,.95) 0 7%,rgba(169,196,255,.4) 8%,transparent 23%),
+    linear-gradient(180deg,#09091b,#080512 55%,#020204)
 }
-
 .moon{
-  position:absolute;
-
-  width:90px;
-  height:90px;
-
-  right:68px;
-  top:38px;
-
+  position:absolute;width:90px;height:90px;right:68px;top:38px;
   border-radius:50%;
-
-  background:
-    radial-gradient(
-      circle at 35% 30%,
-      #fff,
-      #dce7ff 48%,
-      #9eafff
-    );
-
-  box-shadow:
-    0 0 35px rgba(183,202,255,.75);
+  background:radial-gradient(circle at 35% 30%,#fff,#dce7ff 48%,#9eafff);
+  box-shadow:0 0 35px rgba(183,202,255,.75)
 }
-
-.flower{
-  position:absolute;
-  bottom:-4px;
-  font-size:75px;
-  opacity:.85;
-}
-
-.flower.left{
-  left:20px;
-}
-
-.flower.right{
-  right:20px;
-}
-
-.heroText{
-  padding:17px;
-}
-
-.heroTitle{
-  font-size:21px;
-  font-weight:900;
-  margin-bottom:6px;
-}
-
-.heroSub{
-  color:#aaa1b3;
-  font-size:12px;
-  margin-bottom:15px;
-}
-
-/* BUTTON */
+.flower{position:absolute;bottom:-4px;font-size:75px;opacity:.85}
+.flower.left{left:20px}.flower.right{right:20px}
+.heroText{padding:17px}
+.heroTitle{font-size:21px;font-weight:900;margin-bottom:6px}
+.heroSub{color:#aaa1b3;font-size:12px;margin-bottom:15px}
 
 .btn{
-  border:0;
-  border-radius:14px;
-  padding:12px 17px;
-
-  color:#fff;
+  border:0;border-radius:14px;padding:12px 17px;color:#fff;
   font-weight:800;
-
-  background:
-    linear-gradient(
-      90deg,
-      #54bfff,
-      #835bff,
-      #e35bca
-    );
+  background:linear-gradient(90deg,#54bfff,#835bff,#e35bca)
 }
-
-.btn.dark{
-  background:#17121f;
-  border:
-    1px solid #392a48;
-}
-
-.btn.red{
-  background:
-    linear-gradient(
-      90deg,
-      #9f2b55,
-      #ec4e77
-    );
-}
-
-/* INPUT */
+.btn.dark{background:#17121f;border:1px solid #392a48}
+.btn.red{background:linear-gradient(90deg,#9f2b55,#ec4e77)}
 
 .input{
-  width:100%;
-  padding:13px;
-  margin:6px 0;
-
-  color:#fff;
-  background:#09070d;
-
-  border:
-    1px solid #3b2b4a;
-
-  border-radius:13px;
-  outline:none;
+  width:100%;padding:13px;margin:6px 0;color:#fff;
+  background:#09070d;border:1px solid #3b2b4a;border-radius:13px;outline:none
 }
-
-.label{
-  display:block;
-  color:#aaa1ae;
-  font-size:12px;
-  margin-top:10px;
-}
-
-/* PREVIEW */
+.label{display:block;color:#aaa1ae;font-size:12px;margin-top:10px}
 
 .preview{
-  width:100%;
-  height:190px;
-
-  margin-top:8px;
-
-  border-radius:16px;
-  overflow:hidden;
-
-  display:grid;
-  place-items:center;
-
-  border:
-    1px dashed #513b65;
-
-  background:#0a0710;
-  color:#71677b;
+  width:100%;height:190px;margin-top:8px;border-radius:16px;overflow:hidden;
+  display:grid;place-items:center;border:1px dashed #513b65;
+  background:#0a0710;color:#71677b
 }
-
-.preview img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
-
-/* LIVE LIST */
+.preview img{width:100%;height:100%;object-fit:cover}
 
 .liveCard{
-  display:flex;
-  gap:12px;
-  align-items:center;
-
-  padding:10px;
-  border-radius:15px;
-
-  background:
-    rgba(255,255,255,.035);
-
-  margin-bottom:8px;
+  display:flex;gap:12px;align-items:center;padding:10px;border-radius:15px;
+  background:rgba(255,255,255,.035);margin-bottom:8px
 }
-
 .liveThumb{
-  width:82px;
-  height:65px;
-
-  flex-shrink:0;
-
-  border-radius:12px;
-  overflow:hidden;
-
-  display:grid;
-  place-items:center;
-
-  background:
-    linear-gradient(
-      135deg,
-      #17132d,
-      #40215a
-    );
+  width:82px;height:65px;flex-shrink:0;border-radius:12px;overflow:hidden;
+  display:grid;place-items:center;background:linear-gradient(135deg,#17132d,#40215a)
 }
-
-.liveThumb img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
-
-.liveName{
-  font-weight:800;
-  font-size:14px;
-}
-
-.liveTitle{
-  color:#aaa0b0;
-  font-size:12px;
-  margin-top:4px;
-}
-
-.empty{
-  padding:20px;
-  text-align:center;
-  color:#777;
-  font-size:12px;
-}
-
-/* LIVE */
+.liveThumb img{width:100%;height:100%;object-fit:cover}
+.liveName{font-weight:800;font-size:14px}
+.liveTitle{color:#aaa0b0;font-size:12px;margin-top:4px}
+.empty{padding:20px;text-align:center;color:#777;font-size:12px}
 
 .liveScreen{
-  min-height:calc(100vh - 62px);
-
-  display:flex;
-  flex-direction:column;
-
-  padding-bottom:75px;
+  min-height:calc(100vh - 62px);display:flex;flex-direction:column;padding-bottom:75px
 }
-
 .liveCover{
-  height:300px;
-
-  position:relative;
-  overflow:hidden;
-
-  background:
-    radial-gradient(
-      circle at 70% 25%,
-      #3d2c61,
-      #08070d 50%
-    );
+  height:300px;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 70% 25%,#3d2c61,#08070d 50%)
 }
-
-.liveCover img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  opacity:.75;
-}
-
+.liveCover img{width:100%;height:100%;object-fit:cover;opacity:.75}
 .liveCover::after{
-  content:"";
-  position:absolute;
-  inset:0;
-
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0,0,0,.58),
-      transparent 40%,
-      rgba(0,0,0,.85)
-    );
-
-  pointer-events:none;
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.58),transparent 40%,rgba(0,0,0,.85));
+  pointer-events:none
 }
-
 .liveTop{
-  position:absolute;
-
-  top:14px;
-  left:14px;
-  right:14px;
-
-  z-index:5;
-
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+  position:absolute;top:14px;left:14px;right:14px;z-index:5;
+  display:flex;justify-content:space-between;align-items:center
 }
-
-.hostInfo{
-  display:flex;
-  align-items:center;
-  gap:9px;
-}
-
+.hostInfo{display:flex;align-items:center;gap:9px}
 .avatar{
-  width:40px;
-  height:40px;
-
-  border-radius:50%;
-
-  display:grid;
-  place-items:center;
-
-  background:
-    linear-gradient(
-      135deg,
-      #55c9ff,
-      #b64cff
-    );
-
-  border:
-    2px solid rgba(255,255,255,.45);
+  width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(135deg,#55c9ff,#b64cff);
+  border:2px solid rgba(255,255,255,.45)
 }
-
-.hostName{
-  font-size:14px;
-  font-weight:900;
-}
-
+.hostName{font-size:14px;font-weight:900}
 .liveBadge{
-  display:inline-block;
-
-  padding:4px 7px;
-  border-radius:7px;
-
-  background:#e93671;
-
-  font-size:9px;
-  font-weight:900;
-
-  margin-top:3px;
+  display:inline-block;padding:4px 7px;border-radius:7px;background:#e93671;
+  font-size:9px;font-weight:900;margin-top:3px
 }
-
 .viewerBadge{
-  padding:8px 10px;
-  border-radius:99px;
-
-  background:
-    rgba(0,0,0,.5);
-
-  border:
-    1px solid rgba(255,255,255,.14);
-
-  font-size:11px;
+  padding:8px 10px;border-radius:99px;background:rgba(0,0,0,.5);
+  border:1px solid rgba(255,255,255,.14);font-size:11px
 }
-
-/* AUDIO */
 
 .audioBox{
-  margin:10px 14px 0;
-
-  padding:13px;
-
-  border-radius:16px;
-
-  background:#100c16;
-
-  border:
-    1px solid #35243f;
+  margin:10px 14px 0;padding:13px;border-radius:16px;
+  background:#100c16;border:1px solid #35243f
 }
-
-.audioStatus{
-  font-size:12px;
-  color:#aaa;
-  margin-bottom:9px;
-}
-
-.audioStatus.ok{
-  color:#72e3a4;
-}
-
-.audioStatus.error{
-  color:#ff7695;
-}
-
+.audioStatus{font-size:12px;color:#aaa;margin-bottom:9px}
+.audioStatus.ok{color:#72e3a4}
+.audioStatus.error{color:#ff7695}
 .audioButton{
-  width:100%;
-
-  padding:13px;
-
-  border:0;
-  border-radius:13px;
-
-  color:#fff;
-  font-weight:900;
-
-  background:
-    linear-gradient(
-      90deg,
-      #5d7cff,
-      #b45cff
-    );
+  width:100%;padding:13px;border:0;border-radius:13px;color:#fff;
+  font-weight:900;background:linear-gradient(90deg,#5d7cff,#b45cff)
 }
 
-/* COMMENTS */
-
-.comments{
-  flex:1;
-
-  min-height:150px;
-  max-height:260px;
-
-  overflow-y:auto;
-
-  padding:10px 14px;
-}
-
-.comment{
-  font-size:13px;
-  margin:7px 0;
-}
-
-.commentName{
-  color:#d28cff;
-  font-weight:800;
-  margin-right:5px;
-}
-
-/* CHAT */
+.comments{flex:1;min-height:150px;max-height:260px;overflow-y:auto;padding:10px 14px}
+.comment{font-size:13px;margin:7px 0}
+.commentName{color:#d28cff;font-weight:800;margin-right:5px}
 
 .chatBar{
-  position:fixed;
-
-  bottom:0;
-  left:50%;
-
-  transform:translateX(-50%);
-
-  width:100%;
-  max-width:480px;
-
-  height:70px;
-
-  padding:10px;
-
-  display:flex;
-  gap:6px;
-  align-items:center;
-
-  background:
-    rgba(8,6,12,.97);
-
-  border-top:
-    1px solid #281c34;
-
-  z-index:40;
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;height:70px;padding:10px;
+  display:flex;gap:6px;align-items:center;background:rgba(8,6,12,.97);
+  border-top:1px solid #281c34;z-index:40
 }
-
 .chatInput{
-  flex:1;
-  min-width:0;
-
-  padding:12px;
-
-  border-radius:14px;
-
-  border:
-    1px solid #3b2b49;
-
-  background:#0c0910;
-  color:#fff;
-  outline:none;
+  flex:1;min-width:0;padding:12px;border-radius:14px;
+  border:1px solid #3b2b49;background:#0c0910;color:#fff;outline:none
 }
-
 .iconBtn{
-  width:43px;
-  height:43px;
-
-  border-radius:13px;
-
-  border:
-    1px solid #392a49;
-
-  background:#15101c;
-
-  color:#fff;
-
-  font-size:18px;
+  width:43px;height:43px;border-radius:13px;border:1px solid #392a49;
+  background:#15101c;color:#fff;font-size:18px
 }
-
-/* NAV */
 
 .nav{
-  position:fixed;
-
-  bottom:0;
-  left:50%;
-
-  transform:translateX(-50%);
-
-  width:100%;
-  max-width:480px;
-
-  height:68px;
-
-  background:
-    rgba(8,6,12,.97);
-
-  border-top:
-    1px solid #281c35;
-
-  display:flex;
-
-  align-items:center;
-  justify-content:space-around;
-
-  z-index:30;
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;height:68px;background:rgba(8,6,12,.97);
+  border-top:1px solid #281c35;display:flex;align-items:center;
+  justify-content:space-around;z-index:30
 }
-
-.nav button{
-  border:0;
-  background:transparent;
-  color:#817689;
-  font-size:10px;
-}
-
-.nav button span{
-  display:block;
-  font-size:21px;
-  margin-bottom:3px;
-}
-
-/* MODAL */
+.nav button{border:0;background:transparent;color:#817689;font-size:10px}
+.nav button span{display:block;font-size:21px;margin-bottom:3px}
 
 .modal{
-  position:fixed;
-  inset:0;
-
-  display:none;
-
-  align-items:flex-end;
-  justify-content:center;
-
-  background:
-    rgba(0,0,0,.72);
-
-  z-index:100;
+  position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.72);z-index:100
 }
-
-.modal.show{
-  display:flex;
-}
-
+.modal.show{display:flex}
 .sheet{
-  width:100%;
-  max-width:480px;
-
-  padding:20px;
-
-  border-radius:
-    25px 25px 0 0;
-
-  background:#120d19;
-
-  border:
-    1px solid #443151;
+  width:100%;max-width:480px;padding:20px;border-radius:25px 25px 0 0;
+  background:#120d19;border:1px solid #443151
 }
-
-.gifts{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-
-  gap:8px;
-  margin-top:15px;
-}
-
+.gifts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}
 .gift{
-  padding:13px;
-
-  border-radius:15px;
-
-  border:
-    1px solid #39294a;
-
-  background:#191221;
-  color:#fff;
+  padding:13px;border-radius:15px;border:1px solid #39294a;
+  background:#191221;color:#fff
 }
-
-.giftIcon{
-  font-size:27px;
-  display:block;
-  margin-bottom:5px;
-}
-
-.small{
-  color:#9990a0;
-  font-size:11px;
-}
+.giftIcon{font-size:27px;display:block;margin-bottom:5px}
+.small{color:#9990a0;font-size:11px}
 
 .toast{
+  position:fixed;left:50%;bottom:90px;transform:translateX(-50%);
+  padding:10px 15px;border-radius:99px;background:#21172c;
+  border:1px solid #604478;font-size:12px;display:none;z-index:200
+}
+.toast.show{display:block}
+
+/* 音声要素は画面上に置かないがDOMには残す */
+#remoteAudio{
   position:fixed;
-
-  left:50%;
-  bottom:90px;
-
-  transform:translateX(-50%);
-
-  padding:10px 15px;
-
-  border-radius:99px;
-
-  background:#21172c;
-
-  border:
-    1px solid #604478;
-
-  font-size:12px;
-
-  display:none;
-
-  z-index:200;
+  width:2px;
+  height:2px;
+  left:-100px;
+  top:-100px;
+  opacity:.01;
+  pointer-events:none;
 }
-
-.toast.show{
-  display:block;
-}
-
 </style>
 </head>
 
@@ -770,84 +223,49 @@ input{
 <div class="app">
 
 <header class="header">
-
   <div class="logo">
     Voice<span class="bota">ボタ</span><span class="live">Live</span>
   </div>
-
-  <div id="status" class="status">
-    ● 接続中
-  </div>
-
+  <div id="status" class="status">● 接続中</div>
 </header>
-
-
-<!-- HOME -->
 
 <section id="home" class="screen active">
 
   <div class="homeHero">
 
     <div class="moonScene">
-
       <div class="moon"></div>
-
       <div class="flower left">🪻</div>
       <div class="flower right">🪻</div>
-
     </div>
 
     <div class="heroText">
-
-      <div class="heroTitle">
-        声でつながる、みんなの居場所。
-      </div>
-
-      <div class="heroSub">
-        月光の夜に、声でつながろう。
-      </div>
+      <div class="heroTitle">声でつながる、みんなの居場所。</div>
+      <div class="heroSub">月光の夜に、声でつながろう。</div>
 
       <button class="btn" onclick="openHost()">
         🎙️ 配信する
       </button>
-
     </div>
 
   </div>
 
-
   <div class="card">
-
-    <div class="cardTitle">
-      🔴 ライブ中
-    </div>
-
+    <div class="cardTitle">🔴 ライブ中</div>
     <div id="liveList">
-
-      <div class="empty">
-        配信を確認しています...
-      </div>
-
+      <div class="empty">配信を確認しています...</div>
     </div>
-
   </div>
 
 </section>
-
-
-<!-- SETUP -->
 
 <section id="setup" class="screen">
 
   <div class="card">
 
-    <div class="cardTitle">
-      🎙️ 配信準備
-    </div>
+    <div class="cardTitle">🎙️ 配信準備</div>
 
-    <label class="label">
-      配信者名
-    </label>
+    <label class="label">配信者名</label>
 
     <input
       id="hostName"
@@ -856,9 +274,7 @@ input{
       maxlength="30"
     >
 
-    <label class="label">
-      配信タイトル
-    </label>
+    <label class="label">配信タイトル</label>
 
     <input
       id="liveTitle"
@@ -867,9 +283,7 @@ input{
       maxlength="80"
     >
 
-    <label class="label">
-      配信画像
-    </label>
+    <label class="label">配信画像</label>
 
     <input
       id="imageFile"
@@ -900,14 +314,7 @@ input{
 
 </section>
 
-
-<!-- LIVE -->
-
-<section
-  id="live"
-  class="screen"
-  style="padding:0"
->
+<section id="live" class="screen" style="padding:0">
 
   <div class="liveScreen">
 
@@ -919,35 +326,22 @@ input{
 
         <div class="hostInfo">
 
-          <div class="avatar">
-            🎙️
-          </div>
+          <div class="avatar">🎙️</div>
 
           <div>
-
-            <div id="liveName" class="hostName">
-              配信者
-            </div>
-
-            <div class="liveBadge">
-              LIVE
-            </div>
-
+            <div id="liveName" class="hostName">配信者</div>
+            <div class="liveBadge">LIVE</div>
           </div>
 
         </div>
 
         <div class="viewerBadge">
-
-          👥
-          <span id="viewerCount">0</span>
-
+          👥 <span id="viewerCount">0</span>
         </div>
 
       </div>
 
     </div>
-
 
     <div class="audioBox">
 
@@ -965,11 +359,9 @@ input{
 
     </div>
 
-
     <div id="comments" class="comments"></div>
 
   </div>
-
 
   <div class="chatBar">
 
@@ -980,13 +372,8 @@ input{
       maxlength="200"
     >
 
-    <button class="iconBtn" onclick="sendChat()">
-      ➤
-    </button>
-
-    <button class="iconBtn" onclick="openGifts()">
-      🎁
-    </button>
+    <button class="iconBtn" onclick="sendChat()">➤</button>
+    <button class="iconBtn" onclick="openGifts()">🎁</button>
 
     <button
       id="hostEndButton"
@@ -1001,32 +388,21 @@ input{
 
 </section>
 
-
-<!-- PROFILE -->
-
 <section id="profile" class="screen">
 
   <div class="card">
 
-    <div class="cardTitle">
-      👤 マイページ
-    </div>
+    <div class="cardTitle">👤 マイページ</div>
 
     <div class="hostInfo">
 
-      <div class="avatar">
-        🎙️
-      </div>
+      <div class="avatar">🎙️</div>
 
       <div>
 
-        <div id="profileName">
-          ぼたもち
-        </div>
+        <div id="profileName">ぼたもち</div>
 
-        <div class="small">
-          VoiceボタLive
-        </div>
+        <div class="small">VoiceボタLive</div>
 
       </div>
 
@@ -1035,9 +411,6 @@ input{
   </div>
 
 </section>
-
-
-<!-- NAV -->
 
 <nav class="nav">
 
@@ -1058,27 +431,15 @@ input{
 
 </nav>
 
-
-<!-- GIFTS -->
-
 <div id="giftModal" class="modal">
 
   <div class="sheet">
 
-    <div
-      style="
-      display:flex;
-      justify-content:space-between;
-      align-items:center
-      "
-    >
+    <div style="display:flex;justify-content:space-between;align-items:center">
 
       <b>🎁 ギフト</b>
 
-      <button
-        class="btn dark"
-        onclick="closeGifts()"
-      >
+      <button class="btn dark" onclick="closeGifts()">
         閉じる
       </button>
 
@@ -1086,26 +447,17 @@ input{
 
     <div class="gifts">
 
-      <button
-        class="gift"
-        onclick="sendGift('🌙 月光花')"
-      >
+      <button class="gift" onclick="sendGift('🌙 月光花')">
         <span class="giftIcon">🌙</span>
         月光花
       </button>
 
-      <button
-        class="gift"
-        onclick="sendGift('💜 ハート')"
-      >
+      <button class="gift" onclick="sendGift('💜 ハート')">
         <span class="giftIcon">💜</span>
         ハート
       </button>
 
-      <button
-        class="gift"
-        onclick="sendGift('✨ 星の雫')"
-      >
+      <button class="gift" onclick="sendGift('✨ 星の雫')">
         <span class="giftIcon">✨</span>
         星の雫
       </button>
@@ -1116,9 +468,7 @@ input{
 
 </div>
 
-
 <div id="toast" class="toast"></div>
-
 
 <script>
 
@@ -1126,47 +476,38 @@ input{
    GLOBAL
 ===================================================== */
 
-let socket = null;
+let socket=null;
+let role=null;
 
-let role = null;
+let localStream=null;
 
-let localStream = null;
+let viewerPeer=null;
+let viewerPeers=new Map();
 
-let viewerPeer = null;
+let customImage="";
+let currentLive=false;
+let currentMeta=null;
 
-let viewerPeers = new Map();
-
-let customImage = "";
-
-let currentLive = false;
-
-let currentMeta = null;
-
-let audioStarted = false;
+let audioStarted=false;
+let remoteAudio=null;
 
 
 /* =====================================================
-   WEBRTC
+   RTC CONFIG
 ===================================================== */
 
-const rtcConfig = {
+const rtcConfig={
 
   bundlePolicy:"max-bundle",
 
   rtcpMuxPolicy:"require",
 
-  iceCandidatePoolSize:10,
+  iceCandidatePoolSize:4,
 
   iceServers:[
-
     {
       urls:"stun:stun.l.google.com:19302"
-    },
-
-    {
-      urls:"stun:stun1.l.google.com:19302"
     }
-
   ]
 
 };
@@ -1185,8 +526,8 @@ function showScreen(id){
 
   document
     .querySelectorAll(".screen")
-    .forEach(x=>{
-      x.classList.remove("active");
+    .forEach(el=>{
+      el.classList.remove("active");
     });
 
   const el=$(id);
@@ -1214,6 +555,46 @@ function setAudioStatus(text,type){
 
 
 /* =====================================================
+   AUDIO ELEMENT
+===================================================== */
+
+function ensureRemoteAudio(){
+
+  if(remoteAudio){
+    return remoteAudio;
+  }
+
+  remoteAudio=
+    document.createElement("audio");
+
+  remoteAudio.id="remoteAudio";
+
+  remoteAudio.autoplay=true;
+  remoteAudio.playsInline=true;
+  remoteAudio.controls=false;
+
+  remoteAudio.setAttribute(
+    "playsinline",
+    ""
+  );
+
+  remoteAudio.setAttribute(
+    "autoplay",
+    ""
+  );
+
+  remoteAudio.preload="auto";
+
+  document.body.appendChild(
+    remoteAudio
+  );
+
+  return remoteAudio;
+
+}
+
+
+/* =====================================================
    WEBSOCKET
 ===================================================== */
 
@@ -1229,15 +610,15 @@ function connectSocket(){
     return;
   }
 
-  const protocol =
+  const protocol=
     location.protocol==="https:"
       ? "wss"
       : "ws";
 
-  socket =
+  socket=
     new WebSocket(
-      protocol +
-      "://" +
+      protocol+
+      "://"+
       location.host
     );
 
@@ -1271,24 +652,27 @@ function connectSocket(){
 
     setTimeout(
       connectSocket,
-      1500
+      1000
     );
 
   };
 
 
-  socket.onmessage=(event)=>{
+  socket.onmessage=event=>{
 
     try{
 
-      const message=
+      const m=
         JSON.parse(event.data);
 
-      handleMessage(message);
+      handleMessage(m);
 
     }catch(error){
 
-      console.error(error);
+      console.error(
+        "WS MESSAGE",
+        error
+      );
 
     }
 
@@ -1322,11 +706,8 @@ function handleMessage(m){
 
   if(m.type==="state"){
 
-    currentLive=
-      !!m.live;
-
-    currentMeta=
-      m.meta || null;
+    currentLive=!!m.live;
+    currentMeta=m.meta||null;
 
     updateLiveList();
 
@@ -1341,7 +722,7 @@ function handleMessage(m){
       "● LIVE";
 
     setAudioStatus(
-      "🎙️ 配信中・超低遅延音声送信中",
+      "🎙️ 配信中・低遅延音声送信中",
       "ok"
     );
 
@@ -1352,9 +733,7 @@ function handleMessage(m){
 
   if(m.type==="live-meta"){
 
-    currentMeta=
-      m.meta || null;
-
+    currentMeta=m.meta||null;
     currentLive=true;
 
     updateLiveList();
@@ -1367,9 +746,7 @@ function handleMessage(m){
   if(m.type==="viewer"){
 
     if(role==="host"){
-
       createOffer(m.id);
-
     }
 
     return;
@@ -1411,15 +788,10 @@ function handleMessage(m){
     let peer=null;
 
     if(role==="host"){
-
       peer=
         viewerPeers.get(m.from);
-
     }else{
-
-      peer=
-        viewerPeer;
-
+      peer=viewerPeer;
     }
 
     if(
@@ -1466,7 +838,7 @@ function handleMessage(m){
 
     addComment(
       m.name,
-      "🎁 " + m.gift
+      "🎁 "+m.gift
     );
 
     return;
@@ -1502,11 +874,9 @@ function handleMessage(m){
   if(m.type==="error"){
 
     alert(
-      m.text ||
+      m.text||
       "エラーが発生しました"
     );
-
-    return;
 
   }
 
@@ -1526,16 +896,15 @@ function updateLiveList(){
   if(!currentLive){
 
     list.innerHTML=
-      '<div class="empty">' +
-      '現在配信中のライブはありません' +
+      '<div class="empty">'+
+      '現在配信中のライブはありません'+
       '</div>';
 
     return;
 
   }
 
-  const meta=
-    currentMeta || {};
+  const meta=currentMeta||{};
 
   const card=
     document.createElement("div");
@@ -1577,9 +946,9 @@ function updateLiveList(){
   name.className="liveName";
 
   name.textContent=
-    "🔴 " +
+    "🔴 "+
     (
-      meta.name ||
+      meta.name||
       "配信者"
     );
 
@@ -1590,7 +959,7 @@ function updateLiveList(){
   title.className="liveTitle";
 
   title.textContent=
-    meta.title ||
+    meta.title||
     "ライブ配信";
 
 
@@ -1602,7 +971,6 @@ function updateLiveList(){
     document.createElement("button");
 
   button.className="btn";
-
   button.textContent="見る";
 
   button.onclick=()=>{
@@ -1620,7 +988,7 @@ function updateLiveList(){
 
 
 /* =====================================================
-   BROADCAST
+   HOST
 ===================================================== */
 
 async function startBroadcast(){
@@ -1629,14 +997,13 @@ async function startBroadcast(){
     return;
   }
 
-
   if(
-    !navigator.mediaDevices ||
+    !navigator.mediaDevices||
     !navigator.mediaDevices.getUserMedia
   ){
 
     alert(
-      "このブラウザではマイクを利用できません。HTTPSで開いてください。"
+      "HTTPS接続でマイクを利用してください。"
     );
 
     return;
@@ -1651,10 +1018,6 @@ async function startBroadcast(){
         .getUserMedia({
 
           audio:{
-
-            /*
-             * 超低遅延優先
-             */
 
             echoCancellation:false,
 
@@ -1681,7 +1044,7 @@ async function startBroadcast(){
     console.error(error);
 
     alert(
-      "マイクを取得できませんでした。\\n\\nブラウザのマイク許可を確認してください。"
+      "マイクを取得できませんでした。"
     );
 
     return;
@@ -1694,34 +1057,28 @@ async function startBroadcast(){
 
   const name=
     (
-      $("hostName").value ||
+      $("hostName").value||
       "ぼたもち"
     ).trim();
 
 
   const title=
     (
-      $("liveTitle").value ||
+      $("liveTitle").value||
       "月光の夜に雑談しよ🌙"
     ).trim();
 
 
-  $("profileName")
-    .textContent=name;
-
-  $("liveName")
-    .textContent=name;
+  $("profileName").textContent=name;
+  $("liveName").textContent=name;
 
   $("hostEndButton")
     .style.display="block";
 
 
   send({
-
     type:"join-host",
-
     name:name
-
   });
 
 
@@ -1729,36 +1086,27 @@ async function startBroadcast(){
 
 
   setAudioStatus(
-    "🎙️ マイク取得成功・超低遅延配信中",
+    "🎙️ マイク取得成功・低遅延配信中",
     "ok"
   );
 
 
-  setTimeout(()=>{
+  send({
+    type:"set-meta",
 
-    send({
+    meta:{
+      name:name,
+      title:title,
+      image:customImage
+    }
 
-      type:"set-meta",
-
-      meta:{
-
-        name:name,
-
-        title:title,
-
-        image:customImage
-
-      }
-
-    });
-
-  },100);
+  });
 
 }
 
 
 /* =====================================================
-   JOIN LIVE
+   JOIN VIEWER
 ===================================================== */
 
 function joinLive(){
@@ -1781,6 +1129,9 @@ function joinLive(){
   closeViewerPeer();
 
 
+  ensureRemoteAudio();
+
+
   $("audioButton")
     .style.display="block";
 
@@ -1796,12 +1147,12 @@ function joinLive(){
 
 
   const meta=
-    currentMeta || {};
+    currentMeta||{};
 
 
   $("liveName")
     .textContent=
-      meta.name ||
+      meta.name||
       "配信者";
 
 
@@ -1832,164 +1183,7 @@ function joinLive(){
 
 
 /* =====================================================
-   HOST OFFER
-===================================================== */
-
-async function createOffer(viewerId){
-
-  if(!localStream){
-    return;
-  }
-
-
-  const peer=
-    new RTCPeerConnection(
-      rtcConfig
-    );
-
-
-  viewerPeers.set(
-    viewerId,
-    peer
-  );
-
-
-  localStream
-    .getAudioTracks()
-    .forEach(track=>{
-
-      const sender=
-        peer.addTrack(
-          track,
-          localStream
-        );
-
-
-      try{
-
-        const params=
-          sender.getParameters();
-
-        if(
-          params.encodings &&
-          params.encodings.length
-        ){
-
-          /*
-           * 音声ビットレート。
-           *
-           * 低すぎると音質低下。
-           * 高すぎるとテザリング環境で
-           * 遅延が増える場合がある。
-           */
-
-          params.encodings[0]
-            .maxBitrate=48000;
-
-        }
-
-        sender.setParameters(
-          params
-        ).catch(()=>{});
-
-      }catch(e){}
-
-    });
-
-
-  peer.onicecandidate=
-    event=>{
-
-      if(event.candidate){
-
-        send({
-
-          type:"ice",
-
-          to:viewerId,
-
-          candidate:
-            event.candidate
-
-        });
-
-      }
-
-    };
-
-
-  peer.onconnectionstatechange=
-    ()=>{
-
-      console.log(
-        "HOST PEER",
-        viewerId,
-        peer.connectionState
-      );
-
-    };
-
-
-  peer.oniceconnectionstatechange=
-    ()=>{
-
-      console.log(
-        "HOST ICE",
-        viewerId,
-        peer.iceConnectionState
-      );
-
-    };
-
-
-  try{
-
-    const offer=
-      await peer.createOffer({
-
-        offerToReceiveAudio:false,
-
-        offerToReceiveVideo:false
-
-      });
-
-
-    offer.sdp=
-      optimizeOpusSDP(
-        offer.sdp
-      );
-
-
-    await peer.setLocalDescription(
-      offer
-    );
-
-
-    send({
-
-      type:"offer",
-
-      to:viewerId,
-
-      sdp:
-        peer.localDescription
-
-    });
-
-  }catch(error){
-
-    console.error(
-      "CREATE OFFER ERROR",
-      error
-    );
-
-  }
-
-}
-
-
-/* =====================================================
-   OPUS SUPER LOW LATENCY SDP
+   LOW LATENCY SDP
 ===================================================== */
 
 function optimizeOpusSDP(sdp){
@@ -2000,7 +1194,7 @@ function optimizeOpusSDP(sdp){
 
 
   const lines=
-    sdp.split("\r\n");
+    sdp.split("\\r\\n");
 
 
   let opusPayload=null;
@@ -2016,22 +1210,16 @@ function optimizeOpusSDP(sdp){
 
 
     if(
-      line.startsWith("a=rtpmap:")
-      &&
-      line
-        .toLowerCase()
-        .includes("opus/48000")
+      line.startsWith("a=rtpmap:")&&
+      line.toLowerCase().includes("opus/48000")
     ){
 
       const match=
-        line.match(
-          /^a=rtpmap:(\d+)/
-        );
+        line.match(/^a=rtpmap:(\\d+)/);
 
       if(match){
 
-        opusPayload=
-          match[1];
+        opusPayload=match[1];
 
         break;
 
@@ -2048,19 +1236,23 @@ function optimizeOpusSDP(sdp){
 
 
   /*
-   * 超低遅延設定
-   *
-   * minptime=5
-   * maxptime=10
-   * useinbandfec=0
-   * stereo=0
-   * usedtx=0
-   */
+    超低遅延優先。
+
+    5msパケットを指定。
+    ブラウザによっては内部的に
+    10ms以上になる場合があるが、
+    対応環境では遅延を抑えられる。
+
+    FECは今回OFF。
+    FECは音切れ対策には有効だが、
+    低遅延優先では追加バッファを
+    避ける。
+  */
 
   const fmtp=
-    "a=fmtp:" +
-    opusPayload +
-    " minptime=5;maxptime=10;useinbandfec=0;stereo=0;usedtx=0";
+    "a=fmtp:"+
+    opusPayload+
+    " minptime=5;maxptime=5;useinbandfec=0;stereo=0;sprop-stereo=0;usedtx=0";
 
 
   let fmtpIndex=-1;
@@ -2116,122 +1308,224 @@ function optimizeOpusSDP(sdp){
 
 
   /*
-   * ptime / maxptime
-   */
+    audioレベルのRTCP頻度を
+    低遅延寄りにする。
+  */
 
-  let audioSection=false;
-
-  let hasPtime=false;
-
-  let hasMaxptime=false;
-
-
-  for(
-    let i=0;
-    i<lines.length;
-    i++
-  ){
-
-    if(
-      lines[i].startsWith("m=audio ")
-    ){
-
-      audioSection=true;
-
-      continue;
-
-    }
-
-
-    if(
-      audioSection &&
-      lines[i].startsWith("m=")
-    ){
-
-      audioSection=false;
-
-    }
-
-
-    if(audioSection){
-
-      if(
-        lines[i].startsWith("a=ptime:")
-      ){
-
-        lines[i]="a=ptime:10";
-
-        hasPtime=true;
-
-      }
-
-
-      if(
-        lines[i].startsWith("a=maxptime:")
-      ){
-
-        lines[i]="a=maxptime:10";
-
-        hasMaxptime=true;
-
-      }
-
-    }
-
-  }
-
-
-  const mediaIndex=
+  let mediaIndex=
     lines.findIndex(
       line=>
-        line.startsWith("m=audio ")
+        line.startsWith("m=audio")
     );
 
 
   if(mediaIndex>=0){
 
-    let insertIndex=
-      mediaIndex+1;
+    for(
+      let i=mediaIndex+1;
+      i<lines.length;
+      i++
+    ){
+
+      if(
+        lines[i].startsWith("m=")
+      ){
+        break;
+      }
 
 
-    if(!hasPtime){
+      if(
+        lines[i].startsWith("a=ptime:")
+      ){
 
-      lines.splice(
-        insertIndex,
-        0,
-        "a=ptime:10"
-      );
+        lines[i]="a=ptime:5";
 
-      insertIndex++;
-
-    }
-
-
-    if(!hasMaxptime){
-
-      lines.splice(
-        insertIndex,
-        0,
-        "a=maxptime:10"
-      );
+      }
 
     }
 
   }
 
 
-  return lines.join("\r\n");
+  return lines.join("\\r\\n");
 
 }
 
 
 /* =====================================================
-   VIEWER RECEIVE OFFER
+   HOST OFFER
+===================================================== */
+
+async function createOffer(viewerId){
+
+  if(!localStream){
+    return;
+  }
+
+
+  const peer=
+    new RTCPeerConnection(
+      rtcConfig
+    );
+
+
+  viewerPeers.set(
+    viewerId,
+    peer
+  );
+
+
+  const audioTrack=
+    localStream
+      .getAudioTracks()[0];
+
+
+  if(!audioTrack){
+    return;
+  }
+
+
+  const sender=
+    peer.addTrack(
+      audioTrack,
+      localStream
+    );
+
+
+  /*
+    可能なら音声エンコードを
+    低ビットレートに固定。
+  */
+
+  try{
+
+    const params=
+      sender.getParameters();
+
+
+    if(
+      params.encodings &&
+      params.encodings.length
+    ){
+
+      params.encodings[0].maxBitrate=32000;
+
+    }
+
+
+    await sender.setParameters(
+      params
+    );
+
+  }catch(error){
+
+    console.log(
+      "sender parameter:",
+      error
+    );
+
+  }
+
+
+  peer.onicecandidate=
+    event=>{
+
+      if(event.candidate){
+
+        send({
+
+          type:"ice",
+
+          to:viewerId,
+
+          candidate:
+            event.candidate
+
+        });
+
+      }
+
+    };
+
+
+  peer.onconnectionstatechange=
+    ()=>{
+
+      console.log(
+        "HOST PEER",
+        viewerId,
+        peer.connectionState
+      );
+
+
+      if(
+        peer.connectionState==="failed"||
+        peer.connectionState==="closed"
+      ){
+
+        viewerPeers.delete(
+          viewerId
+        );
+
+      }
+
+    };
+
+
+  try{
+
+    let offer=
+      await peer.createOffer({
+        offerToReceiveAudio:false,
+        offerToReceiveVideo:false
+      });
+
+
+    offer.sdp=
+      optimizeOpusSDP(
+        offer.sdp
+      );
+
+
+    await peer.setLocalDescription(
+      offer
+    );
+
+
+    send({
+
+      type:"offer",
+
+      to:viewerId,
+
+      sdp:
+        peer.localDescription
+
+    });
+
+  }catch(error){
+
+    console.error(
+      "CREATE OFFER ERROR",
+      error
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   VIEWER RECEIVE
 ===================================================== */
 
 async function receiveOffer(m){
 
   closeViewerPeer();
+
+
+  const audio=
+    ensureRemoteAudio();
 
 
   viewerPeer=
@@ -2241,9 +1535,119 @@ async function receiveOffer(m){
 
 
   setAudioStatus(
-    "🔊 超低遅延WebRTC接続中...",
+    "🔊 WebRTC低遅延接続中...",
     ""
   );
+
+
+  /*
+    音声トラック受信。
+  */
+
+  viewerPeer.ontrack=
+    async event=>{
+
+      console.log(
+        "REMOTE TRACK:",
+        event.track.kind
+      );
+
+
+      if(event.track.kind!=="audio"){
+        return;
+      }
+
+
+      const stream=
+        event.streams &&
+        event.streams[0]
+          ? event.streams[0]
+          : new MediaStream([
+              event.track
+            ]);
+
+
+      audio.srcObject=
+        stream;
+
+
+      /*
+        受信側の再生遅延ヒント。
+      */
+
+      try{
+
+        const receiver=
+          viewerPeer
+            .getReceivers()
+            .find(
+              r=>
+                r.track &&
+                r.track.kind==="audio"
+            );
+
+
+        if(receiver){
+
+          if(
+            "playoutDelayHint" in receiver
+          ){
+
+            try{
+
+              receiver.playoutDelayHint=0;
+
+            }catch(e){}
+
+          }
+
+
+          if(
+            "jitterBufferTarget" in receiver
+          ){
+
+            try{
+
+              receiver.jitterBufferTarget=0;
+
+            }catch(e){}
+
+          }
+
+        }
+
+      }catch(e){}
+
+
+      setAudioStatus(
+        "🟢 音声を受信しています",
+        "ok"
+      );
+
+
+      /*
+        ボタンを一度押した後なら
+        トラック到着直後に再生。
+      */
+
+      if(audioStarted){
+
+        try{
+
+          await audio.play();
+
+        }catch(error){
+
+          console.log(
+            "AUTO PLAY:",
+            error
+          );
+
+        }
+
+      }
+
+    };
 
 
   viewerPeer.onicecandidate=
@@ -2279,12 +1683,12 @@ async function receiveOffer(m){
 
 
       if(
-        state==="connected" ||
+        state==="connected"||
         state==="completed"
       ){
 
         setAudioStatus(
-          "🟢 超低遅延音声回線に接続",
+          "🟢 低遅延音声回線に接続",
           "ok"
         );
 
@@ -2327,185 +1731,9 @@ async function receiveOffer(m){
     ()=>{
 
       console.log(
-        "VIEWER CONNECTION:",
+        "VIEWER PEER:",
         viewerPeer.connectionState
       );
-
-    };
-
-
-  viewerPeer.ontrack=
-    event=>{
-
-      console.log(
-        "REMOTE TRACK:",
-        event.track.kind
-      );
-
-
-      let audio=
-        document.getElementById(
-          "remoteAudio"
-        );
-
-
-      if(!audio){
-
-        audio=
-          document.createElement(
-            "audio"
-          );
-
-        audio.id=
-          "remoteAudio";
-
-        audio.autoplay=true;
-
-        audio.playsInline=true;
-
-        audio.controls=false;
-
-        /*
-         * display:noneにはしない。
-         */
-
-        audio.style.position=
-          "fixed";
-
-        audio.style.width="1px";
-
-        audio.style.height="1px";
-
-        audio.style.opacity="0.01";
-
-        audio.style.pointerEvents="none";
-
-        audio.style.left="-10px";
-
-        audio.style.top="-10px";
-
-        document.body.appendChild(
-          audio
-        );
-
-      }
-
-
-      const stream=
-        event.streams &&
-        event.streams[0]
-          ? event.streams[0]
-          : new MediaStream([
-              event.track
-            ]);
-
-
-      audio.srcObject=
-        stream;
-
-
-      audio.autoplay=true;
-      audio.playsInline=true;
-
-
-      /*
-       * Android Chromeで
-       * 不要なピッチ補正を避ける。
-       */
-
-      try{
-
-        audio.preservesPitch=false;
-
-      }catch(e){}
-
-
-      try{
-
-        audio.playbackRate=1.0;
-
-      }catch(e){}
-
-
-      /*
-       * 受信側バッファを最小化
-       */
-
-      try{
-
-        const receiver=
-          viewerPeer
-            .getReceivers()
-            .find(
-              r=>
-                r.track &&
-                r.track.kind==="audio"
-            );
-
-
-        if(receiver){
-
-          if(
-            "playoutDelayHint"
-            in receiver
-          ){
-
-            try{
-
-              receiver
-                .playoutDelayHint=0;
-
-            }catch(e){}
-
-          }
-
-
-          if(
-            "jitterBufferTarget"
-            in receiver
-          ){
-
-            try{
-
-              receiver
-                .jitterBufferTarget=0;
-
-            }catch(e){}
-
-          }
-
-        }
-
-      }catch(e){
-
-        console.log(
-          "RECEIVER LOW LATENCY:",
-          e
-        );
-
-      }
-
-
-      setAudioStatus(
-        "🟢 超低遅延音声を受信中",
-        "ok"
-      );
-
-
-      if(audioStarted){
-
-        audio
-          .play()
-          .catch(error=>{
-
-            console.log(
-              "AUDIO PLAY",
-              error
-            );
-
-          });
-
-      }
 
     };
 
@@ -2519,123 +1747,65 @@ async function receiveOffer(m){
 
 
     /*
-     * =========================================
-     * 超低遅延受信設定
-     * =========================================
-     */
-
-    try{
-
-      const receivers =
-        viewerPeer.getReceivers();
-
-
-      receivers.forEach(
-        receiver=>{
-
-          if(
-            receiver.track &&
-            receiver.track.kind==="audio"
-          ){
-
-            try{
-
-              if(
-                "playoutDelayHint"
-                in receiver
-              ){
-
-                receiver
-                  .playoutDelayHint=0;
-
-              }
-
-            }catch(e){}
-
-
-            try{
-
-              if(
-                "jitterBufferTarget"
-                in receiver
-              ){
-
-                receiver
-                  .jitterBufferTarget=0;
-
-              }
-
-            }catch(e){}
-
-          }
-
-        }
-      );
-
-    }catch(e){
-
-      console.log(
-        "LOW LATENCY RECEIVER SETTING:",
-        e
-      );
-
-    }
-
-
-    /*
-     * Opus優先
-     */
+      Opusを優先。
+    */
 
     try{
 
       const transceivers=
-        viewerPeer
-          .getTransceivers();
+        viewerPeer.getTransceivers();
 
 
       transceivers.forEach(
         transceiver=>{
 
+          const receiver=
+            transceiver.receiver;
+
+
           if(
-            transceiver.receiver &&
-            transceiver.receiver.track &&
-            transceiver.receiver.track.kind===
-            "audio"
+            receiver &&
+            receiver.track &&
+            receiver.track.kind==="audio"
           ){
 
-            const capabilities=
-              RTCRtpReceiver
-                .getCapabilities(
-                  "audio"
-                );
-
-
             if(
-              capabilities &&
-              capabilities.codecs
+              RTCRtpReceiver.getCapabilities
             ){
 
-              const opus=
-                capabilities.codecs.filter(
-                  codec=>
-                    codec.mimeType &&
-                    codec.mimeType
-                      .toLowerCase()
-                      ===
-                    "audio/opus"
-                );
+              const caps=
+                RTCRtpReceiver
+                  .getCapabilities("audio");
 
 
-              if(opus.length){
+              if(
+                caps &&
+                caps.codecs
+              ){
 
-                try{
+                const opus=
+                  caps.codecs.filter(
+                    codec=>
+                      codec.mimeType &&
+                      codec.mimeType
+                        .toLowerCase()
+                        ===
+                      "audio/opus"
+                  );
 
-                  transceiver
-                    .setCodecPreferences(
-                      opus
-                    );
 
-                }catch(e){}
+                if(opus.length){
+
+                  try{
+
+                    transceiver
+                      .setCodecPreferences(
+                        opus
+                      );
+
+                  }catch(e){}
+
+                }
 
               }
 
@@ -2646,16 +1816,17 @@ async function receiveOffer(m){
         }
       );
 
-    }catch(e){
+    }catch(error){
 
       console.log(
-        "Codec preference unavailable"
+        "CODEC PREFERENCE:",
+        error
       );
 
     }
 
 
-    const answer=
+    let answer=
       await viewerPeer
         .createAnswer();
 
@@ -2708,119 +1879,16 @@ async function startAudio(){
   audioStarted=true;
 
 
-  let audio=
-    document.getElementById(
-      "remoteAudio"
-    );
-
-
-  if(!audio){
-
-    audio=
-      document.createElement(
-        "audio"
-      );
-
-    audio.id=
-      "remoteAudio";
-
-    audio.autoplay=true;
-
-    audio.playsInline=true;
-
-    audio.controls=false;
-
-    audio.style.position="fixed";
-
-    audio.style.width="1px";
-
-    audio.style.height="1px";
-
-    audio.style.opacity="0.01";
-
-    audio.style.pointerEvents="none";
-
-    audio.style.left="-10px";
-
-    audio.style.top="-10px";
-
-    document.body.appendChild(
-      audio
-    );
-
-  }
-
-
-  audio.autoplay=true;
-  audio.playsInline=true;
+  const audio=
+    ensureRemoteAudio();
 
 
   try{
 
-    audio.preservesPitch=false;
-
-  }catch(e){}
-
-
-  try{
-
-    audio.playbackRate=1.0;
-
-  }catch(e){}
-
-
-  /*
-   * AudioContextを必要に応じて起動。
-   *
-   * Android Chromeのユーザー操作後の
-   * オーディオ許可を確実にする。
-   */
-
-  try{
-
-    if(
-      !window.__voiceAudioContext
-    ){
-
-      const AudioContext =
-        window.AudioContext ||
-        window.webkitAudioContext;
-
-      if(AudioContext){
-
-        window.__voiceAudioContext =
-          new AudioContext({
-            latencyHint:"interactive"
-          });
-
-      }
-
-    }
-
-
-    if(
-      window.__voiceAudioContext &&
-      window.__voiceAudioContext.state===
-      "suspended"
-    ){
-
-      await window
-        .__voiceAudioContext
-        .resume();
-
-    }
-
-  }catch(e){
-
-    console.log(
-      "AUDIO CONTEXT:",
-      e
-    );
-
-  }
-
-
-  try{
+    /*
+      ユーザー操作中にplay()する。
+      Android Chromeの自動再生制限を回避。
+    */
 
     await audio.play();
 
@@ -2831,7 +1899,7 @@ async function startAudio(){
 
 
     setAudioStatus(
-      "🟢 超低遅延音声再生中",
+      "🟢 低遅延音声再生中",
       "ok"
     );
 
@@ -2870,19 +1938,12 @@ function closeViewerPeer(){
   viewerPeer=null;
 
 
-  const audio=
-    document.getElementById(
-      "remoteAudio"
-    );
-
-
-  if(audio){
+  if(remoteAudio){
 
     try{
 
-      audio.pause();
-
-      audio.srcObject=null;
+      remoteAudio.pause();
+      remoteAudio.srcObject=null;
 
     }catch(e){}
 
@@ -2892,7 +1953,7 @@ function closeViewerPeer(){
 
 
 /* =====================================================
-   STOP BROADCAST
+   STOP HOST
 ===================================================== */
 
 function stopBroadcast(){
@@ -2906,9 +1967,13 @@ function stopBroadcast(){
 
     localStream
       .getTracks()
-      .forEach(track=>{
-        track.stop();
-      });
+      .forEach(
+        track=>{
+          try{
+            track.stop();
+          }catch(e){}
+        }
+      );
 
   }
 
@@ -2933,7 +1998,6 @@ function stopBroadcast(){
   role=null;
 
   currentLive=false;
-
   currentMeta=null;
 
 
@@ -2989,50 +2053,37 @@ $("chatInput")
     "keydown",
     event=>{
 
-      if(
-        event.key==="Enter"
-      ){
-
+      if(event.key==="Enter"){
         sendChat();
-
       }
 
     }
   );
 
 
-function addComment(
-  name,
-  text
-){
+function addComment(name,text){
 
   const box=
     $("comments");
 
 
   const div=
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
   div.className="comment";
 
 
   const n=
-    document.createElement(
-      "span"
-    );
+    document.createElement("span");
 
   n.className="commentName";
 
   n.textContent=
-    name + "：";
+    name+"：";
 
 
   const t=
-    document.createElement(
-      "span"
-    );
+    document.createElement("span");
 
   t.textContent=text;
 
@@ -3067,7 +2118,7 @@ $("imageFile")
 
 
       if(
-        file.size >
+        file.size>
         3*1024*1024
       ){
 
@@ -3095,9 +2146,7 @@ $("imageFile")
 
 
         const img=
-          document.createElement(
-            "img"
-          );
+          document.createElement("img");
 
         img.src=
           customImage;
@@ -3109,16 +2158,14 @@ $("imageFile")
       };
 
 
-      reader.readAsDataURL(
-        file
-      );
+      reader.readAsDataURL(file);
 
     }
   );
 
 
 /* =====================================================
-   HOST
+   HOST OPEN
 ===================================================== */
 
 function openHost(){
@@ -3130,7 +2177,6 @@ function openHost(){
     return;
 
   }
-
 
   showScreen("setup");
 
@@ -3174,7 +2220,7 @@ function sendGift(gift){
 
 
   showToast(
-    gift +
+    gift+
     " を送りました 🎁"
   );
 
@@ -3222,6 +2268,7 @@ function showToast(text){
    START
 ===================================================== */
 
+ensureRemoteAudio();
 connectSocket();
 
 </script>
@@ -3237,7 +2284,7 @@ connectSocket();
    HTTP SERVER
 ===================================================== */
 
-const server =
+const server=
   http.createServer(
     (req,res)=>{
 
@@ -3268,23 +2315,27 @@ const server =
    WEBSOCKET
 ===================================================== */
 
-const wss =
+const wss=
   new WebSocket.Server({
     server
   });
 
 
-const clients =
+const clients=
   new Set();
 
 
 let broadcaster=null;
-
 let liveMeta=null;
 
-const viewers =
+
+const viewers=
   new Map();
 
+
+/* =====================================================
+   WS SEND
+===================================================== */
 
 function wsSend(ws,data){
 
@@ -3303,17 +2354,12 @@ function wsSend(ws,data){
 }
 
 
-function broadcast(
-  data,
-  except=null
-){
+function broadcast(data,except=null){
 
   clients.forEach(
     client=>{
 
-      if(
-        client!==except
-      ){
+      if(client!==except){
 
         wsSend(
           client,
@@ -3342,13 +2388,12 @@ wss.on(
     socket.id=
       Math.random()
         .toString(36)
-        .slice(2) +
+        .slice(2)+
       Date.now()
         .toString(36);
 
 
     socket.name="ゲスト";
-
     socket.role="unknown";
 
 
@@ -3392,9 +2437,7 @@ wss.on(
 
         /* HELLO */
 
-        if(
-          m.type==="hello"
-        ){
+        if(m.type==="hello"){
 
           wsSend(
             socket,
@@ -3417,11 +2460,9 @@ wss.on(
         }
 
 
-        /* HOST */
+        /* JOIN HOST */
 
-        if(
-          m.type==="join-host"
-        ){
+        if(m.type==="join-host"){
 
           if(
             broadcaster &&
@@ -3432,9 +2473,7 @@ wss.on(
               socket,
               {
                 type:"error",
-
-                text:
-                  "すでに配信中です"
+                text:"すでに配信中です"
               }
             );
 
@@ -3448,12 +2487,9 @@ wss.on(
 
           socket.name=
             String(
-              m.name ||
+              m.name||
               "ぼたもち"
-            ).slice(
-              0,
-              30
-            );
+            ).slice(0,30);
 
 
           broadcaster=socket;
@@ -3473,13 +2509,12 @@ wss.on(
 
               live:true,
 
-              meta:
-                liveMeta,
+              meta:liveMeta,
 
               viewers:
                 viewers.size
-            },
 
+            },
             socket
           );
 
@@ -3491,16 +2526,10 @@ wss.on(
 
         /* META */
 
-        if(
-          m.type==="set-meta"
-        ){
+        if(m.type==="set-meta"){
 
-          if(
-            socket!==broadcaster
-          ){
-
+          if(socket!==broadcaster){
             return;
-
           }
 
 
@@ -3508,29 +2537,20 @@ wss.on(
 
             name:
               String(
-                m.meta?.name ||
+                m.meta?.name||
                 socket.name
-              ).slice(
-                0,
-                30
-              ),
+              ).slice(0,30),
 
             title:
               String(
-                m.meta?.title ||
+                m.meta?.title||
                 "ライブ配信"
-              ).slice(
-                0,
-                80
-              ),
+              ).slice(0,80),
 
             image:
               typeof m.meta?.image==="string"
-                ? m.meta.image.slice(
-                    0,
-                    900000
-                  )
-                : ""
+                ?m.meta.image.slice(0,900000)
+                :""
 
           };
 
@@ -3538,9 +2558,7 @@ wss.on(
           broadcast(
             {
               type:"live-meta",
-
-              meta:
-                liveMeta
+              meta:liveMeta
             }
           );
 
@@ -3550,11 +2568,9 @@ wss.on(
         }
 
 
-        /* VIEWER */
+        /* JOIN VIEWER */
 
-        if(
-          m.type==="join-viewer"
-        ){
+        if(m.type==="join-viewer"){
 
           if(!broadcaster){
 
@@ -3562,9 +2578,7 @@ wss.on(
               socket,
               {
                 type:"error",
-
-                text:
-                  "配信が終了しています"
+                text:"配信が終了しています"
               }
             );
 
@@ -3586,9 +2600,7 @@ wss.on(
             socket,
             {
               type:"live-meta",
-
-              meta:
-                liveMeta
+              meta:liveMeta
             }
           );
 
@@ -3597,20 +2609,21 @@ wss.on(
             socket,
             {
               type:"count",
-
-              n:
-                viewers.size
+              n:viewers.size
             }
           );
 
+
+          /*
+            ホストへ即座に通知。
+            余計な待機処理を入れない。
+          */
 
           wsSend(
             broadcaster,
             {
               type:"viewer",
-
-              id:
-                socket.id
+              id:socket.id
             }
           );
 
@@ -3618,9 +2631,7 @@ wss.on(
           broadcast(
             {
               type:"count",
-
-              n:
-                viewers.size
+              n:viewers.size
             }
           );
 
@@ -3632,23 +2643,15 @@ wss.on(
 
         /* OFFER */
 
-        if(
-          m.type==="offer"
-        ){
+        if(m.type==="offer"){
 
-          if(
-            socket!==broadcaster
-          ){
-
+          if(socket!==broadcaster){
             return;
-
           }
 
 
           const viewer=
-            viewers.get(
-              m.to
-            );
+            viewers.get(m.to);
 
 
           if(viewer){
@@ -3657,9 +2660,7 @@ wss.on(
               viewer,
               {
                 type:"offer",
-
-                sdp:
-                  m.sdp
+                sdp:m.sdp
               }
             );
 
@@ -3673,14 +2674,10 @@ wss.on(
 
         /* ANSWER */
 
-        if(
-          m.type==="answer"
-        ){
+        if(m.type==="answer"){
 
           if(!broadcaster){
-
             return;
-
           }
 
 
@@ -3694,6 +2691,7 @@ wss.on(
 
               sdp:
                 m.sdp
+
             }
           );
 
@@ -3705,13 +2703,9 @@ wss.on(
 
         /* ICE */
 
-        if(
-          m.type==="ice"
-        ){
+        if(m.type==="ice"){
 
-          if(
-            socket===broadcaster
-          ){
+          if(socket===broadcaster){
 
             const viewer=
               viewers.get(
@@ -3730,6 +2724,7 @@ wss.on(
 
                   candidate:
                     m.candidate
+
                 }
               );
 
@@ -3749,6 +2744,7 @@ wss.on(
 
                   candidate:
                     m.candidate
+
                 }
               );
 
@@ -3764,19 +2760,14 @@ wss.on(
 
         /* CHAT */
 
-        if(
-          m.type==="chat"
-        ){
+        if(m.type==="chat"){
 
           const text=
             String(
-              m.text || ""
+              m.text||""
             )
             .trim()
-            .slice(
-              0,
-              200
-            );
+            .slice(0,200);
 
 
           if(!text){
@@ -3791,8 +2782,7 @@ wss.on(
               name:
                 socket.name,
 
-              text:
-                text
+              text:text
 
             }
           );
@@ -3805,17 +2795,12 @@ wss.on(
 
         /* GIFT */
 
-        if(
-          m.type==="gift"
-        ){
+        if(m.type==="gift"){
 
           const gift=
             String(
-              m.gift || ""
-            ).slice(
-              0,
-              50
-            );
+              m.gift||""
+            ).slice(0,50);
 
 
           broadcast(
@@ -3837,20 +2822,15 @@ wss.on(
         }
 
 
-        /* END HOST */
+        /* LEAVE HOST */
 
-        if(
-          m.type==="leave-host"
-        ){
+        if(m.type==="leave-host"){
 
-          if(
-            socket===broadcaster
-          ){
+          if(socket===broadcaster){
 
             endLive();
 
           }
-
 
           return;
 
@@ -3869,9 +2849,7 @@ wss.on(
         clients.delete(socket);
 
 
-        if(
-          socket===broadcaster
-        ){
+        if(socket===broadcaster){
 
           endLive();
 
@@ -3887,9 +2865,7 @@ wss.on(
           broadcast(
             {
               type:"count",
-
-              n:
-                viewers.size
+              n:viewers.size
             }
           );
 
@@ -3913,7 +2889,6 @@ function endLive(){
 
 
   broadcaster=null;
-
   liveMeta=null;
 
 
@@ -3958,7 +2933,7 @@ server.listen(
   PORT,
   HOST,
   ()=>{
-
+    
     console.log(
       "================================"
     );
@@ -3968,7 +2943,7 @@ server.listen(
     );
 
     console.log(
-      " SUPER LOW LATENCY AUDIO"
+      " LOW LATENCY AUDIO v3"
     );
 
     console.log(

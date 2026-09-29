@@ -14,7 +14,7 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 
 
 /* =====================================================
-   ランキング50人
+   TOP 50 RANKING
 ===================================================== */
 
 const rankingUsers = [
@@ -70,33 +70,20 @@ const rankingUsers = [
   "月光アオ"
 ];
 
-
-const ranking = rankingUsers.map((name, index) => ({
-  id: `rank-${index + 1}`,
-
-  rank: index + 1,
-
-  name,
-
-  score: 50000 - index * 731,
-
-  viewers: Math.max(
-    1,
-    1200 - index * 19
-  ),
-
-  icon: [
-    "🌙",
-    "⭐",
-    "🌸",
-    "🎙️",
-    "✨"
-  ][index % 5]
-}));
+const ranking = rankingUsers.map(function(name, index) {
+  return {
+    id: "rank-" + (index + 1),
+    rank: index + 1,
+    name: name,
+    score: 50000 - index * 731,
+    viewers: Math.max(1, 1200 - index * 19),
+    icon: ["🌙", "⭐", "🌸", "🎙️", "✨"][index % 5]
+  };
+});
 
 
 /* =====================================================
-   新人ライバー
+   NEWCOMER
 ===================================================== */
 
 const newcomers = [
@@ -107,7 +94,6 @@ const newcomers = [
     icon: "🌙",
     live: true
   },
-
   {
     id: "new-2",
     name: "月音ゆい",
@@ -115,7 +101,6 @@ const newcomers = [
     icon: "🌸",
     live: false
   },
-
   {
     id: "new-3",
     name: "星空れん",
@@ -123,7 +108,6 @@ const newcomers = [
     icon: "⭐",
     live: true
   },
-
   {
     id: "new-4",
     name: "そら",
@@ -131,7 +115,6 @@ const newcomers = [
     icon: "🎙️",
     live: false
   },
-
   {
     id: "new-5",
     name: "みお",
@@ -139,7 +122,6 @@ const newcomers = [
     icon: "✨",
     live: true
   },
-
   {
     id: "new-6",
     name: "夜桜",
@@ -156,7 +138,6 @@ const newcomers = [
 
 const HTML = `
 <!DOCTYPE html>
-
 <html lang="ja">
 
 <head>
@@ -186,11 +167,10 @@ html,
 body {
   margin: 0;
   padding: 0;
-
   width: 100%;
+  min-height: 100%;
 
   background: #030510;
-
   color: white;
 
   font-family:
@@ -211,8 +191,7 @@ button {
 
 .app {
   min-height: 100vh;
-
-  padding-bottom: 80px;
+  padding-bottom: 85px;
 }
 
 
@@ -233,16 +212,14 @@ button {
   z-index: 100;
 
   display: flex;
-
   align-items: center;
 
   padding: 0 18px;
 
   background:
-    rgba(3,5,16,.78);
+    rgba(3,5,16,.82);
 
-  backdrop-filter:
-    blur(18px);
+  backdrop-filter: blur(18px);
 
   border-bottom:
     1px solid
@@ -267,6 +244,8 @@ button {
 
   -webkit-background-clip: text;
 
+  background-clip: text;
+
   color: transparent;
 }
 
@@ -283,15 +262,15 @@ button {
 
   width: 100%;
 
-  min-height: 570px;
+  min-height: 510px;
 
   overflow: hidden;
 
   background:
     linear-gradient(
       180deg,
-      rgba(0,0,0,0) 40%,
-      rgba(3,5,16,.30) 65%,
+      rgba(0,0,0,0) 35%,
+      rgba(3,5,16,.35) 62%,
       #030510 100%
     ),
     url("/home.png");
@@ -318,13 +297,13 @@ button {
   background:
     linear-gradient(
       90deg,
-      rgba(2,4,15,.04),
+      rgba(2,4,15,.05),
       rgba(2,4,15,0) 70%
     ),
     linear-gradient(
       0deg,
       #030510 0%,
-      rgba(3,5,16,0) 42%
+      rgba(3,5,16,0) 48%
     );
 }
 
@@ -387,6 +366,8 @@ button {
 
   -webkit-background-clip: text;
 
+  background-clip: text;
+
   color: transparent;
 }
 
@@ -414,7 +395,7 @@ button {
 .section {
 
   padding:
-    26px
+    28px
     15px
     0;
 }
@@ -502,6 +483,8 @@ button {
 .rank-number {
 
   width: 38px;
+
+  flex-shrink: 0;
 
   text-align: center;
 
@@ -592,35 +575,8 @@ button {
   color: #697595;
 
   text-align: right;
-}
 
-
-/* =====================================================
-   SHOW MORE
-===================================================== */
-
-.more-button {
-
-  width: 100%;
-
-  height: 45px;
-
-  margin-top: 10px;
-
-  border-radius: 14px;
-
-  border:
-    1px solid
-    rgba(120,140,255,.16);
-
-  background:
-    rgba(15,20,55,.75);
-
-  color: #aebbe0;
-
-  font-size: 12px;
-
-  font-weight: 800;
+  margin-left: 6px;
 }
 
 
@@ -639,7 +595,7 @@ button {
   padding:
     3px
     1px
-    10px;
+    12px;
 
   scrollbar-width: none;
 }
@@ -651,8 +607,7 @@ button {
 
 .newcomer-card {
 
-  flex:
-    0 0 145px;
+  flex: 0 0 145px;
 
   min-height: 174px;
 
@@ -727,8 +682,7 @@ button {
   background: #ff3d6e;
 
   border:
-    3px solid
-    #11162e;
+    3px solid #11162e;
 
   box-shadow:
     0 0 9px
@@ -820,8 +774,7 @@ button {
   background:
     rgba(4,7,20,.94);
 
-  backdrop-filter:
-    blur(20px);
+  backdrop-filter: blur(20px);
 
   border-top:
     1px solid
@@ -878,10 +831,10 @@ button {
 
   .hero {
 
-    min-height: 590px;
+    min-height: 520px;
 
     background-size:
-      auto 590px;
+      auto 520px;
 
     background-position:
       57% top;
@@ -947,6 +900,10 @@ button {
 <div class="app">
 
 
+<!-- =================================================
+     HEADER
+================================================= -->
+
 <header class="header">
 
   <div class="logo">
@@ -955,6 +912,10 @@ button {
 
 </header>
 
+
+<!-- =================================================
+     HERO
+================================================= -->
 
 <section class="hero">
 
@@ -965,25 +926,23 @@ button {
     </div>
 
     <h1 class="hero-title">
-
       <span>あなたの声が、</span><br>
-
       誰かの夜を照らす。
-
     </h1>
 
     <div class="hero-description">
-
       月明かりの下で、話して、聴いて、笑って。<br>
-
       VoiceポタLiveで、あなたの声をもっと近くに。
-
     </div>
 
   </div>
 
 </section>
 
+
+<!-- =================================================
+     TOP 50
+===================================================== -->
 
 <section class="section">
 
@@ -999,22 +958,17 @@ button {
 
   </div>
 
-
   <div
     class="ranking-list"
     id="rankingList"
   ></div>
 
-
-  <button
-    class="more-button"
-    onclick="showAllRanking()"
-  >
-    ランキング50人を見る
-  </button>
-
 </section>
 
+
+<!-- =================================================
+     NEWCOMER
+===================================================== -->
 
 <section class="section">
 
@@ -1030,7 +984,6 @@ button {
 
   </div>
 
-
   <div
     class="newcomer-list"
     id="newcomerList"
@@ -1039,70 +992,51 @@ button {
 </section>
 
 
+<!-- =================================================
+     BOTTOM NAV
+===================================================== -->
+
 <nav class="bottom-nav">
 
   <button
     class="nav-item active"
     onclick="goHome()"
   >
-
-    <div class="nav-icon">
-      ⌂
-    </div>
-
+    <div class="nav-icon">⌂</div>
     ホーム
-
   </button>
-
 
   <button
     class="nav-item"
     onclick="searchLive()"
   >
-
-    <div class="nav-icon">
-      ⌕
-    </div>
-
+    <div class="nav-icon">⌕</div>
     探す
-
   </button>
-
 
   <button
     class="nav-item"
     onclick="showNotice()"
   >
-
-    <div class="nav-icon">
-      ♧
-    </div>
-
+    <div class="nav-icon">♧</div>
     お知らせ
-
   </button>
-
 
   <button
     class="nav-item"
     onclick="showProfile()"
   >
-
-    <div class="nav-icon">
-      ♙
-    </div>
-
+    <div class="nav-icon">♙</div>
     マイページ
-
   </button>
 
 </nav>
+
 
 </div>
 
 
 <script>
-
 
 /* =====================================================
    RANKING
@@ -1111,167 +1045,120 @@ button {
 function renderRanking(list) {
 
   const box =
-    document.getElementById(
-      "rankingList"
-    );
+    document.getElementById("rankingList");
 
   if (!Array.isArray(list)) {
-
     box.innerHTML =
-      "<div>ランキングを読み込めませんでした。</div>";
+      '<div style="padding:20px;color:#8995b8;">ランキングを読み込めませんでした。</div>';
 
     return;
   }
 
-
   box.innerHTML =
-    list
-      .slice(0, 10)
-      .map(user => `
+    list.map(function(user) {
 
-        <div
-          class="ranking-card"
-          onclick="openUser('${escapeHtml(user.id)}')"
-        >
+      const topClass =
+        user.rank <= 3
+          ? "top"
+          : "";
 
-          <div
-            class="rank-number ${
-              Number(user.rank) <= 3
-                ? "top"
-                : ""
-            }"
-          >
-            ${user.rank}
-          </div>
+      return (
+        '<div class="ranking-card" onclick="openUser(\\'' +
+        escapeHtml(user.id) +
+        '\\')">' +
 
+          '<div class="rank-number ' +
+          topClass +
+          '">' +
+            user.rank +
+          '</div>' +
 
-          <div class="rank-avatar">
-            ${user.icon}
-          </div>
+          '<div class="rank-avatar">' +
+            escapeHtml(user.icon) +
+          '</div>' +
 
+          '<div class="rank-info">' +
 
-          <div class="rank-info">
+            '<div class="rank-name">' +
+              escapeHtml(user.name) +
+            '</div>' +
 
-            <div class="rank-name">
-              ${escapeHtml(user.name)}
-            </div>
+            '<div class="rank-score">' +
+              '応援ポイント ' +
+              Number(user.score).toLocaleString() +
+            '</div>' +
 
+          '</div>' +
 
-            <div class="rank-score">
+          '<div class="rank-viewers">' +
+            '👁 ' +
+            Number(user.viewers).toLocaleString() +
+          '</div>' +
 
-              応援ポイント
-              ${Number(
-                user.score
-              ).toLocaleString()}
+        '</div>'
+      );
 
-            </div>
-
-          </div>
-
-
-          <div class="rank-viewers">
-
-            👁 ${Number(
-              user.viewers
-            ).toLocaleString()}
-
-          </div>
-
-        </div>
-
-      `)
-      .join("");
+    }).join("");
 
 }
 
 
 /* =====================================================
-   NEWCOMERS
+   NEWCOMER
 ===================================================== */
 
 function renderNewcomers(list) {
 
   const box =
-    document.getElementById(
-      "newcomerList"
-    );
-
+    document.getElementById("newcomerList");
 
   if (!Array.isArray(list)) {
-
     box.innerHTML = "";
-
     return;
   }
 
-
   box.innerHTML =
-    list
-      .map(user => `
+    list.map(function(user) {
 
-        <div
-          class="newcomer-card"
-          onclick="openUser('${escapeHtml(user.id)}')"
-        >
+      const liveDot =
+        user.live
+          ? '<div class="live-dot"></div>'
+          : "";
 
-          <div class="new-avatar-wrap">
+      const badge =
+        user.live
+          ? '<span class="new-badge">LIVE</span>'
+          : '<span class="new-badge" style="background:rgba(80,90,130,.7)">新人</span>';
 
-            <div class="new-avatar">
-              ${user.icon}
-            </div>
+      return (
+        '<div class="newcomer-card" onclick="openUser(\\'' +
+        escapeHtml(user.id) +
+        '\\')">' +
 
+          '<div class="new-avatar-wrap">' +
 
-            ${
-              user.live
-                ? `
-                  <div class="live-dot"></div>
-                `
-                : ""
-            }
+            '<div class="new-avatar">' +
+              escapeHtml(user.icon) +
+            '</div>' +
 
-          </div>
+            liveDot +
 
+          '</div>' +
 
-          <div class="new-name">
+          '<div class="new-name">' +
+            escapeHtml(user.name) +
+          '</div>' +
 
-            ${escapeHtml(user.name)}
+          '<div class="new-title">' +
+            escapeHtml(user.title) +
+          '</div>' +
 
-          </div>
+          badge +
 
+        '</div>'
+      );
 
-          <div class="new-title">
-
-            ${escapeHtml(user.title)}
-
-          </div>
-
-
-          ${
-            user.live
-
-              ? `
-                <span class="new-badge">
-                  LIVE
-                </span>
-              `
-
-              : `
-                <span
-                  class="new-badge"
-                  style="
-                    background:
-                    rgba(80,90,130,.7)
-                  "
-                >
-                  新人
-                </span>
-              `
-          }
-
-        </div>
-
-      `)
-      .join("");
+    }).join("");
 
 }
 
@@ -1291,126 +1178,17 @@ function openUser(id) {
 
 
 /* =====================================================
-   RANKING 50
-===================================================== */
-
-function showAllRanking() {
-
-  const box =
-    document.getElementById(
-      "rankingList"
-    );
-
-
-  const button =
-    document.querySelector(
-      ".more-button"
-    );
-
-
-  if (
-    !window.allRankingShown
-  ) {
-
-    const current =
-      window.currentRanking || [];
-
-
-    box.innerHTML =
-      current
-        .map(user => `
-
-          <div
-            class="ranking-card"
-            onclick="openUser('${escapeHtml(user.id)}')"
-          >
-
-            <div
-              class="rank-number ${
-                Number(user.rank) <= 3
-                  ? "top"
-                  : ""
-              }"
-            >
-              ${user.rank}
-            </div>
-
-
-            <div class="rank-avatar">
-              ${user.icon}
-            </div>
-
-
-            <div class="rank-info">
-
-              <div class="rank-name">
-                ${escapeHtml(user.name)}
-              </div>
-
-
-              <div class="rank-score">
-
-                応援ポイント
-                ${Number(
-                  user.score
-                ).toLocaleString()}
-
-              </div>
-
-            </div>
-
-
-            <div class="rank-viewers">
-
-              👁 ${Number(
-                user.viewers
-              ).toLocaleString()}
-
-            </div>
-
-          </div>
-
-        `)
-        .join("");
-
-
-    window.allRankingShown = true;
-
-    button.textContent =
-      "ランキングを閉じる";
-
-    return;
-  }
-
-
-  renderRanking(
-    window.currentRanking || []
-  );
-
-  window.allRankingShown = false;
-
-  button.textContent =
-    "ランキング50人を見る";
-
-}
-
-
-/* =====================================================
    NAV
 ===================================================== */
 
 function goHome() {
 
   window.scrollTo({
-
     top: 0,
-
     behavior: "smooth"
-
   });
 
 }
-
 
 function searchLive() {
 
@@ -1420,7 +1198,6 @@ function searchLive() {
 
 }
 
-
 function showNotice() {
 
   alert(
@@ -1428,7 +1205,6 @@ function showNotice() {
   );
 
 }
-
 
 function showProfile() {
 
@@ -1447,31 +1223,15 @@ function escapeHtml(value) {
 
   return String(value)
 
-    .replace(
-      /&/g,
-      "&amp;"
-    )
+    .replace(/&/g, "&amp;")
 
-    .replace(
-      /</g,
-      "&lt;"
-    )
+    .replace(/</g, "&lt;")
 
-    .replace(
-      />/g,
-      "&gt;"
-    )
+    .replace(/>/g, "&gt;")
 
-    .replace(
-      /"/g,
-      "&quot;"
-    )
+    .replace(/"/g, "&quot;")
 
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
+    .replace(/'/g, "&#039;");
 }
 
 
@@ -1481,54 +1241,72 @@ function escapeHtml(value) {
 
 let socket = null;
 
+let reconnectTimer = null;
+
 
 function connectSocket() {
+
+  if (
+    socket &&
+    (
+      socket.readyState === WebSocket.OPEN ||
+      socket.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
 
   const protocol =
     location.protocol === "https:"
       ? "wss:"
       : "ws:";
 
+  const socketUrl =
+    protocol +
+    "//" +
+    location.host;
 
-  socket =
-    new WebSocket(
-      protocol +
-      "//" +
-      location.host
-    );
+  try {
 
+    socket =
+      new WebSocket(socketUrl);
 
-  socket.onopen = () => {
+  } catch (error) {
 
     console.log(
-      "WebSocket connected"
+      "WebSocket error",
+      error
+    );
+
+    scheduleReconnect();
+
+    return;
+  }
+
+
+  socket.onopen = function() {
+
+    console.log(
+      "VoiceポタLive WebSocket connected"
     );
 
   };
 
 
-  socket.onmessage = event => {
+  socket.onmessage = function(event) {
 
     try {
 
       const data =
-        JSON.parse(
-          event.data
-        );
-
+        JSON.parse(event.data);
 
       if (
-        data.type ===
-        "home_data"
+        data.type === "home_data"
       ) {
 
-        window.currentRanking =
-          data.ranking || [];
-
         renderRanking(
-          window.currentRanking
+          data.ranking || []
         );
-
 
         renderNewcomers(
           data.newcomers || []
@@ -1548,7 +1326,7 @@ function connectSocket() {
   };
 
 
-  socket.onerror = error => {
+  socket.onerror = function(error) {
 
     console.log(
       "WebSocket error",
@@ -1558,19 +1336,33 @@ function connectSocket() {
   };
 
 
-  socket.onclose = () => {
+  socket.onclose = function() {
 
     console.log(
       "WebSocket disconnected"
     );
 
-
-    setTimeout(
-      connectSocket,
-      2000
-    );
+    scheduleReconnect();
 
   };
+
+}
+
+
+function scheduleReconnect() {
+
+  if (reconnectTimer) {
+    return;
+  }
+
+  reconnectTimer =
+    setTimeout(function() {
+
+      reconnectTimer = null;
+
+      connectSocket();
+
+    }, 2000);
 
 }
 
@@ -1584,7 +1376,6 @@ connectSocket();
 </script>
 
 </body>
-
 </html>
 `;
 
@@ -1594,96 +1385,71 @@ connectSocket();
 ===================================================== */
 
 const server =
-  http.createServer(
-    (req, res) => {
+  http.createServer(function(req, res) {
 
-      /* ===============================================
-         HOME
-      =============================================== */
+    const url =
+      req.url.split("?")[0];
+
+
+    /* HOME */
+
+    if (
+      url === "/" ||
+      url === "/index.html"
+    ) {
+
+      res.writeHead(
+        200,
+        {
+          "Content-Type":
+            "text/html; charset=utf-8",
+
+          "Cache-Control":
+            "no-cache, no-store, must-revalidate"
+        }
+      );
+
+      res.end(HTML);
+
+      return;
+    }
+
+
+    /* HOME IMAGE */
+
+    if (
+      url === "/home.png"
+    ) {
+
+      const imagePath =
+        path.join(
+          PUBLIC_DIR,
+          "home.png"
+        );
+
 
       if (
-        req.url === "/" ||
-        req.url === "/index.html"
+        fs.existsSync(imagePath)
       ) {
 
         res.writeHead(
           200,
           {
             "Content-Type":
-              "text/html; charset=utf-8",
+              "image/png",
 
             "Cache-Control":
-              "no-cache"
+              "public, max-age=3600"
           }
         );
 
-        res.end(HTML);
+        fs.createReadStream(
+          imagePath
+        ).pipe(res);
 
         return;
       }
 
-
-      /* ===============================================
-         HOME IMAGE
-      =============================================== */
-
-      if (
-        req.url === "/home.png"
-      ) {
-
-        const imagePath =
-          path.join(
-            PUBLIC_DIR,
-            "home.png"
-          );
-
-
-        if (
-          fs.existsSync(
-            imagePath
-          )
-        ) {
-
-          res.writeHead(
-            200,
-            {
-              "Content-Type":
-                "image/png",
-
-              "Cache-Control":
-                "public, max-age=3600"
-            }
-          );
-
-
-          fs.createReadStream(
-            imagePath
-          ).pipe(res);
-
-          return;
-        }
-
-
-        res.writeHead(
-          404,
-          {
-            "Content-Type":
-              "text/plain; charset=utf-8"
-          }
-        );
-
-
-        res.end(
-          "home.png がありません"
-        );
-
-        return;
-      }
-
-
-      /* ===============================================
-         404
-      =============================================== */
 
       res.writeHead(
         404,
@@ -1693,24 +1459,39 @@ const server =
         }
       );
 
-
       res.end(
-        "Not Found"
+        "home.png がありません"
       );
 
+      return;
     }
-  );
+
+
+    /* NOT FOUND */
+
+    res.writeHead(
+      404,
+      {
+        "Content-Type":
+          "text/plain; charset=utf-8"
+      }
+    );
+
+    res.end(
+      "Not Found"
+    );
+
+  });
 
 
 /* =====================================================
-   WEBSOCKET SERVER
+   WEBSOCKET
 ===================================================== */
 
 const wss =
   new WebSocket.Server({
-    server
+    server: server
   });
-
 
 const clients =
   new Set();
@@ -1718,7 +1499,7 @@ const clients =
 
 wss.on(
   "connection",
-  ws => {
+  function(ws) {
 
     clients.add(ws);
 
@@ -1727,26 +1508,26 @@ wss.on(
     );
 
 
-    /* ===============================================
-       ホームデータ送信
-    =============================================== */
+    /* =================================================
+       HOME DATA
+    ================================================= */
 
     ws.send(
       JSON.stringify({
-
         type: "home_data",
-
-        ranking,
-
-        newcomers
-
+        ranking: ranking,
+        newcomers: newcomers
       })
     );
 
 
+    /* =================================================
+       CLOSE
+    ================================================= */
+
     ws.on(
       "close",
-      () => {
+      function() {
 
         clients.delete(ws);
 
@@ -1758,14 +1539,20 @@ wss.on(
     );
 
 
+    /* =================================================
+       ERROR
+    ================================================= */
+
     ws.on(
       "error",
-      error => {
+      function(error) {
 
         console.log(
-          "WebSocket error:",
-          error.message
+          "WebSocket client error",
+          error
         );
+
+        clients.delete(ws);
 
       }
     );
@@ -1775,16 +1562,16 @@ wss.on(
 
 
 /* =====================================================
-   サーバー起動
+   START SERVER
 ===================================================== */
 
 server.listen(
   PORT,
   HOST,
-  () => {
+  function() {
 
     console.log(
-      "======================================"
+      "========================================"
     );
 
     console.log(
@@ -1792,27 +1579,42 @@ server.listen(
     );
 
     console.log(
-      "PORT:",
-      PORT
+      "Host: " + HOST
     );
 
     console.log(
-      "HOST:",
-      HOST
+      "Port: " + PORT
     );
 
     console.log(
-      "Ranking:",
+      "Ranking users: " +
       ranking.length
     );
 
     console.log(
-      "Newcomers:",
+      "Newcomers: " +
       newcomers.length
     );
 
     console.log(
-      "======================================"
+      "========================================"
+    );
+
+  }
+);
+
+
+/* =====================================================
+   SERVER ERROR
+===================================================== */
+
+server.on(
+  "error",
+  function(error) {
+
+    console.error(
+      "SERVER ERROR:",
+      error
     );
 
   }

@@ -14,7 +14,7 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 
 
 /* =====================================================
-   TOP 50 RANKING
+   人気ランキング
 ===================================================== */
 
 const rankingUsers = [
@@ -70,20 +70,19 @@ const rankingUsers = [
   "月光アオ"
 ];
 
-const ranking = rankingUsers.map(function(name, index) {
-  return {
-    id: "rank-" + (index + 1),
-    rank: index + 1,
-    name: name,
-    score: 50000 - index * 731,
-    viewers: Math.max(1, 1200 - index * 19),
-    icon: ["🌙", "⭐", "🌸", "🎙️", "✨"][index % 5]
-  };
-});
+const ranking = rankingUsers.map((name, index) => ({
+  id: `rank-${index + 1}`,
+  name,
+  rank: index + 1,
+  score: 50000 - index * 731,
+  viewers: Math.max(1, 1200 - index * 19),
+  icon: ["🌙", "⭐", "🌸", "🎙️", "✨"][index % 5]
+}));
 
 
 /* =====================================================
-   NEWCOMER
+   新人ライバー
+   人気順
 ===================================================== */
 
 const newcomers = [
@@ -92,6 +91,8 @@ const newcomers = [
     name: "新人ぼた",
     title: "はじめまして🌙",
     icon: "🌙",
+    viewers: 850,
+    score: 12000,
     live: true
   },
   {
@@ -99,13 +100,17 @@ const newcomers = [
     name: "月音ゆい",
     title: "のんびりお話しします",
     icon: "🌸",
-    live: false
+    viewers: 720,
+    score: 10800,
+    live: true
   },
   {
     id: "new-3",
     name: "星空れん",
     title: "夜のおしゃべり",
     icon: "⭐",
+    viewers: 680,
+    score: 10100,
     live: true
   },
   {
@@ -113,13 +118,17 @@ const newcomers = [
     name: "そら",
     title: "歌ってみる🎙️",
     icon: "🎙️",
-    live: false
+    viewers: 590,
+    score: 9200,
+    live: true
   },
   {
     id: "new-5",
     name: "みお",
     title: "初配信です",
     icon: "✨",
+    viewers: 510,
+    score: 8500,
     live: true
   },
   {
@@ -127,6 +136,62 @@ const newcomers = [
     name: "夜桜",
     title: "まったり雑談",
     icon: "🌸",
+    viewers: 430,
+    score: 7600,
+    live: false
+  },
+  {
+    id: "new-7",
+    name: "月乃りん",
+    title: "ゆっくり話そう",
+    icon: "🌙",
+    viewers: 390,
+    score: 7000,
+    live: true
+  },
+  {
+    id: "new-8",
+    name: "星野そら",
+    title: "歌と雑談",
+    icon: "⭐",
+    viewers: 350,
+    score: 6500,
+    live: false
+  },
+  {
+    id: "new-9",
+    name: "花音",
+    title: "今日もよろしく",
+    icon: "🌸",
+    viewers: 310,
+    score: 5900,
+    live: true
+  },
+  {
+    id: "new-10",
+    name: "天音",
+    title: "夜のまったり配信",
+    icon: "🎙️",
+    viewers: 280,
+    score: 5300,
+    live: false
+  },
+  {
+    id: "new-11",
+    name: "雪乃",
+    title: "初見さん歓迎",
+    icon: "❄️",
+    viewers: 250,
+    score: 4900,
+    live: true
+  },
+  {
+    id: "new-12",
+    name: "青空ミナ",
+    title: "おしゃべりタイム",
+    icon: "💎",
+    viewers: 230,
+    score: 4500,
     live: false
   }
 ];
@@ -169,10 +234,8 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100%;
-
   background: #030510;
   color: white;
-
   font-family:
     -apple-system,
     BlinkMacSystemFont,
@@ -189,9 +252,20 @@ button {
   font-family: inherit;
 }
 
+button,
+div {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+
+/* =====================================================
+   APP
+===================================================== */
+
 .app {
   min-height: 100vh;
-  padding-bottom: 85px;
+  padding-bottom: 92px;
 }
 
 
@@ -217,13 +291,12 @@ button {
   padding: 0 18px;
 
   background:
-    rgba(3,5,16,.82);
+    rgba(3,5,16,.86);
 
   backdrop-filter: blur(18px);
 
   border-bottom:
-    1px solid
-    rgba(120,140,255,.10);
+    1px solid rgba(120,140,255,.10);
 }
 
 .logo {
@@ -243,7 +316,6 @@ button {
     );
 
   -webkit-background-clip: text;
-
   background-clip: text;
 
   color: transparent;
@@ -252,6 +324,7 @@ button {
 
 /* =====================================================
    HERO
+   画像全体を表示
 ===================================================== */
 
 .hero {
@@ -262,27 +335,29 @@ button {
 
   width: 100%;
 
-  min-height: 510px;
-
   overflow: hidden;
 
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0,0,0,0) 35%,
-      rgba(3,5,16,.35) 62%,
-      #030510 100%
-    ),
-    url("/home.png");
-
-  background-size: cover;
-
-  background-position: center top;
-
-  display: flex;
-
-  align-items: flex-end;
+  background: #030510;
 }
+
+
+/* 画像を実サイズ比率で表示 */
+
+.hero-image {
+
+  display: block;
+
+  width: 100%;
+
+  height: auto;
+
+  min-height: 0;
+
+  object-fit: contain;
+}
+
+
+/* 下側の暗いグラデーション */
 
 .hero::after {
 
@@ -296,29 +371,32 @@ button {
 
   background:
     linear-gradient(
-      90deg,
-      rgba(2,4,15,.05),
-      rgba(2,4,15,0) 70%
-    ),
-    linear-gradient(
       0deg,
       #030510 0%,
-      rgba(3,5,16,0) 48%
+      rgba(3,5,16,.15) 35%,
+      rgba(3,5,16,0) 65%
     );
 }
 
+
+/* =====================================================
+   HERO TEXT
+===================================================== */
+
 .hero-content {
 
-  position: relative;
+  position: absolute;
 
   z-index: 5;
 
-  width: 100%;
+  left: 0;
+  right: 0;
+  bottom: 0;
 
   padding:
-    40px
+    80px
     20px
-    30px;
+    28px;
 }
 
 .hero-small {
@@ -332,8 +410,7 @@ button {
   margin-bottom: 8px;
 
   text-shadow:
-    0 0 12px
-    rgba(90,130,255,.7);
+    0 0 12px rgba(90,130,255,.7);
 }
 
 .hero-title {
@@ -350,8 +427,7 @@ button {
   letter-spacing: -1px;
 
   text-shadow:
-    0 3px 20px
-    rgba(0,0,0,.8);
+    0 3px 20px rgba(0,0,0,.8);
 }
 
 .hero-title span {
@@ -365,7 +441,6 @@ button {
     );
 
   -webkit-background-clip: text;
-
   background-clip: text;
 
   color: transparent;
@@ -395,7 +470,7 @@ button {
 .section {
 
   padding:
-    28px
+    26px
     15px
     0;
 }
@@ -422,97 +497,124 @@ button {
 
   font-size: 10px;
 
-  color: #687394;
+  color: #8492bb;
 
   letter-spacing: 1px;
+
+  cursor: pointer;
 }
 
 
 /* =====================================================
-   RANKING
+   横スクロール
 ===================================================== */
 
-.ranking-list {
+.horizontal-list {
 
   display: flex;
 
-  flex-direction: column;
+  gap: 11px;
 
-  gap: 8px;
+  overflow-x: auto;
+
+  padding:
+    3px
+    2px
+    12px;
+
+  scrollbar-width: none;
+
+  scroll-snap-type: x mandatory;
 }
+
+.horizontal-list::-webkit-scrollbar {
+  display: none;
+}
+
+
+/* =====================================================
+   人気カード
+===================================================== */
 
 .ranking-card {
 
-  min-height: 72px;
+  flex:
+    0 0 170px;
 
-  display: flex;
+  min-height: 205px;
 
-  align-items: center;
+  position: relative;
 
-  padding: 10px 12px;
+  padding: 14px;
 
-  border-radius: 17px;
+  border-radius: 20px;
 
   background:
     linear-gradient(
-      120deg,
-      rgba(20,28,72,.92),
-      rgba(8,12,32,.96)
+      145deg,
+      rgba(25,32,75,.96),
+      rgba(8,11,28,.99)
     );
 
   border:
     1px solid
-    rgba(120,140,255,.11);
+    rgba(120,140,255,.14);
 
   box-shadow:
-    0 7px 22px
-    rgba(0,0,0,.18);
+    0 8px 25px
+    rgba(0,0,0,.20);
+
+  scroll-snap-align: start;
 
   cursor: pointer;
-
-  transition:
-    transform .15s ease;
 }
 
 .ranking-card:active {
-
-  transform:
-    scale(.98);
+  transform: scale(.97);
 }
 
-.rank-number {
+.rank-badge {
 
-  width: 38px;
+  position: absolute;
 
-  flex-shrink: 0;
+  top: 10px;
+  left: 10px;
 
-  text-align: center;
+  min-width: 30px;
 
-  font-size: 16px;
+  padding: 4px 7px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(0,0,0,.45);
+
+  color: #b9c7ed;
+
+  font-size: 10px;
 
   font-weight: 900;
-
-  color: #8894b8;
 }
 
-.rank-number.top {
-
-  font-size: 20px;
+.rank-badge.top {
 
   color: #ffd76a;
 
-  text-shadow:
+  box-shadow:
     0 0 12px
-    rgba(255,210,80,.5);
+    rgba(255,210,80,.25);
 }
 
 .rank-avatar {
 
-  width: 48px;
+  width: 70px;
 
-  height: 48px;
+  height: 70px;
 
-  flex-shrink: 0;
+  margin:
+    14px
+    auto
+    12px;
 
   border-radius: 50%;
 
@@ -522,7 +624,7 @@ button {
 
   justify-content: center;
 
-  font-size: 22px;
+  font-size: 32px;
 
   background:
     radial-gradient(
@@ -533,24 +635,17 @@ button {
     );
 
   box-shadow:
-    0 0 18px
-    rgba(80,130,255,.28);
-}
-
-.rank-info {
-
-  min-width: 0;
-
-  flex: 1;
-
-  padding-left: 11px;
+    0 0 22px
+    rgba(80,130,255,.30);
 }
 
 .rank-name {
 
   font-size: 14px;
 
-  font-weight: 800;
+  font-weight: 900;
+
+  text-align: center;
 
   white-space: nowrap;
 
@@ -561,55 +656,93 @@ button {
 
 .rank-score {
 
-  margin-top: 4px;
+  margin-top: 6px;
 
-  font-size: 11px;
+  font-size: 10px;
 
-  color: #8f9abd;
+  color: #929fc1;
+
+  text-align: center;
 }
 
 .rank-viewers {
 
+  margin-top: 8px;
+
   font-size: 10px;
 
-  color: #697595;
+  color: #687596;
 
-  text-align: right;
+  text-align: center;
+}
 
-  margin-left: 6px;
+.live-label {
+
+  position: absolute;
+
+  right: 10px;
+  top: 10px;
+
+  padding: 3px 6px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #ff3e72,
+      #a52fff
+    );
+
+  font-size: 8px;
+
+  font-weight: 900;
 }
 
 
 /* =====================================================
-   NEWCOMER
+   MORE BUTTON
 ===================================================== */
 
-.newcomer-list {
+.more-button {
 
-  display: flex;
+  width: 100%;
 
-  gap: 11px;
+  height: 46px;
 
-  overflow-x: auto;
+  margin-top: 5px;
 
-  padding:
-    3px
-    1px
-    12px;
+  border-radius: 14px;
 
-  scrollbar-width: none;
+  border:
+    1px solid
+    rgba(120,140,255,.16);
+
+  background:
+    rgba(15,20,55,.75);
+
+  color: #b7c5e9;
+
+  font-size: 12px;
+
+  font-weight: 900;
 }
 
-.newcomer-list::-webkit-scrollbar {
-
-  display: none;
+.more-button:active {
+  transform: scale(.98);
 }
+
+
+/* =====================================================
+   新人
+===================================================== */
 
 .newcomer-card {
 
-  flex: 0 0 145px;
+  flex:
+    0 0 155px;
 
-  min-height: 174px;
+  min-height: 188px;
 
   padding: 14px;
 
@@ -626,6 +759,8 @@ button {
     1px solid
     rgba(120,140,255,.13);
 
+  scroll-snap-align: start;
+
   cursor: pointer;
 }
 
@@ -633,18 +768,16 @@ button {
 
   position: relative;
 
-  width: 58px;
-
-  height: 58px;
+  width: 62px;
+  height: 62px;
 
   margin-bottom: 10px;
 }
 
 .new-avatar {
 
-  width: 58px;
-
-  height: 58px;
+  width: 62px;
+  height: 62px;
 
   border-radius: 50%;
 
@@ -654,7 +787,7 @@ button {
 
   justify-content: center;
 
-  font-size: 26px;
+  font-size: 28px;
 
   background:
     radial-gradient(
@@ -670,12 +803,10 @@ button {
   position: absolute;
 
   right: -1px;
-
   bottom: -1px;
 
-  width: 15px;
-
-  height: 15px;
+  width: 16px;
+  height: 16px;
 
   border-radius: 50%;
 
@@ -717,6 +848,15 @@ button {
   overflow: hidden;
 }
 
+.new-viewers {
+
+  margin-top: 7px;
+
+  font-size: 10px;
+
+  color: #697595;
+}
+
 .new-badge {
 
   display: inline-block;
@@ -743,6 +883,246 @@ button {
 
 
 /* =====================================================
+   PAGE
+===================================================== */
+
+.page {
+
+  display: none;
+
+  min-height: calc(100vh - 58px);
+
+  padding:
+    82px
+    15px
+    110px;
+}
+
+.page.active {
+  display: block;
+}
+
+.page-title {
+
+  font-size: 25px;
+
+  font-weight: 900;
+
+  margin-bottom: 18px;
+}
+
+.back-button {
+
+  border: 0;
+
+  background: transparent;
+
+  color: #9fb2e6;
+
+  font-size: 13px;
+
+  padding: 0;
+
+  margin-bottom: 15px;
+}
+
+
+/* =====================================================
+   FULL LIST
+===================================================== */
+
+.full-list {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 9px;
+}
+
+.full-ranking-card {
+
+  min-height: 74px;
+
+  display: flex;
+
+  align-items: center;
+
+  padding: 10px 12px;
+
+  border-radius: 17px;
+
+  background:
+    linear-gradient(
+      120deg,
+      rgba(20,28,72,.92),
+      rgba(8,12,32,.96)
+    );
+
+  border:
+    1px solid
+    rgba(120,140,255,.11);
+}
+
+.full-rank {
+
+  width: 40px;
+
+  text-align: center;
+
+  font-weight: 900;
+
+  color: #9ba8cc;
+}
+
+.full-rank.top {
+  color: #ffd76a;
+  font-size: 18px;
+}
+
+.full-avatar {
+
+  width: 48px;
+  height: 48px;
+
+  border-radius: 50%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-size: 22px;
+
+  background:
+    radial-gradient(
+      circle,
+      #75d8ff,
+      #3555e8 55%,
+      #160d46
+    );
+}
+
+.full-info {
+
+  flex: 1;
+
+  min-width: 0;
+
+  padding-left: 11px;
+}
+
+.full-name {
+
+  font-size: 14px;
+
+  font-weight: 900;
+}
+
+.full-score {
+
+  margin-top: 4px;
+
+  font-size: 10px;
+
+  color: #8f9abd;
+}
+
+.full-viewers {
+
+  font-size: 10px;
+
+  color: #697595;
+}
+
+
+/* =====================================================
+   FULL NEWCOMER
+===================================================== */
+
+.full-new-card {
+
+  min-height: 86px;
+
+  display: flex;
+
+  align-items: center;
+
+  padding: 12px;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      120deg,
+      rgba(20,28,72,.92),
+      rgba(8,12,32,.96)
+    );
+
+  border:
+    1px solid
+    rgba(120,140,255,.11);
+}
+
+.full-new-avatar {
+
+  width: 52px;
+  height: 52px;
+
+  border-radius: 50%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-size: 24px;
+
+  background:
+    radial-gradient(
+      circle,
+      #75d8ff,
+      #3555e8 55%,
+      #160d46
+    );
+}
+
+.full-new-info {
+
+  flex: 1;
+
+  padding-left: 12px;
+
+  min-width: 0;
+}
+
+.full-new-name {
+
+  font-size: 14px;
+
+  font-weight: 900;
+}
+
+.full-new-title {
+
+  margin-top: 4px;
+
+  font-size: 10px;
+
+  color: #8f9abd;
+}
+
+.full-new-viewers {
+
+  font-size: 10px;
+
+  color: #697595;
+}
+
+
+/* =====================================================
    BOTTOM NAV
 ===================================================== */
 
@@ -754,25 +1134,25 @@ button {
   right: 0;
   bottom: 0;
 
-  height: 76px;
+  height: 82px;
 
   z-index: 200;
 
   display: grid;
 
   grid-template-columns:
-    repeat(4, 1fr);
+    repeat(5, 1fr);
 
   padding:
+    6px
     7px
-    8px
     calc(
-      7px +
+      6px +
       env(safe-area-inset-bottom)
     );
 
   background:
-    rgba(4,7,20,.94);
+    rgba(4,7,20,.96);
 
   backdrop-filter: blur(20px);
 
@@ -789,7 +1169,7 @@ button {
 
   color: #697496;
 
-  font-size: 10px;
+  font-size: 9px;
 
   display: flex;
 
@@ -804,7 +1184,7 @@ button {
 
 .nav-icon {
 
-  font-size: 20px;
+  font-size: 19px;
 
   line-height: 1;
 }
@@ -814,49 +1194,60 @@ button {
   color: #bcd2ff;
 }
 
-.nav-item.active .nav-icon {
-
-  filter:
-    drop-shadow(
-      0 0 8px #5e8cff
-    );
-}
-
 
 /* =====================================================
-   MOBILE
+   配信ボタン
 ===================================================== */
 
-@media (max-width: 500px) {
+.live-nav {
 
-  .hero {
+  position: relative;
 
-    min-height: 520px;
+  top: -18px;
+}
 
-    background-size:
-      auto 520px;
+.live-button {
 
-    background-position:
-      57% top;
-  }
+  width: 58px;
+  height: 58px;
 
-  .hero-content {
+  border-radius: 50%;
 
-    padding:
-      30px
-      18px
-      25px;
-  }
+  border:
+    4px solid
+    #030510;
 
-  .hero-title {
+  display: flex;
 
-    font-size: 30px;
-  }
+  align-items: center;
 
-  .hero-description {
+  justify-content: center;
 
-    font-size: 12px;
-  }
+  font-size: 25px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff4f87,
+      #8d38ff
+    );
+
+  box-shadow:
+    0 0 25px
+    rgba(176,70,255,.55);
+
+  color: white;
+}
+
+.live-text {
+
+  margin-top: -1px;
+
+  font-size: 9px;
+
+  color: #ff9abc;
+
+  font-weight: 900;
 }
 
 
@@ -866,28 +1257,23 @@ button {
 
 @media (min-width: 700px) {
 
-  .hero {
-
-    min-height: 680px;
-  }
-
   .hero-content {
 
-    max-width: 650px;
-
     padding:
-      60px
+      120px
       50px
       45px;
   }
 
-  .section {
+  .section,
+  .page {
 
     max-width: 1000px;
 
     margin:
-      auto;
+      0 auto;
   }
+
 }
 
 </style>
@@ -914,10 +1300,19 @@ button {
 
 
 <!-- =================================================
-     HERO
+     HOME
 ================================================= -->
 
+<main id="homePage">
+
+
 <section class="hero">
+
+  <img
+    class="hero-image"
+    src="/home.png"
+    alt="VoiceポタLive"
+  >
 
   <div class="hero-content">
 
@@ -941,8 +1336,8 @@ button {
 
 
 <!-- =================================================
-     TOP 50
-===================================================== -->
+     人気
+================================================= -->
 
 <section class="section">
 
@@ -952,23 +1347,33 @@ button {
       🏆 トップランキング
     </div>
 
-    <div class="section-sub">
-      TOP 50
+    <div
+      class="section-sub"
+      onclick="showRankingPage()"
+    >
+      TOP 50 ＞
     </div>
 
   </div>
 
   <div
-    class="ranking-list"
+    class="horizontal-list"
     id="rankingList"
   ></div>
+
+  <button
+    class="more-button"
+    onclick="showRankingPage()"
+  >
+    🏆 トップ50をもっと見る
+  </button>
 
 </section>
 
 
 <!-- =================================================
-     NEWCOMER
-===================================================== -->
+     新人
+================================================= -->
 
 <section class="section">
 
@@ -978,15 +1383,84 @@ button {
       🌱 新人ライバー
     </div>
 
-    <div class="section-sub">
-      NEW
+    <div
+      class="section-sub"
+      onclick="showNewcomerPage()"
+    >
+      全員を見る ＞
     </div>
 
   </div>
 
   <div
-    class="newcomer-list"
+    class="horizontal-list"
     id="newcomerList"
+  ></div>
+
+  <button
+    class="more-button"
+    onclick="showNewcomerPage()"
+  >
+    🌱 新人ライバーをもっと見る
+  </button>
+
+</section>
+
+
+</main>
+
+
+<!-- =================================================
+     RANKING PAGE
+===================================================== -->
+
+<section
+  id="rankingPage"
+  class="page"
+>
+
+  <button
+    class="back-button"
+    onclick="goHome()"
+  >
+    ← ホームに戻る
+  </button>
+
+  <div class="page-title">
+    🏆 トップランキング50
+  </div>
+
+  <div
+    id="fullRankingList"
+    class="full-list"
+  ></div>
+
+</section>
+
+
+<!-- =================================================
+     NEWCOMER PAGE
+===================================================== -->
+
+<section
+  id="newcomerPage"
+  class="page"
+>
+
+  <button
+    class="back-button"
+    onclick="goHome()"
+  >
+    ← ホームに戻る
+  </button>
+
+  <div class="page-title">
+    🌱 新人ライバー
+  </div>
+
+  <div
+    id="fullNewcomerList"
+    class="full-list"
   ></div>
 
 </section>
@@ -1006,6 +1480,7 @@ button {
     ホーム
   </button>
 
+
   <button
     class="nav-item"
     onclick="searchLive()"
@@ -1014,6 +1489,23 @@ button {
     探す
   </button>
 
+
+  <button
+    class="nav-item live-nav"
+    onclick="startLive()"
+  >
+
+    <div class="live-button">
+      🎙️
+    </div>
+
+    <div class="live-text">
+      配信する
+    </div>
+
+  </button>
+
+
   <button
     class="nav-item"
     onclick="showNotice()"
@@ -1021,6 +1513,7 @@ button {
     <div class="nav-icon">♧</div>
     お知らせ
   </button>
+
 
   <button
     class="nav-item"
@@ -1039,127 +1532,370 @@ button {
 <script>
 
 /* =====================================================
-   RANKING
+   DATA
 ===================================================== */
 
-function renderRanking(list) {
+let rankingData = [];
+let newcomerData = [];
 
-  const box =
-    document.getElementById("rankingList");
 
-  if (!Array.isArray(list)) {
-    box.innerHTML =
-      '<div style="padding:20px;color:#8995b8;">ランキングを読み込めませんでした。</div>';
+/* =====================================================
+   HTML ESCAPE
+===================================================== */
 
-    return;
-  }
+function escapeHtml(value) {
 
-  box.innerHTML =
-    list.map(function(user) {
+  return String(value)
 
-      const topClass =
-        user.rank <= 3
-          ? "top"
-          : "";
+    .replace(/&/g, "&amp;")
 
-      return (
-        '<div class="ranking-card" onclick="openUser(\\'' +
-        escapeHtml(user.id) +
-        '\\')">' +
+    .replace(/</g, "&lt;")
 
-          '<div class="rank-number ' +
-          topClass +
-          '">' +
-            user.rank +
-          '</div>' +
+    .replace(/>/g, "&gt;")
 
-          '<div class="rank-avatar">' +
-            escapeHtml(user.icon) +
-          '</div>' +
+    .replace(/"/g, "&quot;")
 
-          '<div class="rank-info">' +
-
-            '<div class="rank-name">' +
-              escapeHtml(user.name) +
-            '</div>' +
-
-            '<div class="rank-score">' +
-              '応援ポイント ' +
-              Number(user.score).toLocaleString() +
-            '</div>' +
-
-          '</div>' +
-
-          '<div class="rank-viewers">' +
-            '👁 ' +
-            Number(user.viewers).toLocaleString() +
-          '</div>' +
-
-        '</div>'
-      );
-
-    }).join("");
-
+    .replace(/'/g, "&#039;");
 }
 
 
 /* =====================================================
-   NEWCOMER
+   人気ランキング
+===================================================== */
+
+function renderRanking(list) {
+
+  rankingData = Array.isArray(list)
+    ? list
+    : [];
+
+  const box =
+    document.getElementById(
+      "rankingList"
+    );
+
+  box.innerHTML =
+    rankingData
+      .slice(0, 10)
+      .map(user => `
+
+        <div
+          class="ranking-card"
+          onclick="openUser('${escapeHtml(user.id)}')"
+        >
+
+          <div
+            class="rank-badge
+            ${user.rank <= 3 ? "top" : ""}"
+          >
+            ${user.rank}位
+          </div>
+
+          ${
+            user.rank <= 10
+              ? `<div class="live-label">LIVE</div>`
+              : ""
+          }
+
+          <div class="rank-avatar">
+            ${escapeHtml(user.icon)}
+          </div>
+
+          <div class="rank-name">
+            ${escapeHtml(user.name)}
+          </div>
+
+          <div class="rank-score">
+            応援
+            ${Number(user.score).toLocaleString()}
+          </div>
+
+          <div class="rank-viewers">
+            👁
+            ${Number(user.viewers).toLocaleString()}
+          </div>
+
+        </div>
+
+      `)
+      .join("");
+}
+
+
+/* =====================================================
+   新人
 ===================================================== */
 
 function renderNewcomers(list) {
 
-  const box =
-    document.getElementById("newcomerList");
+  newcomerData = Array.isArray(list)
+    ? list
+    : [];
 
-  if (!Array.isArray(list)) {
-    box.innerHTML = "";
-    return;
-  }
+  /* 人気順 */
+
+  newcomerData.sort(
+    (a, b) =>
+      Number(b.viewers || 0) -
+      Number(a.viewers || 0)
+  );
+
+  const box =
+    document.getElementById(
+      "newcomerList"
+    );
 
   box.innerHTML =
-    list.map(function(user) {
+    newcomerData
+      .map(user => `
 
-      const liveDot =
-        user.live
-          ? '<div class="live-dot"></div>'
-          : "";
+        <div
+          class="newcomer-card"
+          onclick="openUser('${escapeHtml(user.id)}')"
+        >
 
-      const badge =
-        user.live
-          ? '<span class="new-badge">LIVE</span>'
-          : '<span class="new-badge" style="background:rgba(80,90,130,.7)">新人</span>';
+          <div class="new-avatar-wrap">
 
-      return (
-        '<div class="newcomer-card" onclick="openUser(\\'' +
-        escapeHtml(user.id) +
-        '\\')">' +
+            <div class="new-avatar">
+              ${escapeHtml(user.icon)}
+            </div>
 
-          '<div class="new-avatar-wrap">' +
+            ${
+              user.live
+                ? `<div class="live-dot"></div>`
+                : ""
+            }
 
-            '<div class="new-avatar">' +
-              escapeHtml(user.icon) +
-            '</div>' +
+          </div>
 
-            liveDot +
+          <div class="new-name">
+            ${escapeHtml(user.name)}
+          </div>
 
-          '</div>' +
+          <div class="new-title">
+            ${escapeHtml(user.title)}
+          </div>
 
-          '<div class="new-name">' +
-            escapeHtml(user.name) +
-          '</div>' +
+          <div class="new-viewers">
+            👁
+            ${Number(
+              user.viewers || 0
+            ).toLocaleString()}
+          </div>
 
-          '<div class="new-title">' +
-            escapeHtml(user.title) +
-          '</div>' +
+          ${
+            user.live
+              ? `
+                <span class="new-badge">
+                  LIVE
+                </span>
+              `
+              : `
+                <span
+                  class="new-badge"
+                  style="
+                    background:
+                    rgba(80,90,130,.7)
+                  "
+                >
+                  新人
+                </span>
+              `
+          }
 
-          badge +
+        </div>
 
-        '</div>'
-      );
+      `)
+      .join("");
+}
 
-    }).join("");
 
+/* =====================================================
+   ランキング50ページ
+===================================================== */
+
+function showRankingPage() {
+
+  document
+    .getElementById("homePage")
+    .style.display = "none";
+
+  document
+    .getElementById("newcomerPage")
+    .classList.remove("active");
+
+  document
+    .getElementById("rankingPage")
+    .classList.add("active");
+
+  renderFullRanking();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+
+function renderFullRanking() {
+
+  const box =
+    document.getElementById(
+      "fullRankingList"
+    );
+
+  box.innerHTML =
+    rankingData
+      .slice(0, 50)
+      .map(user => `
+
+        <div
+          class="full-ranking-card"
+          onclick="openUser('${escapeHtml(user.id)}')"
+        >
+
+          <div
+            class="full-rank
+            ${user.rank <= 3 ? "top" : ""}"
+          >
+            ${user.rank}
+          </div>
+
+          <div class="full-avatar">
+            ${escapeHtml(user.icon)}
+          </div>
+
+          <div class="full-info">
+
+            <div class="full-name">
+              ${escapeHtml(user.name)}
+            </div>
+
+            <div class="full-score">
+              応援ポイント
+              ${Number(
+                user.score
+              ).toLocaleString()}
+            </div>
+
+          </div>
+
+          <div class="full-viewers">
+            👁
+            ${Number(
+              user.viewers
+            ).toLocaleString()}
+          </div>
+
+        </div>
+
+      `)
+      .join("");
+}
+
+
+/* =====================================================
+   新人全員ページ
+===================================================== */
+
+function showNewcomerPage() {
+
+  document
+    .getElementById("homePage")
+    .style.display = "none";
+
+  document
+    .getElementById("rankingPage")
+    .classList.remove("active");
+
+  document
+    .getElementById("newcomerPage")
+    .classList.add("active");
+
+  renderFullNewcomers();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+
+function renderFullNewcomers() {
+
+  const box =
+    document.getElementById(
+      "fullNewcomerList"
+    );
+
+  const list =
+    [...newcomerData].sort(
+      (a, b) =>
+        Number(b.viewers || 0) -
+        Number(a.viewers || 0)
+    );
+
+  box.innerHTML =
+    list
+      .map(user => `
+
+        <div
+          class="full-new-card"
+          onclick="openUser('${escapeHtml(user.id)}')"
+        >
+
+          <div class="full-new-avatar">
+            ${escapeHtml(user.icon)}
+          </div>
+
+          <div class="full-new-info">
+
+            <div class="full-new-name">
+              ${escapeHtml(user.name)}
+            </div>
+
+            <div class="full-new-title">
+              ${escapeHtml(user.title)}
+            </div>
+
+          </div>
+
+          <div class="full-new-viewers">
+            👁
+            ${Number(
+              user.viewers || 0
+            ).toLocaleString()}
+          </div>
+
+        </div>
+
+      `)
+      .join("");
+}
+
+
+/* =====================================================
+   ホーム
+===================================================== */
+
+function goHome() {
+
+  document
+    .getElementById("homePage")
+    .style.display = "block";
+
+  document
+    .getElementById("rankingPage")
+    .classList.remove("active");
+
+  document
+    .getElementById("newcomerPage")
+    .classList.remove("active");
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 }
 
 
@@ -1170,7 +1906,7 @@ function renderNewcomers(list) {
 function openUser(id) {
 
   alert(
-    "配信者ページを開きます\\n\\n" +
+    "配信者ページを準備中です。\\n\\n" +
     id
   );
 
@@ -1178,17 +1914,22 @@ function openUser(id) {
 
 
 /* =====================================================
-   NAV
+   配信
 ===================================================== */
 
-function goHome() {
+function startLive() {
 
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  alert(
+    "配信画面を準備中です。\\n\\n" +
+    "ここから音声ライブ配信を開始できるようにします。"
+  );
 
 }
+
+
+/* =====================================================
+   その他
+===================================================== */
 
 function searchLive() {
 
@@ -1216,60 +1957,26 @@ function showProfile() {
 
 
 /* =====================================================
-   ESCAPE
-===================================================== */
-
-function escapeHtml(value) {
-
-  return String(value)
-
-    .replace(/&/g, "&amp;")
-
-    .replace(/</g, "&lt;")
-
-    .replace(/>/g, "&gt;")
-
-    .replace(/"/g, "&quot;")
-
-    .replace(/'/g, "&#039;");
-}
-
-
-/* =====================================================
    WEBSOCKET
 ===================================================== */
 
 let socket = null;
 
-let reconnectTimer = null;
-
-
 function connectSocket() {
-
-  if (
-    socket &&
-    (
-      socket.readyState === WebSocket.OPEN ||
-      socket.readyState === WebSocket.CONNECTING
-    )
-  ) {
-    return;
-  }
 
   const protocol =
     location.protocol === "https:"
       ? "wss:"
       : "ws:";
 
-  const socketUrl =
-    protocol +
-    "//" +
-    location.host;
-
   try {
 
     socket =
-      new WebSocket(socketUrl);
+      new WebSocket(
+        protocol +
+        "//" +
+        location.host
+      );
 
   } catch (error) {
 
@@ -1278,30 +1985,31 @@ function connectSocket() {
       error
     );
 
-    scheduleReconnect();
-
     return;
   }
 
 
-  socket.onopen = function() {
+  socket.onopen = () => {
 
     console.log(
-      "VoiceポタLive WebSocket connected"
+      "WebSocket connected"
     );
 
   };
 
 
-  socket.onmessage = function(event) {
+  socket.onmessage = event => {
 
     try {
 
       const data =
-        JSON.parse(event.data);
+        JSON.parse(
+          event.data
+        );
 
       if (
-        data.type === "home_data"
+        data.type ===
+        "home_data"
       ) {
 
         renderRanking(
@@ -1326,7 +2034,7 @@ function connectSocket() {
   };
 
 
-  socket.onerror = function(error) {
+  socket.onerror = error => {
 
     console.log(
       "WebSocket error",
@@ -1336,33 +2044,18 @@ function connectSocket() {
   };
 
 
-  socket.onclose = function() {
+  socket.onclose = () => {
 
     console.log(
       "WebSocket disconnected"
     );
 
-    scheduleReconnect();
+    setTimeout(
+      connectSocket,
+      2000
+    );
 
   };
-
-}
-
-
-function scheduleReconnect() {
-
-  if (reconnectTimer) {
-    return;
-  }
-
-  reconnectTimer =
-    setTimeout(function() {
-
-      reconnectTimer = null;
-
-      connectSocket();
-
-    }, 2000);
 
 }
 
@@ -1385,71 +2078,92 @@ connectSocket();
 ===================================================== */
 
 const server =
-  http.createServer(function(req, res) {
+  http.createServer(
+    (req, res) => {
 
-    const url =
-      req.url.split("?")[0];
-
-
-    /* HOME */
-
-    if (
-      url === "/" ||
-      url === "/index.html"
-    ) {
-
-      res.writeHead(
-        200,
-        {
-          "Content-Type":
-            "text/html; charset=utf-8",
-
-          "Cache-Control":
-            "no-cache, no-store, must-revalidate"
-        }
-      );
-
-      res.end(HTML);
-
-      return;
-    }
+      const url =
+        req.url.split("?")[0];
 
 
-    /* HOME IMAGE */
-
-    if (
-      url === "/home.png"
-    ) {
-
-      const imagePath =
-        path.join(
-          PUBLIC_DIR,
-          "home.png"
-        );
-
+      /* HOME */
 
       if (
-        fs.existsSync(imagePath)
+        url === "/" ||
+        url === "/index.html"
       ) {
 
         res.writeHead(
           200,
           {
             "Content-Type":
-              "image/png",
+              "text/html; charset=utf-8",
 
             "Cache-Control":
-              "public, max-age=3600"
+              "no-cache"
           }
         );
 
-        fs.createReadStream(
-          imagePath
-        ).pipe(res);
+        res.end(HTML);
 
         return;
       }
 
+
+      /* HOME IMAGE */
+
+      if (
+        url === "/home.png"
+      ) {
+
+        const imagePath =
+          path.join(
+            PUBLIC_DIR,
+            "home.png"
+          );
+
+
+        if (
+          fs.existsSync(
+            imagePath
+          )
+        ) {
+
+          res.writeHead(
+            200,
+            {
+              "Content-Type":
+                "image/png",
+
+              "Cache-Control":
+                "public, max-age=3600"
+            }
+          );
+
+          fs.createReadStream(
+            imagePath
+          ).pipe(res);
+
+          return;
+        }
+
+
+        res.writeHead(
+          404,
+          {
+            "Content-Type":
+              "text/plain; charset=utf-8"
+          }
+        );
+
+        res.end(
+          "home.png がありません"
+        );
+
+        return;
+      }
+
+
+      /* 404 */
 
       res.writeHead(
         404,
@@ -1460,28 +2174,11 @@ const server =
       );
 
       res.end(
-        "home.png がありません"
+        "Not Found"
       );
 
-      return;
     }
-
-
-    /* NOT FOUND */
-
-    res.writeHead(
-      404,
-      {
-        "Content-Type":
-          "text/plain; charset=utf-8"
-      }
-    );
-
-    res.end(
-      "Not Found"
-    );
-
-  });
+  );
 
 
 /* =====================================================
@@ -1490,7 +2187,7 @@ const server =
 
 const wss =
   new WebSocket.Server({
-    server: server
+    server
   });
 
 const clients =
@@ -1499,7 +2196,7 @@ const clients =
 
 wss.on(
   "connection",
-  function(ws) {
+  ws => {
 
     clients.add(ws);
 
@@ -1508,26 +2205,20 @@ wss.on(
     );
 
 
-    /* =================================================
-       HOME DATA
-    ================================================= */
+    /* ホームデータ送信 */
 
     ws.send(
       JSON.stringify({
         type: "home_data",
-        ranking: ranking,
-        newcomers: newcomers
+        ranking,
+        newcomers
       })
     );
 
 
-    /* =================================================
-       CLOSE
-    ================================================= */
-
     ws.on(
       "close",
-      function() {
+      () => {
 
         clients.delete(ws);
 
@@ -1539,20 +2230,14 @@ wss.on(
     );
 
 
-    /* =================================================
-       ERROR
-    ================================================= */
-
     ws.on(
       "error",
-      function(error) {
+      error => {
 
         console.log(
-          "WebSocket client error",
-          error
+          "WebSocket error:",
+          error.message
         );
-
-        clients.delete(ws);
 
       }
     );
@@ -1568,10 +2253,10 @@ wss.on(
 server.listen(
   PORT,
   HOST,
-  function() {
+  () => {
 
     console.log(
-      "========================================"
+      "===================================="
     );
 
     console.log(
@@ -1579,42 +2264,17 @@ server.listen(
     );
 
     console.log(
-      "Host: " + HOST
+      "Port:",
+      PORT
     );
 
     console.log(
-      "Port: " + PORT
+      "Host:",
+      HOST
     );
 
     console.log(
-      "Ranking users: " +
-      ranking.length
-    );
-
-    console.log(
-      "Newcomers: " +
-      newcomers.length
-    );
-
-    console.log(
-      "========================================"
-    );
-
-  }
-);
-
-
-/* =====================================================
-   SERVER ERROR
-===================================================== */
-
-server.on(
-  "error",
-  function(error) {
-
-    console.error(
-      "SERVER ERROR:",
-      error
+      "===================================="
     );
 
   }

@@ -1146,7 +1146,7 @@ let audioStarted = false;
 
 
 /* =====================================================
-   WEBRTC
+   WEBRTC LOW LATENCY
 ===================================================== */
 
 const rtcConfig = {
@@ -1155,18 +1155,15 @@ const rtcConfig = {
 
   rtcpMuxPolicy:"require",
 
-  iceCandidatePoolSize:10,
+  iceCandidatePoolSize:20,
 
   iceServers:[
-
     {
       urls:"stun:stun.l.google.com:19302"
     },
-
     {
       urls:"stun:stun1.l.google.com:19302"
     }
-
   ]
 
 };
@@ -1271,7 +1268,7 @@ function connectSocket(){
 
     setTimeout(
       connectSocket,
-      1500
+      1000
     );
 
   };
@@ -1341,7 +1338,7 @@ function handleMessage(m){
       "● LIVE";
 
     setAudioStatus(
-      "🎙️ 配信中・低遅延音声送信中",
+      "🎙️ 配信中・超低遅延音声送信中",
       "ok"
     );
 
@@ -1652,12 +1649,6 @@ async function startBroadcast(){
 
           audio:{
 
-            /*
-              低遅延優先。
-              ブラウザ側の追加処理を
-              できるだけ無効化。
-            */
-
             echoCancellation:false,
 
             noiseSuppression:false,
@@ -1731,7 +1722,7 @@ async function startBroadcast(){
 
 
   setAudioStatus(
-    "🎙️ マイク取得成功・低遅延配信中",
+    "🎙️ マイク取得成功・超低遅延配信中",
     "ok"
   );
 
@@ -1754,7 +1745,7 @@ async function startBroadcast(){
 
     });
 
-  },100);
+  },50);
 
 }
 
@@ -1852,48 +1843,58 @@ async function createOffer(viewerId){
   );
 
 
-  localStream
-    .getAudioTracks()
-    .forEach(track=>{
-
-      const sender=
-        peer.addTrack(
-          track,
-          localStream
-        );
+  const track=
+    localStream
+      .getAudioTracks()[0];
 
 
-      try{
+  if(track){
 
-        const params=
-          sender.getParameters();
+    const sender=
+      peer.addTrack(
+        track,
+        localStream
+      );
 
-        if(
-          params.encodings &&
-          params.encodings.length
-        ){
 
-          /*
-            音声ビットレートを
-            必要十分に抑える。
+    try{
 
-            高すぎるビットレートは
-            テザリング環境では
-            必ずしも低遅延にならない。
-          */
+      const params=
+        sender.getParameters();
 
-          params.encodings[0]
-            .maxBitrate=48000;
+      if(
+        params.encodings &&
+        params.encodings.length
+      ){
 
-        }
+        /*
+          音声専用。
+          低遅延優先なので
+          ビットレートを抑える。
+        */
 
-        sender.setParameters(
-          params
-        ).catch(()=>{});
+        params.encodings[0]
+          .maxBitrate=32000;
 
-      }catch(e){}
+        params.encodings[0]
+          .priority="high";
 
-    });
+      }
+
+      await sender.setParameters(
+        params
+      );
+
+    }catch(e){
+
+      console.log(
+        "sender parameters:",
+        e
+      );
+
+    }
+
+  }
 
 
   peer.onicecandidate=
@@ -1926,6 +1927,17 @@ async function createOffer(viewerId){
         peer.connectionState
       );
 
+      if(
+        peer.connectionState==="failed" ||
+        peer.connectionState==="closed"
+      ){
+
+        viewerPeers.delete(
+          viewerId
+        );
+
+      }
+
     };
 
 
@@ -1945,11 +1957,8 @@ async function createOffer(viewerId){
 
     const offer=
       await peer.createOffer({
-
         offerToReceiveAudio:false,
-
         offerToReceiveVideo:false
-
       });
 
 
@@ -1988,7 +1997,7 @@ async function createOffer(viewerId){
 
 
 /* =====================================================
-   OPUS LOW LATENCY SDP
+   OPUS ULTRA LOW LATENCY
 ===================================================== */
 
 function optimizeOpusSDP(sdp){
@@ -2011,19 +2020,16 @@ function optimizeOpusSDP(sdp){
     i++
   ){
 
-    const line=lines[i];
-
-
     if(
-      line.startsWith("a=rtpmap:")
+      lines[i].startsWith("a=rtpmap:")
       &&
-      line
+      lines[i]
         .toLowerCase()
         .includes("opus/48000")
     ){
 
       const match=
-        line.match(
+        lines[i].match(
           /^a=rtpmap:(\\d+)/
         );
 
@@ -2047,24 +2053,18 @@ function optimizeOpusSDP(sdp){
 
 
   /*
-    WebRTC/Opus低遅延設定。
+    最優先で5ms。
 
-    ptime=10
-    maxptime=10
-
-    useinbandfec=1
-
-    stereo=0
-
-    useinbandfecは
-    回線が不安定なときの
-    音切れを抑えるため有効。
+    FECは今回はOFF。
+    FECはパケットロス耐性には有利だが、
+    超低遅延を狙う場合は余計な処理を
+    増やすことがある。
   */
 
   const fmtp=
     "a=fmtp:" +
     opusPayload +
-    " minptime=10;maxptime=10;useinbandfec=1;stereo=0;usedtx=0";
+    " minptime=5;maxptime=5;useinbandfec=0;stereo=0;usedtx=0";
 
 
   let fmtpIndex=-1;
@@ -2119,6 +2119,59 @@ function optimizeOpusSDP(sdp){
   }
 
 
+  /*
+    ptimeも5msにする。
+
+    これが効くブラウザでは
+    音声パケット単位を短くする。
+  */
+
+  const mediaIndex=
+    lines.findIndex(
+      line=>
+        line.startsWith("m=audio ")
+    );
+
+
+  if(mediaIndex>=0){
+
+    let inserted=false;
+
+    for(
+      let i=mediaIndex+1;
+      i<lines.length &&
+      !lines[i].startsWith("m=");
+      i++
+    ){
+
+      if(
+        lines[i].startsWith("a=ptime:")
+      ){
+
+        lines[i]="a=ptime:5";
+
+        inserted=true;
+
+        break;
+
+      }
+
+    }
+
+
+    if(!inserted){
+
+      lines.splice(
+        mediaIndex+1,
+        0,
+        "a=ptime:5"
+      );
+
+    }
+
+  }
+
+
   return lines.join("\\r\\n");
 
 }
@@ -2140,9 +2193,29 @@ async function receiveOffer(m){
 
 
   setAudioStatus(
-    "🔊 WebRTC低遅延接続中...",
+    "🔊 超低遅延WebRTC接続中...",
     ""
   );
+
+
+  /*
+    受信側で可能なら
+    再生遅延を最小にする。
+
+    offerを受け取った直後に
+    transceiverへ設定する。
+  */
+
+  try{
+
+    viewerPeer.addTransceiver(
+      "audio",
+      {
+        direction:"recvonly"
+      }
+    );
+
+  }catch(e){}
 
 
   viewerPeer.onicecandidate=
@@ -2183,7 +2256,7 @@ async function receiveOffer(m){
       ){
 
         setAudioStatus(
-          "🟢 低遅延音声回線に接続",
+          "🟢 超低遅延音声回線に接続",
           "ok"
         );
 
@@ -2253,28 +2326,18 @@ async function receiveOffer(m){
 
         audio.controls=false;
 
+        audio.preload="auto";
+
         /*
           display:noneにはしない。
-
-          Android Chromeでは
-          hidden/display:noneの音声要素より
-          小さな不可視要素のほうが
-          安定する場合がある。
         */
 
-        audio.style.position=
-          "fixed";
-
+        audio.style.position="fixed";
         audio.style.width="1px";
-
         audio.style.height="1px";
-
         audio.style.opacity="0.01";
-
         audio.style.pointerEvents="none";
-
         audio.style.left="-10px";
-
         audio.style.top="-10px";
 
         document.body.appendChild(
@@ -2298,10 +2361,7 @@ async function receiveOffer(m){
 
 
       /*
-        ここが今回の重要部分。
-
-        受信側の再生バッファを
-        可能な限り小さくする。
+        受信側の再生遅延を最小化。
       */
 
       try{
@@ -2319,57 +2379,35 @@ async function receiveOffer(m){
         if(receiver){
 
           /*
-            対応ブラウザのみ。
+            Chrome系で利用可能な場合。
           */
 
-          if(
-            "playoutDelayHint"
-            in receiver
-          ){
+          try{
 
-            receiver
-              .playoutDelayHint=0;
+            if(
+              "playoutDelayHint"
+              in receiver
+            ){
 
-          }
+              receiver.playoutDelayHint=0;
 
+            }
 
-          /*
-            jitterBufferTargetDelay
-            対応ブラウザでは
-            0秒を指定。
-
-            非対応ブラウザでは
-            何もしない。
-          */
-
-          if(
-            "jitterBufferTarget"
-            in receiver
-          ){
-
-            try{
-
-              receiver
-                .jitterBufferTarget=0;
-
-            }catch(e){}
-
-          }
-
-        }
-
-      }catch(e){}
+          }catch(e){}
 
 
-      try{
+          try{
 
-        if(
-          "playoutDelayHint"
-          in viewerPeer
-        ){
+            if(
+              "jitterBufferTarget"
+              in receiver
+            ){
 
-          viewerPeer
-            .playoutDelayHint=0;
+              receiver.jitterBufferTarget=0;
+
+            }
+
+          }catch(e){}
 
         }
 
@@ -2383,19 +2421,28 @@ async function receiveOffer(m){
 
 
       /*
-        ユーザー操作済みなら
-        即座に再生。
+        ボタンを一度押した後なら
+        即再生。
       */
 
       if(audioStarted){
 
         audio
           .play()
+          .then(()=>{
+
+            $("audioButton")
+              .textContent=
+              "🔊 音声再生中";
+
+          })
           .catch(error=>{
+
             console.log(
               "AUDIO PLAY",
               error
             );
+
           });
 
       }
@@ -2405,6 +2452,10 @@ async function receiveOffer(m){
 
   try{
 
+    /*
+      Remote SDPを設定。
+    */
+
     await viewerPeer
       .setRemoteDescription(
         m.sdp
@@ -2412,79 +2463,54 @@ async function receiveOffer(m){
 
 
     /*
-      受信側でOpusを優先。
-
       setRemoteDescription後に
-      receiver/transceiverを取得する。
+      receiverの低遅延設定を再適用。
     */
 
     try{
 
-      const transceivers=
+      const receiver=
         viewerPeer
-          .getTransceivers();
+          .getReceivers()
+          .find(
+            r=>
+              r.track &&
+              r.track.kind==="audio"
+          );
 
 
-      transceivers.forEach(
-        transceiver=>{
+      if(receiver){
+
+        try{
 
           if(
-            transceiver.receiver &&
-            transceiver.receiver.track &&
-            transceiver.receiver.track.kind===
-            "audio"
+            "playoutDelayHint"
+            in receiver
           ){
 
-            const capabilities=
-              RTCRtpReceiver
-                .getCapabilities(
-                  "audio"
-                );
-
-
-            if(
-              capabilities &&
-              capabilities.codecs
-            ){
-
-              const opus=
-                capabilities.codecs.filter(
-                  codec=>
-                    codec.mimeType &&
-                    codec.mimeType
-                      .toLowerCase()
-                      ===
-                    "audio/opus"
-                );
-
-
-              if(opus.length){
-
-                try{
-
-                  transceiver
-                    .setCodecPreferences(
-                      opus
-                    );
-
-                }catch(e){}
-
-              }
-
-            }
+            receiver.playoutDelayHint=0;
 
           }
 
-        }
-      );
+        }catch(e){}
 
-    }catch(e){
 
-      console.log(
-        "Codec preference unavailable"
-      );
+        try{
 
-    }
+          if(
+            "jitterBufferTarget"
+            in receiver
+          ){
+
+            receiver.jitterBufferTarget=0;
+
+          }
+
+        }catch(e){}
+
+      }
+
+    }catch(e){}
 
 
     const answer=
@@ -2562,18 +2588,14 @@ async function startAudio(){
 
     audio.controls=false;
 
+    audio.preload="auto";
+
     audio.style.position="fixed";
-
     audio.style.width="1px";
-
     audio.style.height="1px";
-
     audio.style.opacity="0.01";
-
     audio.style.pointerEvents="none";
-
     audio.style.left="-10px";
-
     audio.style.top="-10px";
 
     document.body.appendChild(
@@ -2593,8 +2615,12 @@ async function startAudio(){
       "🔊 音声再生中";
 
 
+    $("audioButton")
+      .style.display="none";
+
+
     setAudioStatus(
-      "🟢 低遅延音声再生中",
+      "🟢 超低遅延音声再生中",
       "ok"
     );
 
@@ -2625,6 +2651,8 @@ function closeViewerPeer(){
   if(viewerPeer){
 
     try{
+      viewerPeer.ontrack=null;
+      viewerPeer.onicecandidate=null;
       viewerPeer.close();
     }catch(e){}
 
@@ -3659,6 +3687,7 @@ wss.on(
         }
 
       }
+
     );
 
   });
@@ -3721,7 +3750,7 @@ server.listen(
   PORT,
   HOST,
   ()=>{
-    
+
     console.log(
       "================================"
     );
@@ -3731,11 +3760,15 @@ server.listen(
     );
 
     console.log(
-      " LOW LATENCY AUDIO v2"
+      " ULTRA LOW LATENCY AUDIO v3"
     );
 
     console.log(
-      "PORT:",
+      " OPUS 5ms"
+    );
+
+    console.log(
+      " PORT:",
       PORT
     );
 

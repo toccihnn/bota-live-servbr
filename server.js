@@ -53,6 +53,10 @@ input{
   font-family:inherit;
 }
 
+button{
+  -webkit-tap-highlight-color:transparent;
+}
+
 .app{
   width:100%;
   max-width:480px;
@@ -1196,23 +1200,17 @@ input{
 
 <nav class="nav">
 
-  <button
-    onclick="showScreen('home')"
-  >
+  <button onclick="showScreen('home')">
     <span>⌂</span>
     ホーム
   </button>
 
-  <button
-    onclick="openHost()"
-  >
+  <button onclick="openHost()">
     <span>🎙️</span>
     配信
   </button>
 
-  <button
-    onclick="showScreen('profile')"
-  >
+  <button onclick="showScreen('profile')">
     <span>♙</span>
     マイページ
   </button>
@@ -1258,39 +1256,24 @@ input{
         class="gift"
         onclick="sendGift('🌙 月光花')"
       >
-
-        <span class="giftIcon">
-          🌙
-        </span>
-
+        <span class="giftIcon">🌙</span>
         月光花
-
       </button>
 
       <button
         class="gift"
         onclick="sendGift('💜 ハート')"
       >
-
-        <span class="giftIcon">
-          💜
-        </span>
-
+        <span class="giftIcon">💜</span>
         ハート
-
       </button>
 
       <button
         class="gift"
         onclick="sendGift('✨ 星の雫')"
       >
-
-        <span class="giftIcon">
-          ✨
-        </span>
-
+        <span class="giftIcon">✨</span>
         星の雫
-
       </button>
 
     </div>
@@ -1322,6 +1305,10 @@ let viewerPeer = null;
 
 let viewerPeers = new Map();
 
+let pendingIce = new Map();
+
+let viewerPendingIce = [];
+
 let customImage = "";
 
 let currentLive = false;
@@ -1330,13 +1317,14 @@ let currentMeta = null;
 
 let audioStarted = false;
 
+let reconnectTimer = null;
 
-/*
-  WebRTC設定
+let statsTimer = null;
 
-  音声のみなので bundlePolicy を
-  max-bundle にして余計な処理を減らす。
-*/
+
+/* =====================================================
+   WebRTC
+===================================================== */
 
 const rtcConfig = {
 
@@ -1344,23 +1332,22 @@ const rtcConfig = {
 
   rtcpMuxPolicy:"require",
 
-  iceServers:[
+  iceCandidatePoolSize:10,
 
+  iceServers:[
     {
       urls:"stun:stun.l.google.com:19302"
     },
-
     {
       urls:"stun:stun1.l.google.com:19302"
     }
-
   ]
 
 };
 
 
 /* =====================================================
-   基本
+   BASIC
 ===================================================== */
 
 function $(id){
@@ -1389,6 +1376,8 @@ function setAudioStatus(text,type){
 
   const el=$("audioStatus");
 
+  if(!el) return;
+
   el.textContent=text;
 
   el.className="audioStatus";
@@ -1401,7 +1390,7 @@ function setAudioStatus(text,type){
 
 
 /* =====================================================
-   WebSocket
+   WEBSOCKET
 ===================================================== */
 
 function connectSocket(){
@@ -1454,7 +1443,17 @@ function connectSocket(){
   socket.onclose=()=>{
 
     $("status").textContent=
-      "● 切断";
+      "● 再接続中";
+
+    clearTimeout(
+      reconnectTimer
+    );
+
+    reconnectTimer=
+      setTimeout(
+        connectSocket,
+        1500
+      );
 
   };
 
@@ -1463,8 +1462,10 @@ function connectSocket(){
 
     try{
 
-      const message =
-        JSON.parse(event.data);
+      const message=
+        JSON.parse(
+          event.data
+        );
 
       handleMessage(message);
 
@@ -1502,12 +1503,6 @@ function send(data){
 
 function handleMessage(m){
 
-  console.log(
-    "SERVER:",
-    m
-  );
-
-
   if(m.type==="state"){
 
     currentLive=
@@ -1519,7 +1514,6 @@ function handleMessage(m){
     updateLiveList();
 
     return;
-
   }
 
 
@@ -1534,7 +1528,6 @@ function handleMessage(m){
     );
 
     return;
-
   }
 
 
@@ -1547,8 +1540,25 @@ function handleMessage(m){
 
     updateLiveList();
 
-    return;
+    if(role==="viewer"){
 
+      $("liveName").textContent=
+        currentMeta?.name ||
+        "配信者";
+
+      if(currentMeta?.image){
+
+        $("liveImage").src=
+          currentMeta.image;
+
+        $("liveImage").style.display=
+          "block";
+
+      }
+
+    }
+
+    return;
   }
 
 
@@ -1561,7 +1571,6 @@ function handleMessage(m){
     }
 
     return;
-
   }
 
 
@@ -1570,7 +1579,6 @@ function handleMessage(m){
     receiveOffer(m);
 
     return;
-
   }
 
 
@@ -1585,48 +1593,25 @@ function handleMessage(m){
         .setRemoteDescription(
           m.sdp
         )
+        .then(()=>{
+          flushHostIce(
+            m.from,
+            peer
+          );
+        })
         .catch(console.error);
 
     }
 
     return;
-
   }
 
 
   if(m.type==="ice"){
 
-    let peer=null;
-
-
-    if(role==="host"){
-
-      peer=
-        viewerPeers.get(m.from);
-
-    }else{
-
-      peer=
-        viewerPeer;
-
-    }
-
-
-    if(
-      peer &&
-      m.candidate
-    ){
-
-      peer
-        .addIceCandidate(
-          m.candidate
-        )
-        .catch(()=>{});
-
-    }
+    handleIce(m);
 
     return;
-
   }
 
 
@@ -1636,7 +1621,6 @@ function handleMessage(m){
       m.n;
 
     return;
-
   }
 
 
@@ -1648,7 +1632,6 @@ function handleMessage(m){
     );
 
     return;
-
   }
 
 
@@ -1660,7 +1643,6 @@ function handleMessage(m){
     );
 
     return;
-
   }
 
 
@@ -1686,7 +1668,6 @@ function handleMessage(m){
     }
 
     return;
-
   }
 
 
@@ -1698,6 +1679,162 @@ function handleMessage(m){
     );
 
     return;
+  }
+
+}
+
+
+/* =====================================================
+   ICE
+===================================================== */
+
+async function handleIce(m){
+
+  let peer=null;
+
+
+  if(role==="host"){
+
+    peer=
+      viewerPeers.get(
+        m.from
+      );
+
+
+    if(!peer){
+
+      return;
+    }
+
+
+    if(
+      peer.remoteDescription &&
+      peer.remoteDescription.type
+    ){
+
+      try{
+
+        await peer.addIceCandidate(
+          m.candidate
+        );
+
+      }catch(e){}
+
+    }else{
+
+      if(!pendingIce.has(m.from)){
+
+        pendingIce.set(
+          m.from,
+          []
+        );
+
+      }
+
+      pendingIce
+        .get(m.from)
+        .push(
+          m.candidate
+        );
+
+    }
+
+  }else{
+
+    peer=
+      viewerPeer;
+
+
+    if(!peer){
+
+      return;
+    }
+
+
+    if(
+      peer.remoteDescription &&
+      peer.remoteDescription.type
+    ){
+
+      try{
+
+        await peer.addIceCandidate(
+          m.candidate
+        );
+
+      }catch(e){}
+
+    }else{
+
+      viewerPendingIce.push(
+        m.candidate
+      );
+
+    }
+
+  }
+
+}
+
+
+async function flushHostIce(
+  viewerId,
+  peer
+){
+
+  const list=
+    pendingIce.get(
+      viewerId
+    ) || [];
+
+
+  for(
+    const candidate of list
+  ){
+
+    try{
+
+      await peer.addIceCandidate(
+        candidate
+      );
+
+    }catch(e){}
+
+  }
+
+
+  pendingIce.delete(
+    viewerId
+  );
+
+}
+
+
+async function flushViewerIce(){
+
+  if(!viewerPeer){
+    return;
+  }
+
+
+  const list=
+    viewerPendingIce;
+
+  viewerPendingIce=[];
+
+
+  for(
+    const candidate of list
+  ){
+
+    try{
+
+      await viewerPeer
+        .addIceCandidate(
+          candidate
+        );
+
+    }catch(e){}
 
   }
 
@@ -1850,7 +1987,7 @@ function updateLiveList(){
 
 
 /* =====================================================
-   BROADCAST
+   START BROADCAST
 ===================================================== */
 
 async function startBroadcast(){
@@ -1876,14 +2013,7 @@ async function startBroadcast(){
 
   try{
 
-    /*
-      低遅延優先。
-
-      音声処理をブラウザ側で
-      できるだけ追加しない。
-    */
-
-    localStream =
+    localStream=
       await navigator.mediaDevices
         .getUserMedia({
 
@@ -1985,7 +2115,7 @@ async function startBroadcast(){
 
     });
 
-  },200);
+  },100);
 
 }
 
@@ -2010,6 +2140,8 @@ function joinLive(){
   role="viewer";
 
   audioStarted=false;
+
+  viewerPendingIce=[];
 
   closeViewerPeer();
 
@@ -2039,14 +2171,12 @@ function joinLive(){
     $("liveImage").src=
       meta.image;
 
-    $("liveImage")
-      .style.display=
+    $("liveImage").style.display=
       "block";
 
   }else{
 
-    $("liveImage")
-      .style.display=
+    $("liveImage").style.display=
       "none";
 
   }
@@ -2065,10 +2195,129 @@ function joinLive(){
 
 
 /* =====================================================
-   HOST -> VIEWER OFFER
+   OPUS SDP
 ===================================================== */
 
-async function createOffer(viewerId){
+function optimizeOpusSDP(sdp){
+
+  const lines=
+    sdp.split("\\r\\n");
+
+
+  let opusPayload=null;
+
+
+  for(
+    const line of lines
+  ){
+
+    if(
+      line.startsWith(
+        "a=rtpmap:"
+      ) &&
+      line.toLowerCase()
+        .includes(
+          "opus/48000"
+        )
+    ){
+
+      const match=
+        line.match(
+          /^a=rtpmap:(\\d+)/
+        );
+
+      if(match){
+
+        opusPayload=
+          match[1];
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  if(!opusPayload){
+
+    return sdp;
+
+  }
+
+
+  const fmtp=
+    "a=fmtp:" +
+    opusPayload +
+    " minptime=10;useinbandfec=1;stereo=0;usedtx=0";
+
+
+  let found=false;
+
+
+  for(
+    let i=0;
+    i<lines.length;
+    i++
+  ){
+
+    if(
+      lines[i].startsWith(
+        "a=fmtp:"+opusPayload
+      )
+    ){
+
+      lines[i]=
+        fmtp;
+
+      found=true;
+
+      break;
+
+    }
+
+  }
+
+
+  if(!found){
+
+    const index=
+      lines.findIndex(
+        x=>
+          x.startsWith(
+            "a=rtpmap:"+opusPayload
+          )
+      );
+
+
+    if(index>=0){
+
+      lines.splice(
+        index+1,
+        0,
+        fmtp
+      );
+
+    }
+
+  }
+
+
+  return lines.join(
+    "\\r\\n"
+  );
+
+}
+
+
+/* =====================================================
+   HOST OFFER
+===================================================== */
+
+async function createOffer(
+  viewerId
+){
 
   if(!localStream){
     return;
@@ -2087,9 +2336,11 @@ async function createOffer(viewerId){
   );
 
 
-  /*
-    音声トラックだけ送る。
-  */
+  pendingIce.set(
+    viewerId,
+    []
+  );
+
 
   localStream
     .getAudioTracks()
@@ -2101,16 +2352,12 @@ async function createOffer(viewerId){
           localStream
         );
 
-      /*
-        エンコーディング設定。
-        音声では過剰な設定をせず、
-        ブラウザのOpus最適化を使う。
-      */
 
       try{
 
         const params=
           sender.getParameters();
+
 
         if(
           params.encodings &&
@@ -2123,6 +2370,7 @@ async function createOffer(viewerId){
 
         }
 
+
         sender.setParameters(
           params
         ).catch(()=>{});
@@ -2130,6 +2378,73 @@ async function createOffer(viewerId){
       }catch(e){}
 
     });
+
+
+  /*
+    音声コーデックを
+    Opus優先にする。
+  */
+
+  try{
+
+    const audioCapabilities=
+      RTCRtpSender
+        .getCapabilities(
+          "audio"
+        );
+
+
+    if(audioCapabilities){
+
+      const codecs=
+        audioCapabilities.codecs;
+
+
+      const opus=
+        codecs.filter(
+          codec=>
+            codec.mimeType &&
+            codec.mimeType
+              .toLowerCase()
+              ===
+            "audio/opus"
+        );
+
+
+      const transceivers=
+        peer.getTransceivers();
+
+
+      transceivers.forEach(
+        transceiver=>{
+
+          if(
+            transceiver.sender &&
+            transceiver.sender.track &&
+            transceiver.sender.track.kind===
+            "audio" &&
+            opus.length
+          ){
+
+            transceiver
+              .setCodecPreferences(
+                opus
+              );
+
+          }
+
+        }
+      );
+
+    }
+
+  }catch(e){
+
+    console.log(
+      "Host codec preference unavailable"
+    );
+
+  }
 
 
   peer.onicecandidate=
@@ -2162,6 +2477,18 @@ async function createOffer(viewerId){
         peer.iceConnectionState
       );
 
+
+      if(
+        peer.iceConnectionState===
+        "failed"
+      ){
+
+        try{
+          peer.restartIce();
+        }catch(e){}
+
+      }
+
     };
 
 
@@ -2189,21 +2516,9 @@ async function createOffer(viewerId){
       });
 
 
-    /*
-      Opus低遅延用のSDP調整。
+    if(offer.sdp){
 
-      minptime=10
-      useinbandfec=1
-      stereo=0
-
-      10msパケットを優先。
-    */
-
-    if(
-      offer.sdp
-    ){
-
-      offer.sdp =
+      offer.sdp=
         optimizeOpusSDP(
           offer.sdp
         );
@@ -2240,141 +2555,15 @@ async function createOffer(viewerId){
 
 
 /* =====================================================
-   OPUS SDP
-===================================================== */
-
-function optimizeOpusSDP(sdp){
-
-  const lines=
-    sdp.split("\\r\\n");
-
-
-  const opusPayloads=[];
-
-
-  for(
-    let i=0;
-    i<lines.length;
-    i++
-  ){
-
-    const line=
-      lines[i];
-
-
-    if(
-      line.startsWith("a=rtpmap:")
-    ){
-
-      if(
-        line.toLowerCase()
-          .includes("opus/48000")
-      ){
-
-        const match=
-          line.match(
-            /^a=rtpmap:(\\d+)/
-          );
-
-        if(match){
-
-          opusPayloads.push(
-            match[1]
-          );
-
-        }
-
-      }
-
-    }
-
-  }
-
-
-  if(
-    opusPayloads.length===0
-  ){
-
-    return sdp;
-
-  }
-
-
-  const payload=
-    opusPayloads[0];
-
-
-  const fmtp=
-    "a=fmtp:" +
-    payload +
-    " minptime=10;useinbandfec=1;stereo=0;usedtx=0";
-
-
-  let found=false;
-
-
-  for(
-    let i=0;
-    i<lines.length;
-    i++
-  ){
-
-    if(
-      lines[i].startsWith(
-        "a=fmtp:"+payload
-      )
-    ){
-
-      lines[i]=
-        fmtp;
-
-      found=true;
-
-      break;
-
-    }
-
-  }
-
-
-  if(!found){
-
-    let index=
-      lines.findIndex(
-        x=>
-          x.startsWith(
-            "a=rtpmap:"+payload
-          )
-      );
-
-
-    if(index>=0){
-
-      lines.splice(
-        index+1,
-        0,
-        fmtp
-      );
-
-    }
-
-  }
-
-
-  return lines.join(
-    "\\r\\n"
-  );
-
-}
-
-
-/* =====================================================
    VIEWER RECEIVE OFFER
 ===================================================== */
 
 async function receiveOffer(m){
 
   closeViewerPeer();
+
+
+  viewerPendingIce=[];
 
 
   viewerPeer=
@@ -2467,6 +2656,11 @@ async function receiveOffer(m){
           "error"
         );
 
+        setTimeout(
+          reconnectViewer,
+          800
+        );
+
       }
 
     };
@@ -2480,6 +2674,19 @@ async function receiveOffer(m){
         viewerPeer.connectionState
       );
 
+
+      if(
+        viewerPeer.connectionState===
+        "failed"
+      ){
+
+        setTimeout(
+          reconnectViewer,
+          800
+        );
+
+      }
+
     };
 
 
@@ -2487,7 +2694,7 @@ async function receiveOffer(m){
     event=>{
 
       console.log(
-        "REMOTE TRACK RECEIVED:",
+        "REMOTE TRACK:",
         event.track.kind
       );
 
@@ -2517,10 +2724,11 @@ async function receiveOffer(m){
         audio.controls=
           false;
 
-        /*
-          音声を見えない状態で
-          再生する。
-        */
+        audio.preload=
+          "auto";
+
+        audio.volume=
+          1;
 
         audio.style.display=
           "none";
@@ -2532,36 +2740,25 @@ async function receiveOffer(m){
       }
 
 
-      /*
-        古いストリームを
-        長時間保持しない。
-      */
+      const stream=
+        event.streams &&
+        event.streams[0]
+          ? event.streams[0]
+          : new MediaStream([
+              event.track
+            ]);
+
 
       audio.srcObject=
-        event.streams[0];
+        stream;
 
 
       /*
-        対応ブラウザでは
-        受信側の再生待ち時間を
-        可能な範囲で最小化。
+        ここが今回の重要部分。
+
+        WebRTC受信側の再生遅延を
+        可能な限り小さくする。
       */
-
-      try{
-
-        if(
-          "playoutDelayHint"
-          in viewerPeer
-        ){
-
-          viewerPeer
-            .playoutDelayHint=
-            0;
-
-        }
-
-      }catch(e){}
-
 
       try{
 
@@ -2602,6 +2799,21 @@ async function receiveOffer(m){
       }catch(e){}
 
 
+      try{
+
+        if(
+          "playoutDelayHint"
+          in audio
+        ){
+
+          audio.playoutDelayHint=
+            0;
+
+        }
+
+      }catch(e){}
+
+
       setAudioStatus(
         "🟢 音声を受信しています",
         "ok"
@@ -2635,65 +2847,61 @@ async function receiveOffer(m){
 
 
     /*
-      受信側もOpus優先。
+      受信側のOpus優先。
     */
 
     try{
 
-      const transceivers=
-        viewerPeer
-          .getTransceivers();
-
-
-      transceivers.forEach(
-        transceiver=>{
-
-          if(
-            transceiver.receiver &&
-            transceiver.receiver.track &&
-            transceiver.receiver.track.kind===
+      const codecs=
+        RTCRtpReceiver
+          .getCapabilities(
             "audio"
-          ){
-
-            const codecs=
-              RTCRtpReceiver
-                .getCapabilities(
-                  "audio"
-                )
-                .codecs;
+          )
+          .codecs;
 
 
-            const opus=
-              codecs.filter(
-                codec=>
-                  codec.mimeType
-                    .toLowerCase()
-                    ===
-                  "audio/opus"
-              );
+      const opus=
+        codecs.filter(
+          codec=>
+            codec.mimeType &&
+            codec.mimeType
+              .toLowerCase()
+              ===
+            "audio/opus"
+        );
 
 
-            if(opus.length){
+      if(opus.length){
 
-              transceiver
-                .setCodecPreferences(
-                  opus
-                );
+        viewerPeer
+          .getTransceivers()
+          .forEach(
+            transceiver=>{
+
+              if(
+                transceiver.receiver &&
+                transceiver.receiver.track &&
+                transceiver.receiver.track.kind===
+                "audio"
+              ){
+
+                try{
+
+                  transceiver
+                    .setCodecPreferences(
+                      opus
+                    );
+
+                }catch(e){}
+
+              }
 
             }
+          );
 
-          }
+      }
 
-        }
-      );
-
-    }catch(e){
-
-      console.log(
-        "Codec preference unsupported"
-      );
-
-    }
+    }catch(e){}
 
 
     const answer=
@@ -2717,6 +2925,9 @@ async function receiveOffer(m){
       );
 
 
+    await flushViewerIce();
+
+
     send({
 
       type:"answer",
@@ -2725,6 +2936,9 @@ async function receiveOffer(m){
         viewerPeer.localDescription
 
     });
+
+
+    startStatsMonitor();
 
   }catch(error){
 
@@ -2740,6 +2954,43 @@ async function receiveOffer(m){
     );
 
   }
+
+}
+
+
+/* =====================================================
+   VIEWER RECONNECT
+===================================================== */
+
+function reconnectViewer(){
+
+  if(
+    role!=="viewer" ||
+    !currentLive
+  ){
+
+    return;
+
+  }
+
+
+  console.log(
+    "RECONNECT VIEWER"
+  );
+
+
+  closeViewerPeer();
+
+
+  setAudioStatus(
+    "🔄 音声回線を再接続しています...",
+    ""
+  );
+
+
+  send({
+    type:"join-viewer"
+  });
 
 }
 
@@ -2777,6 +3028,12 @@ async function startAudio(){
 
     audio.controls=
       false;
+
+    audio.preload=
+      "auto";
+
+    audio.volume=
+      1;
 
     audio.style.display=
       "none";
@@ -2822,18 +3079,101 @@ async function startAudio(){
 
 
 /* =====================================================
-   CLOSE PEER
+   STATS
+===================================================== */
+
+function startStatsMonitor(){
+
+  clearInterval(
+    statsTimer
+  );
+
+
+  statsTimer=
+    setInterval(
+      async()=>{
+
+        if(
+          !viewerPeer ||
+          viewerPeer.connectionState!==
+          "connected"
+        ){
+
+          return;
+
+        }
+
+
+        try{
+
+          const stats=
+            await viewerPeer
+              .getStats();
+
+
+          stats.forEach(
+            report=>{
+
+              if(
+                report.type===
+                "inbound-rtp" &&
+                report.kind===
+                "audio"
+              ){
+
+                console.log(
+                  "AUDIO STATS",
+                  {
+                    jitter:
+                      report.jitter,
+
+                    packetsLost:
+                      report.packetsLost,
+
+                    packetsReceived:
+                      report.packetsReceived
+                  }
+                );
+
+              }
+
+            }
+          );
+
+        }catch(e){}
+
+      },
+      3000
+    );
+
+}
+
+
+/* =====================================================
+   CLOSE VIEWER PEER
 ===================================================== */
 
 function closeViewerPeer(){
 
+  clearInterval(
+    statsTimer
+  );
+
+
   if(viewerPeer){
 
     try{
+
+      viewerPeer.ontrack=null;
+
+      viewerPeer.onicecandidate=null;
+
       viewerPeer.close();
+
     }catch(e){}
 
   }
+
 
   viewerPeer=null;
 
@@ -2896,6 +3236,8 @@ function stopBroadcast(){
 
 
   viewerPeers.clear();
+
+  pendingIce.clear();
 
 
   role=null;
@@ -3225,7 +3567,13 @@ const server =
             "text/html; charset=utf-8",
 
           "Cache-Control":
-            "no-cache"
+            "no-cache, no-store, must-revalidate",
+
+          "Pragma":
+            "no-cache",
+
+          "Expires":
+            "0"
         }
       );
 
@@ -3245,7 +3593,7 @@ const wss =
   });
 
 
-const clients =
+const clients=
   new Set();
 
 
@@ -3253,9 +3601,13 @@ let broadcaster=null;
 
 let liveMeta=null;
 
-const viewers =
+const viewers=
   new Map();
 
+
+/* =====================================================
+   SEND
+===================================================== */
 
 function wsSend(
   ws,
@@ -3268,9 +3620,13 @@ function wsSend(
     WebSocket.OPEN
   ){
 
-    ws.send(
-      JSON.stringify(data)
-    );
+    try{
+
+      ws.send(
+        JSON.stringify(data)
+      );
+
+    }catch(e){}
 
   }
 
@@ -3513,12 +3869,10 @@ wss.on(
             image:
               typeof m.meta?.image===
               "string"
-
                 ? m.meta.image.slice(
                     0,
                     900000
                   )
-
                 : ""
 
           };
@@ -3747,6 +4101,7 @@ wss.on(
 
                   candidate:
                     m.candidate
+
                 }
               );
 
@@ -3914,7 +4269,9 @@ wss.on(
 function endLive(){
 
   if(!broadcaster){
+
     return;
+
   }
 
 
@@ -3963,7 +4320,7 @@ server.listen(
   PORT,
   HOST,
   ()=>{
-    
+
     console.log(
       "================================"
     );
@@ -3973,11 +4330,11 @@ server.listen(
     );
 
     console.log(
-      " LOW LATENCY AUDIO"
+      " LOW LATENCY AUDIO V2"
     );
 
     console.log(
-      "PORT:",
+      " PORT:",
       PORT
     );
 

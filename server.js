@@ -1,13 +1,19 @@
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 10000;
 const HOST = "0.0.0.0";
 
-/* =========================================================
-   VoiceボタLive
-   Moonlight Design + Low Latency WebRTC
-========================================================= */
+const IMAGE_FILE = path.join(
+  __dirname,
+  "voicebotalive_bg.png"
+);
+
+/* =====================================================
+   HTML
+===================================================== */
 
 const HTML = `
 <!DOCTYPE html>
@@ -18,10 +24,10 @@ const HTML = `
 
 <meta
   name="viewport"
-  content="width=device-width,initial-scale=1.0,user-scalable=no"
+  content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover"
 >
 
-<meta name="theme-color" content="#050711">
+<meta name="theme-color" content="#05030c">
 
 <title>VoiceボタLive</title>
 
@@ -64,362 +70,350 @@ button{
   width:100%;
   max-width:480px;
   min-height:100vh;
+  min-height:100dvh;
   margin:auto;
+
   position:relative;
   overflow:hidden;
 
   background:
     radial-gradient(
-      circle at 80% 4%,
-      rgba(68,95,255,.22),
-      transparent 28%
+      circle at 80% 5%,
+      rgba(100,125,255,.18),
+      transparent 30%
     ),
     radial-gradient(
-      circle at 10% 70%,
-      rgba(155,48,255,.12),
-      transparent 30%
+      circle at 15% 60%,
+      rgba(160,55,255,.13),
+      transparent 35%
     ),
     linear-gradient(
       180deg,
-      #050711 0%,
-      #080615 48%,
-      #020308 100%
+      #05030c 0%,
+      #080512 45%,
+      #020207 100%
     );
 }
 
-/* =========================================================
+/* =====================================================
+   BACKGROUND IMAGE
+===================================================== */
+
+.app::before{
+  content:"";
+  position:fixed;
+  inset:0;
+
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(2,2,10,.60),
+      rgba(2,2,8,.82)
+    ),
+    url("/voicebotalive_bg.png");
+
+  background-size:cover;
+  background-position:center top;
+
+  opacity:.20;
+
+  pointer-events:none;
+  z-index:0;
+}
+
+.app > *{
+  position:relative;
+  z-index:1;
+}
+
+/* =====================================================
    HEADER
-========================================================= */
+===================================================== */
 
 .header{
   height:62px;
-
-  padding:0 16px;
+  padding:
+    0 16px
+    env(safe-area-inset-right)
+    0 env(safe-area-inset-left);
 
   display:flex;
   align-items:center;
   justify-content:space-between;
 
-  position:sticky;
-  top:0;
-
-  z-index:50;
+  border-bottom:
+    1px solid rgba(255,255,255,.10);
 
   background:
-    rgba(4,5,12,.88);
+    rgba(3,3,10,.82);
 
-  backdrop-filter:
-    blur(18px);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
 
-  border-bottom:
-    1px solid rgba(150,170,255,.12);
+  position:sticky;
+  top:0;
+  z-index:50;
 }
 
 .logo{
-  font-size:20px;
-  font-weight:900;
-  letter-spacing:-.5px;
-
+  font-size:21px;
+  font-weight:950;
+  letter-spacing:-.8px;
   text-shadow:
-    0 0 18px rgba(120,130,255,.45);
+    0 0 18px rgba(140,100,255,.45);
 }
 
-.logoVoice{
+.logo .voice{
   color:#fff;
 }
 
-.logoBota{
-  color:#c977ff;
+.logo .bota{
+  color:#df83ff;
 }
 
-.logoLive{
-  color:#75cfff;
+.logo .live{
+  color:#8ebfff;
 }
 
 .status{
   font-size:10px;
-  color:#75e5a9;
+  color:#a7a1b1;
 }
 
-/* =========================================================
-   SCREENS
-========================================================= */
+/* =====================================================
+   SCREEN
+===================================================== */
 
 .screen{
   display:none;
-  min-height:
-    calc(100vh - 62px);
-
-  padding-bottom:88px;
+  min-height:calc(100vh - 62px);
+  min-height:calc(100dvh - 62px);
+  padding-bottom:90px;
 }
 
 .screen.active{
   display:block;
 }
 
-/* =========================================================
-   COMMON
-========================================================= */
+/* =====================================================
+   CARD
+===================================================== */
 
 .card{
   margin:14px;
-
   padding:16px;
 
-  border-radius:22px;
+  border-radius:21px;
 
   background:
     linear-gradient(
       145deg,
-      rgba(19,20,40,.94),
-      rgba(9,8,19,.94)
+      rgba(20,15,34,.90),
+      rgba(8,7,17,.91)
     );
 
   border:
-    1px solid rgba(155,135,255,.14);
+    1px solid rgba(176,123,255,.18);
 
   box-shadow:
-    0 12px 40px rgba(0,0,0,.28);
+    0 12px 40px rgba(0,0,0,.35);
 }
 
 .cardTitle{
   font-size:17px;
-  font-weight:900;
+  font-weight:950;
   margin-bottom:14px;
 }
 
-.small{
-  font-size:11px;
-  color:#888ba1;
-}
-
-.empty{
-  padding:25px 10px;
-  text-align:center;
-  color:#707387;
-  font-size:12px;
-}
-
-/* =========================================================
+/* =====================================================
    HOME HERO
-========================================================= */
+===================================================== */
 
 .homeHero{
-  margin:14px;
+  margin:12px;
 
+  border-radius:27px;
   overflow:hidden;
 
-  border-radius:26px;
-
-  position:relative;
-
   border:
-    1px solid rgba(116,150,255,.25);
+    1px solid rgba(151,123,255,.32);
 
-  background:#050713;
+  background:
+    rgba(5,4,14,.82);
 
   box-shadow:
-    0 15px 60px rgba(0,0,0,.45);
+    0 20px 55px rgba(0,0,0,.45),
+    0 0 40px rgba(74,80,255,.10);
 }
 
 .moonScene{
-  height:285px;
+  height:340px;
 
   position:relative;
   overflow:hidden;
 
   background:
-    radial-gradient(
-      circle at 78% 25%,
-      rgba(255,255,255,.9) 0 5%,
-      rgba(132,167,255,.42) 6%,
-      transparent 20%
-    ),
-    radial-gradient(
-      circle at 20% 75%,
-      rgba(70,100,255,.25),
-      transparent 30%
-    ),
     linear-gradient(
       180deg,
-      #050919,
-      #0b0920 50%,
-      #020308
-    );
+      rgba(4,8,26,.10),
+      rgba(3,2,13,.88)
+    ),
+    url("/voicebotalive_bg.png");
+
+  background-size:cover;
+  background-position:
+    center top;
+
+  isolation:isolate;
 }
 
-.moon{
+.moonScene::after{
+  content:"";
+  position:absolute;
+  inset:0;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.10),
+      transparent 35%,
+      rgba(1,1,8,.90) 100%
+    );
+
+  z-index:1;
+}
+
+.moonGlow{
   position:absolute;
 
-  width:112px;
-  height:112px;
+  width:110px;
+  height:110px;
 
-  right:45px;
-  top:35px;
+  right:35px;
+  top:34px;
 
   border-radius:50%;
 
   background:
     radial-gradient(
-      circle at 35% 30%,
-      #fff,
-      #e7edff 43%,
-      #aabfff 70%,
-      #7489db
+      circle,
+      rgba(235,242,255,.95),
+      rgba(166,196,255,.75) 35%,
+      rgba(105,130,255,.25) 65%,
+      transparent 72%
     );
 
-  box-shadow:
-    0 0 20px rgba(200,215,255,.8),
-    0 0 70px rgba(107,135,255,.55);
+  filter:blur(1px);
+
+  opacity:.8;
+
+  z-index:0;
 }
 
-.moon:after{
-  content:"";
-
+.flowerGlow{
   position:absolute;
 
-  width:18px;
-  height:18px;
+  left:-25px;
+  bottom:-35px;
 
-  left:25px;
-  top:27px;
+  width:190px;
+  height:130px;
 
   border-radius:50%;
 
   background:
-    rgba(150,165,205,.25);
-
-  box-shadow:
-    30px 20px 0 rgba(150,165,205,.15),
-    20px 50px 0 rgba(150,165,205,.13);
-}
-
-.star{
-  position:absolute;
-  width:3px;
-  height:3px;
-  border-radius:50%;
-  background:#fff;
-  box-shadow:0 0 8px #b9d5ff;
-}
-
-.s1{left:13%;top:18%}
-.s2{left:35%;top:12%}
-.s3{left:58%;top:31%}
-.s4{left:87%;top:46%}
-.s5{left:25%;top:45%}
-.s6{left:70%;top:14%}
-.s7{left:47%;top:65%}
-.s8{left:9%;top:58%}
-
-.flower{
-  position:absolute;
-
-  bottom:-12px;
-
-  font-size:92px;
-
-  filter:
-    drop-shadow(
-      0 0 12px
-      rgba(120,130,255,.6)
+    radial-gradient(
+      ellipse,
+      rgba(90,110,255,.40),
+      transparent 68%
     );
+
+  filter:blur(15px);
+
+  z-index:1;
 }
 
-.flower.left{
-  left:-12px;
-}
-
-.flower.right{
-  right:-12px;
-  transform:scale(.75);
-}
-
-.heroGlow{
+.heroBadge{
   position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
 
-  height:110px;
+  top:16px;
+  left:16px;
+
+  z-index:5;
+
+  padding:7px 11px;
+
+  border-radius:99px;
 
   background:
-    linear-gradient(
-      transparent,
-      rgba(0,0,0,.95)
-    );
-}
+    rgba(5,3,16,.62);
 
-.heroLogo{
-  position:absolute;
+  border:
+    1px solid rgba(183,151,255,.38);
 
-  left:20px;
-  top:35px;
+  backdrop-filter:blur(10px);
 
-  z-index:3;
-
-  font-size:30px;
+  font-size:10px;
   font-weight:900;
 
-  text-shadow:
-    0 0 20px rgba(130,160,255,.75);
+  color:#dca7ff;
 }
 
-.heroLogo small{
-  display:block;
+.heroCopy{
+  position:absolute;
 
-  margin-top:5px;
+  left:18px;
+  right:18px;
+  bottom:17px;
 
-  font-size:11px;
-
-  font-weight:500;
-
-  color:#d8d8e8;
-}
-
-.heroText{
-  padding:18px;
+  z-index:5;
 }
 
 .heroTitle{
-  font-size:20px;
-  font-weight:900;
-  line-height:1.45;
+  font-size:25px;
+  line-height:1.2;
+  font-weight:950;
+
+  text-shadow:
+    0 3px 18px #000;
 }
 
 .heroSub{
-  margin-top:5px;
-  margin-bottom:16px;
-
-  color:#9699ad;
+  color:#d0c9dc;
   font-size:12px;
+  margin-top:7px;
+
+  text-shadow:
+    0 2px 10px #000;
 }
 
-/* =========================================================
+.heroText{
+  padding:16px;
+}
+
+/* =====================================================
    BUTTON
-========================================================= */
+===================================================== */
 
 .btn{
   border:0;
+  border-radius:15px;
 
-  border-radius:14px;
-
-  padding:12px 18px;
+  padding:12px 17px;
 
   color:#fff;
-
   font-weight:900;
 
   background:
     linear-gradient(
-      90deg,
-      #4d9cff,
-      #815cff,
-      #d858e8
+      100deg,
+      #42bfff,
+      #765eff,
+      #df54ca
     );
 
   box-shadow:
-    0 7px 22px rgba(104,81,255,.28);
+    0 8px 22px rgba(106,80,255,.24);
 }
 
 .btn:active{
@@ -431,7 +425,7 @@ button{
     rgba(255,255,255,.055);
 
   border:
-    1px solid rgba(180,170,255,.16);
+    1px solid rgba(255,255,255,.13);
 
   box-shadow:none;
 }
@@ -439,139 +433,15 @@ button{
 .btn.red{
   background:
     linear-gradient(
-      90deg,
-      #b5295a,
-      #ef4b79
+      100deg,
+      #a72958,
+      #ef4f78
     );
 }
 
-/* =========================================================
-   LIVE LIST
-========================================================= */
-
-.liveCard{
-  display:flex;
-  gap:11px;
-  align-items:center;
-
-  padding:10px;
-
-  margin-bottom:9px;
-
-  border-radius:16px;
-
-  background:
-    rgba(255,255,255,.035);
-
-  border:
-    1px solid rgba(255,255,255,.05);
-}
-
-.liveThumb{
-  width:84px;
-  height:66px;
-
-  flex-shrink:0;
-
-  overflow:hidden;
-
-  border-radius:13px;
-
-  display:grid;
-  place-items:center;
-
-  background:
-    linear-gradient(
-      135deg,
-      #11142d,
-      #382057
-    );
-}
-
-.liveThumb img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
-
-.liveName{
-  font-size:14px;
-  font-weight:900;
-}
-
-.liveTitle{
-  margin-top:4px;
-  color:#9295a8;
-  font-size:11px;
-}
-
-/* =========================================================
-   SEARCH
-========================================================= */
-
-.searchBox{
-  margin:14px;
-}
-
-.searchInput{
-  width:100%;
-
-  padding:14px 16px;
-
-  border-radius:16px;
-
-  border:
-    1px solid rgba(150,140,255,.18);
-
-  outline:none;
-
-  color:#fff;
-
-  background:
-    rgba(10,9,19,.9);
-}
-
-.searchInput::placeholder{
-  color:#676a7d;
-}
-
-.categoryRow{
-  display:flex;
-  gap:8px;
-
-  overflow-x:auto;
-
-  padding:
-    0 14px 8px;
-
-  scrollbar-width:none;
-}
-
-.categoryRow::-webkit-scrollbar{
-  display:none;
-}
-
-.category{
-  flex-shrink:0;
-
-  padding:9px 14px;
-
-  border-radius:99px;
-
-  border:
-    1px solid rgba(150,140,255,.16);
-
-  background:
-    rgba(255,255,255,.045);
-
-  color:#a6a8ba;
-
-  font-size:11px;
-}
-
-/* =========================================================
-   SETUP
-========================================================= */
+/* =====================================================
+   INPUT
+===================================================== */
 
 .input{
   width:100%;
@@ -582,35 +452,43 @@ button{
 
   color:#fff;
 
-  background:#07070e;
+  background:
+    rgba(2,2,9,.72);
 
   border:
-    1px solid #342b49;
+    1px solid #403254;
 
-  border-radius:13px;
+  border-radius:14px;
 
   outline:none;
 }
 
 .input:focus{
-  border-color:#8764ff;
+  border-color:#9b70ff;
+
+  box-shadow:
+    0 0 0 3px rgba(145,93,255,.12);
 }
 
 .label{
   display:block;
 
-  color:#9295a8;
+  color:#aaa1b3;
 
-  font-size:11px;
+  font-size:12px;
 
-  margin-top:11px;
+  margin-top:10px;
 }
+
+/* =====================================================
+   PREVIEW
+===================================================== */
 
 .preview{
   width:100%;
   height:190px;
 
-  margin-top:9px;
+  margin-top:8px;
 
   border-radius:17px;
 
@@ -620,16 +498,12 @@ button{
   place-items:center;
 
   border:
-    1px dashed #453b5d;
+    1px dashed #59426e;
 
   background:
-    radial-gradient(
-      circle at 70% 30%,
-      #252550,
-      #080810
-    );
+    rgba(5,3,12,.7);
 
-  color:#6e7084;
+  color:#82768f;
 }
 
 .preview img{
@@ -638,32 +512,105 @@ button{
   object-fit:cover;
 }
 
-/* =========================================================
+/* =====================================================
+   LIVE LIST
+===================================================== */
+
+.liveCard{
+  display:flex;
+  gap:12px;
+  align-items:center;
+
+  padding:10px;
+
+  border-radius:17px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,.055),
+      rgba(100,70,160,.05)
+    );
+
+  border:
+    1px solid rgba(255,255,255,.055);
+
+  margin-bottom:9px;
+}
+
+.liveThumb{
+  width:88px;
+  height:68px;
+
+  flex-shrink:0;
+
+  border-radius:13px;
+
+  overflow:hidden;
+
+  display:grid;
+  place-items:center;
+
+  background:
+    linear-gradient(
+      135deg,
+      #16132e,
+      #482260
+    );
+}
+
+.liveThumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.liveName{
+  font-weight:900;
+  font-size:14px;
+}
+
+.liveTitle{
+  color:#aaa0b0;
+  font-size:12px;
+  margin-top:4px;
+}
+
+.empty{
+  padding:22px;
+
+  text-align:center;
+
+  color:#777080;
+
+  font-size:12px;
+}
+
+/* =====================================================
    LIVE SCREEN
-========================================================= */
+===================================================== */
 
 .liveScreen{
-  min-height:
-    calc(100vh - 62px);
+  min-height:calc(100vh - 62px);
+  min-height:calc(100dvh - 62px);
 
   display:flex;
   flex-direction:column;
 
-  padding-bottom:80px;
+  padding-bottom:82px;
 }
 
 .liveCover{
-  height:310px;
+  height:330px;
 
   position:relative;
   overflow:hidden;
 
   background:
-    radial-gradient(
-      circle at 75% 22%,
-      #4c427c,
-      #090914 45%,
-      #020207
+    linear-gradient(
+      180deg,
+      #070616,
+      #10091c
     );
 }
 
@@ -673,10 +620,10 @@ button{
 
   object-fit:cover;
 
-  opacity:.78;
+  opacity:.82;
 }
 
-.liveCover:after{
+.liveCover::after{
   content:"";
 
   position:absolute;
@@ -685,10 +632,12 @@ button{
   background:
     linear-gradient(
       180deg,
-      rgba(0,0,0,.48),
-      transparent 42%,
-      rgba(0,0,0,.9)
+      rgba(0,0,0,.40),
+      transparent 35%,
+      rgba(0,0,0,.94)
     );
+
+  pointer-events:none;
 }
 
 .liveTop{
@@ -701,8 +650,9 @@ button{
   z-index:5;
 
   display:flex;
-  align-items:center;
+
   justify-content:space-between;
+  align-items:center;
 }
 
 .hostInfo{
@@ -723,20 +673,20 @@ button{
   background:
     linear-gradient(
       135deg,
-      #4bcfff,
-      #a34dff
+      #4fc9ff,
+      #b84dff
     );
 
   border:
-    2px solid rgba(255,255,255,.45);
+    2px solid rgba(255,255,255,.48);
 
   box-shadow:
-    0 0 18px rgba(120,100,255,.4);
+    0 0 18px rgba(137,82,255,.35);
 }
 
 .hostName{
   font-size:14px;
-  font-weight:900;
+  font-weight:950;
 }
 
 .liveBadge{
@@ -744,14 +694,15 @@ button{
 
   padding:4px 7px;
 
-  margin-top:3px;
-
   border-radius:7px;
 
-  background:#eb3970;
+  background:#e93671;
 
   font-size:9px;
-  font-weight:900;
+
+  font-weight:950;
+
+  margin-top:3px;
 }
 
 .viewerBadge{
@@ -760,40 +711,75 @@ button{
   border-radius:99px;
 
   background:
-    rgba(0,0,0,.45);
+    rgba(0,0,0,.50);
 
   border:
-    1px solid rgba(255,255,255,.13);
+    1px solid rgba(255,255,255,.16);
+
+  backdrop-filter:blur(8px);
 
   font-size:11px;
 }
+
+/* =====================================================
+   LIVE TITLE
+===================================================== */
+
+.liveTitleOverlay{
+  position:absolute;
+
+  left:15px;
+  right:15px;
+  bottom:15px;
+
+  z-index:5;
+}
+
+.liveTitleMain{
+  font-size:20px;
+  font-weight:950;
+
+  text-shadow:
+    0 2px 12px #000;
+}
+
+.liveTitleSub{
+  color:#c7bed0;
+  font-size:11px;
+  margin-top:5px;
+}
+
+/* =====================================================
+   AUDIO
+===================================================== */
 
 .audioBox{
   margin:10px 14px 0;
 
-  padding:12px;
+  padding:13px;
 
-  border-radius:16px;
+  border-radius:17px;
 
   background:
-    rgba(17,12,27,.95);
+    rgba(16,11,24,.91);
 
   border:
-    1px solid #35294b;
+    1px solid #35243f;
 }
 
 .audioStatus{
-  font-size:11px;
-  color:#9295a8;
-  margin-bottom:8px;
+  font-size:12px;
+  color:#aaa;
+
+  margin-bottom:9px;
 }
 
 .audioStatus.ok{
-  color:#70e7a2;
+  color:#72e3a4;
 }
 
 .audioStatus.error{
-  color:#ff718e;
+  color:#ff7695;
 }
 
 .audioButton{
@@ -803,28 +789,28 @@ button{
 
   border:0;
 
-  border-radius:13px;
+  border-radius:14px;
 
   color:#fff;
 
-  font-weight:900;
+  font-weight:950;
 
   background:
     linear-gradient(
       90deg,
-      #5078ff,
-      #ae58f4
+      #5d7cff,
+      #b45cff
     );
 }
 
-/* =========================================================
+/* =====================================================
    COMMENTS
-========================================================= */
+===================================================== */
 
 .comments{
   flex:1;
 
-  min-height:180px;
+  min-height:150px;
   max-height:280px;
 
   overflow-y:auto;
@@ -834,39 +820,33 @@ button{
 
 .comment{
   font-size:13px;
+
   margin:8px 0;
 
-  animation:
-    commentIn .2s ease;
-}
+  padding:7px 10px;
 
-@keyframes commentIn{
-  from{
-    opacity:0;
-    transform:translateY(5px);
-  }
+  border-radius:12px;
 
-  to{
-    opacity:1;
-    transform:translateY(0);
-  }
+  background:
+    rgba(255,255,255,.035);
 }
 
 .commentName{
-  color:#d58cff;
+  color:#d28cff;
+
   font-weight:900;
+
   margin-right:5px;
 }
 
-/* =========================================================
+/* =====================================================
    CHAT
-========================================================= */
+===================================================== */
 
 .chatBar{
   position:fixed;
 
-  bottom:68px;
-
+  bottom:0;
   left:50%;
 
   transform:translateX(-50%);
@@ -874,38 +854,41 @@ button{
   width:100%;
   max-width:480px;
 
-  height:64px;
+  min-height:72px;
 
-  padding:9px;
+  padding:
+    9px
+    10px
+    calc(9px + env(safe-area-inset-bottom));
 
   display:flex;
+
   gap:6px;
   align-items:center;
 
   background:
-    rgba(6,6,13,.96);
+    rgba(7,5,12,.96);
 
-  backdrop-filter:
-    blur(16px);
+  backdrop-filter:blur(18px);
 
   border-top:
-    1px solid rgba(120,110,170,.13);
+    1px solid #281c34;
 
-  z-index:40;
+  z-index:70;
 }
 
 .chatInput{
   flex:1;
   min-width:0;
 
-  padding:11px 13px;
+  padding:12px;
 
   border-radius:14px;
 
   border:
-    1px solid #352b47;
+    1px solid #3b2b49;
 
-  background:#0a0911;
+  background:#0c0910;
 
   color:#fff;
 
@@ -913,26 +896,26 @@ button{
 }
 
 .iconBtn{
-  width:42px;
-  height:42px;
+  width:43px;
+  height:43px;
 
   flex-shrink:0;
 
   border-radius:13px;
 
   border:
-    1px solid #3a2e4d;
+    1px solid #392a49;
 
-  background:#15111e;
+  background:#15101c;
 
   color:#fff;
 
-  font-size:17px;
+  font-size:18px;
 }
 
-/* =========================================================
+/* =====================================================
    NAV
-========================================================= */
+===================================================== */
 
 .nav{
   position:fixed;
@@ -947,151 +930,47 @@ button{
 
   height:68px;
 
+  background:
+    rgba(8,6,12,.97);
+
+  border-top:
+    1px solid #281c35;
+
   display:flex;
 
   align-items:center;
   justify-content:space-around;
 
-  background:
-    rgba(5,5,11,.97);
-
-  backdrop-filter:
-    blur(18px);
-
-  border-top:
-    1px solid rgba(130,120,180,.15);
-
   z-index:30;
 }
 
 .nav button{
-  width:20%;
-
   border:0;
 
   background:transparent;
 
-  color:#77798c;
+  color:#817689;
 
-  font-size:9px;
+  font-size:10px;
+
+  min-width:70px;
 }
 
 .nav button.active{
-  color:#b76aff;
+  color:#d78aff;
 }
 
 .nav button span{
   display:block;
 
-  font-size:20px;
+  font-size:21px;
 
   margin-bottom:3px;
 }
 
-.navCenter{
-  position:relative;
-  top:-15px;
-
-  width:55px !important;
-  height:55px;
-
-  border-radius:50% !important;
-
-  background:
-    linear-gradient(
-      135deg,
-      #55cfff,
-      #9e50ff
-    ) !important;
-
-  color:#fff !important;
-
-  border:
-    4px solid #07070d !important;
-
-  box-shadow:
-    0 0 25px rgba(126,83,255,.6);
-}
-
-.navCenter span{
-  font-size:25px !important;
-}
-
-/* =========================================================
-   PROFILE
-========================================================= */
-
-.profileHero{
-  margin:14px;
-
-  padding:25px 18px;
-
-  border-radius:24px;
-
-  text-align:center;
-
-  background:
-    radial-gradient(
-      circle at 50% 0%,
-      rgba(113,85,255,.3),
-      transparent 50%
-    ),
-    #0c0b16;
-
-  border:
-    1px solid rgba(150,130,255,.14);
-}
-
-.profileAvatar{
-  width:82px;
-  height:82px;
-
-  margin:0 auto 10px;
-
-  border-radius:50%;
-
-  display:grid;
-  place-items:center;
-
-  font-size:36px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #54cfff,
-      #9b50ff
-    );
-
-  border:
-    3px solid rgba(255,255,255,.35);
-}
-
-.profileName{
-  font-size:19px;
-  font-weight:900;
-}
-
-.profileStats{
-  display:flex;
-  justify-content:center;
-  gap:35px;
-
-  margin-top:18px;
-}
-
-.stat strong{
-  display:block;
-  font-size:17px;
-}
-
-.stat span{
-  font-size:10px;
-  color:#7f8295;
-}
-
-/* =========================================================
+/* =====================================================
    MODAL
-========================================================= */
+===================================================== */
 
 .modal{
   position:fixed;
@@ -1117,7 +996,10 @@ button{
   width:100%;
   max-width:480px;
 
-  padding:20px;
+  padding:
+    20px
+    20px
+    calc(20px + env(safe-area-inset-bottom));
 
   border-radius:
     25px 25px 0 0;
@@ -1125,12 +1007,12 @@ button{
   background:
     linear-gradient(
       180deg,
-      #171020,
-      #0b0910
+      #181021,
+      #0d0913
     );
 
   border:
-    1px solid #443253;
+    1px solid #443151;
 }
 
 .gifts{
@@ -1139,20 +1021,20 @@ button{
   grid-template-columns:
     repeat(3,1fr);
 
-  gap:9px;
+  gap:8px;
 
   margin-top:15px;
 }
 
 .gift{
-  padding:13px 8px;
+  padding:13px;
 
-  border-radius:16px;
+  border-radius:15px;
 
   border:
-    1px solid #392b4c;
+    1px solid #39294a;
 
-  background:#17121f;
+  background:#191221;
 
   color:#fff;
 }
@@ -1162,35 +1044,39 @@ button{
 }
 
 .giftIcon{
-  display:block;
+  font-size:27px;
 
-  font-size:28px;
+  display:block;
 
   margin-bottom:5px;
 }
 
-/* =========================================================
+.small{
+  color:#9990a0;
+
+  font-size:11px;
+}
+
+/* =====================================================
    TOAST
-========================================================= */
+===================================================== */
 
 .toast{
   position:fixed;
 
   left:50%;
-
-  bottom:88px;
+  bottom:90px;
 
   transform:translateX(-50%);
 
-  padding:10px 16px;
+  padding:10px 15px;
 
   border-radius:99px;
 
-  background:
-    #20162b;
+  background:#21172c;
 
   border:
-    1px solid #65447d;
+    1px solid #604478;
 
   font-size:12px;
 
@@ -1203,61 +1089,137 @@ button{
   display:block;
 }
 
-/* =========================================================
-   LIVE HEART
-========================================================= */
+/* =====================================================
+   PROFILE
+===================================================== */
 
-.heartFloat{
-  position:fixed;
+.profileHero{
+  padding:25px 10px;
 
-  right:18px;
-  bottom:145px;
-
-  font-size:28px;
-
-  pointer-events:none;
-
-  animation:
-    heartUp 1.2s ease forwards;
-
-  z-index:150;
+  text-align:center;
 }
 
-@keyframes heartUp{
+.profileAvatar{
+  width:86px;
+  height:86px;
 
-  0%{
-    opacity:1;
-    transform:
-      translateY(0)
-      scale(.7);
+  margin:0 auto 12px;
+
+  border-radius:50%;
+
+  display:grid;
+  place-items:center;
+
+  font-size:38px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #5ccfff,
+      #bd55ff
+    );
+
+  border:
+    3px solid rgba(255,255,255,.25);
+
+  box-shadow:
+    0 0 30px rgba(131,79,255,.35);
+}
+
+.profileName{
+  font-size:21px;
+  font-weight:950;
+}
+
+.profileSub{
+  color:#958c9d;
+  font-size:12px;
+  margin-top:5px;
+}
+
+/* =====================================================
+   HOME FEATURE
+===================================================== */
+
+.features{
+  display:grid;
+
+  grid-template-columns:
+    repeat(2,1fr);
+
+  gap:9px;
+
+  margin-top:14px;
+}
+
+.feature{
+  padding:14px;
+
+  border-radius:16px;
+
+  background:
+    rgba(255,255,255,.035);
+
+  border:
+    1px solid rgba(255,255,255,.055);
+}
+
+.featureIcon{
+  font-size:22px;
+  margin-bottom:7px;
+}
+
+.featureTitle{
+  font-size:12px;
+  font-weight:900;
+}
+
+.featureText{
+  margin-top:4px;
+
+  font-size:10px;
+
+  color:#918899;
+
+  line-height:1.5;
+}
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media(max-width:380px){
+
+  .heroTitle{
+    font-size:21px;
   }
 
-  100%{
-    opacity:0;
-    transform:
-      translateY(-130px)
-      translateX(-30px)
-      scale(1.25);
+  .moonScene{
+    height:300px;
+  }
+
+  .liveCover{
+    height:300px;
+  }
+
+  .iconBtn{
+    width:40px;
+    height:40px;
   }
 
 }
 
 </style>
-
 </head>
 
 <body>
 
 <div class="app">
 
-<!-- =====================================================
-     HEADER
-===================================================== -->
-
 <header class="header">
 
   <div class="logo">
-    <span class="logoVoice">Voice</span><span class="logoBota">ボタ</span><span class="logoLive">Live</span>
+    <span class="voice">Voice</span><span class="bota">ボタ</span><span class="live">Live</span>
   </div>
 
   <div id="status" class="status">
@@ -1267,9 +1229,9 @@ button{
 </header>
 
 
-<!-- =====================================================
+<!-- ===================================================
      HOME
-===================================================== -->
+=================================================== -->
 
 <section id="home" class="screen active">
 
@@ -1277,47 +1239,36 @@ button{
 
     <div class="moonScene">
 
-      <div class="star s1"></div>
-      <div class="star s2"></div>
-      <div class="star s3"></div>
-      <div class="star s4"></div>
-      <div class="star s5"></div>
-      <div class="star s6"></div>
-      <div class="star s7"></div>
-      <div class="star s8"></div>
-
-      <div class="moon"></div>
-
-      <div class="heroLogo">
-        🎙️ VoiceボタLive
-        <small>
-          声でつながる、みんなの居場所。
-        </small>
+      <div class="heroBadge">
+        🌙 月光花 × Voice
       </div>
 
-      <div class="flower left">🪻</div>
-      <div class="flower right">🪻</div>
+      <div class="moonGlow"></div>
 
-      <div class="heroGlow"></div>
+      <div class="flowerGlow"></div>
+
+      <div class="heroCopy">
+
+        <div class="heroTitle">
+          声でつながる、<br>
+          みんなの居場所。
+        </div>
+
+        <div class="heroSub">
+          月光の夜に、あなたの声が誰かの光になる。
+        </div>
+
+      </div>
 
     </div>
 
     <div class="heroText">
 
-      <div class="heroTitle">
-        夜に咲く、<br>
-        君の声が、誰かの光になる。
-      </div>
-
-      <div class="heroSub">
-        月光花の夜に、声でつながろう。
-      </div>
-
       <button
         class="btn"
         onclick="openHost()"
       >
-        🎙️ 配信をはじめる
+        🎙️ 配信する
       </button>
 
     </div>
@@ -1341,66 +1292,92 @@ button{
 
   </div>
 
-</section>
-
-
-<!-- =====================================================
-     SEARCH
-===================================================== -->
-
-<section id="search" class="screen">
-
-  <div class="searchBox">
-
-    <input
-      class="searchInput"
-      placeholder="🔎 配信者やタイトルを検索"
-      id="searchInput"
-      oninput="filterLives()"
-    >
-
-  </div>
-
-  <div class="categoryRow">
-
-    <button class="category">
-      🌙 雑談
-    </button>
-
-    <button class="category">
-      🎵 音楽
-    </button>
-
-    <button class="category">
-      🎮 ゲーム
-    </button>
-
-    <button class="category">
-      💬 おしゃべり
-    </button>
-
-    <button class="category">
-      🌸 癒し
-    </button>
-
-  </div>
 
   <div class="card">
 
     <div class="cardTitle">
-      ✨ おすすめライブ
+      ✨ VoiceボタLive
     </div>
 
-    <div id="searchLiveList"></div>
+    <div class="features">
+
+      <div class="feature">
+
+        <div class="featureIcon">
+          🎙️
+        </div>
+
+        <div class="featureTitle">
+          声でつながる
+        </div>
+
+        <div class="featureText">
+          声を中心にしたリアルタイムライブ。
+        </div>
+
+      </div>
+
+
+      <div class="feature">
+
+        <div class="featureIcon">
+          ⚡
+        </div>
+
+        <div class="featureTitle">
+          低遅延
+        </div>
+
+        <div class="featureText">
+          WebRTCによるリアルタイム音声。
+        </div>
+
+      </div>
+
+
+      <div class="feature">
+
+        <div class="featureIcon">
+          🎁
+        </div>
+
+        <div class="featureTitle">
+          ギフト
+        </div>
+
+        <div class="featureText">
+          配信者へ気持ちを届けられる。
+        </div>
+
+      </div>
+
+
+      <div class="feature">
+
+        <div class="featureIcon">
+          💬
+        </div>
+
+        <div class="featureTitle">
+          コメント
+        </div>
+
+        <div class="featureText">
+          みんなでライブを楽しめる。
+        </div>
+
+      </div>
+
+    </div>
 
   </div>
 
 </section>
 
 
-<!-- =====================================================
+<!-- ===================================================
      SETUP
-===================================================== -->
+=================================================== -->
 
 <section id="setup" class="screen">
 
@@ -1443,10 +1420,7 @@ button{
       accept="image/*"
     >
 
-    <div
-      id="preview"
-      class="preview"
-    >
+    <div id="preview" class="preview">
       🌙 月光花の画像を設定
     </div>
 
@@ -1472,9 +1446,9 @@ button{
 </section>
 
 
-<!-- =====================================================
+<!-- ===================================================
      LIVE
-===================================================== -->
+=================================================== -->
 
 <section
   id="live"
@@ -1521,6 +1495,21 @@ button{
           👥
           <span id="viewerCount">0</span>
 
+        </div>
+
+      </div>
+
+      <div class="liveTitleOverlay">
+
+        <div
+          id="liveTitleDisplay"
+          class="liveTitleMain"
+        >
+          ライブ配信
+        </div>
+
+        <div class="liveTitleSub">
+          🌙 VoiceボタLive
         </div>
 
       </div>
@@ -1580,13 +1569,6 @@ button{
     </button>
 
     <button
-      class="iconBtn"
-      onclick="sendHeart()"
-    >
-      ❤️
-    </button>
-
-    <button
       id="hostEndButton"
       class="iconBtn"
       onclick="stopBroadcast()"
@@ -1600,106 +1582,62 @@ button{
 </section>
 
 
-<!-- =====================================================
-     NOTIFICATION
-===================================================== -->
+<!-- ===================================================
+     PROFILE
+=================================================== -->
 
-<section id="notice" class="screen">
+<section
+  id="profile"
+  class="screen"
+>
 
   <div class="card">
 
-    <div class="cardTitle">
-      🔔 お知らせ
-    </div>
+    <div class="profileHero">
 
-    <div class="empty">
-      新しいお知らせはありません
+      <div class="profileAvatar">
+        🎙️
+      </div>
+
+      <div
+        id="profileName"
+        class="profileName"
+      >
+        ぼたもち
+      </div>
+
+      <div class="profileSub">
+        VoiceボタLive
+      </div>
+
     </div>
 
   </div>
 
-</section>
 
+  <div class="card">
 
-<!-- =====================================================
-     PROFILE
-===================================================== -->
-
-<section id="profile" class="screen">
-
-  <div class="profileHero">
-
-    <div class="profileAvatar">
-      🎙️
-    </div>
-
-    <div
-      id="profileName"
-      class="profileName"
-    >
-      ぼたもち
+    <div class="cardTitle">
+      🌙 VoiceボタLive
     </div>
 
     <div class="small">
-      VoiceボタLive
+      声でつながる、みんなの居場所。
     </div>
-
-    <div class="profileStats">
-
-      <div class="stat">
-        <strong>0</strong>
-        <span>フォロー</span>
-      </div>
-
-      <div class="stat">
-        <strong>0</strong>
-        <span>フォロワー</span>
-      </div>
-
-      <div class="stat">
-        <strong>0</strong>
-        <span>配信</span>
-      </div>
-
-    </div>
-
-  </div>
-
-
-  <div class="card">
-
-    <div class="cardTitle">
-      ⚙️ 設定
-    </div>
-
-    <button
-      class="btn dark"
-      style="width:100%;margin-bottom:8px"
-    >
-      プロフィール編集
-    </button>
-
-    <button
-      class="btn dark"
-      style="width:100%"
-    >
-      VoiceボタLiveについて
-    </button>
 
   </div>
 
 </section>
 
 
-<!-- =====================================================
+<!-- ===================================================
      NAV
-===================================================== -->
+=================================================== -->
 
 <nav class="nav">
 
   <button
     id="navHome"
-    class="active"
     onclick="showScreen('home')"
   >
     <span>⌂</span>
@@ -1707,27 +1645,11 @@ button{
   </button>
 
   <button
-    id="navSearch"
-    onclick="showScreen('search')"
-  >
-    <span>⌕</span>
-    探す
-  </button>
-
-  <button
-    class="navCenter"
+    id="navLive"
     onclick="openHost()"
   >
     <span>🎙️</span>
     配信
-  </button>
-
-  <button
-    id="navNotice"
-    onclick="showScreen('notice')"
-  >
-    <span>♧</span>
-    お知らせ
   </button>
 
   <button
@@ -1741,9 +1663,9 @@ button{
 </nav>
 
 
-<!-- =====================================================
+<!-- ===================================================
      GIFTS
-===================================================== -->
+=================================================== -->
 
 <div
   id="giftModal"
@@ -1760,9 +1682,7 @@ button{
       "
     >
 
-      <b>
-        🎁 ギフト
-      </b>
+      <b>🎁 ギフト</b>
 
       <button
         class="btn dark"
@@ -1772,7 +1692,6 @@ button{
       </button>
 
     </div>
-
 
     <div class="gifts">
 
@@ -1806,36 +1725,6 @@ button{
         星の雫
       </button>
 
-      <button
-        class="gift"
-        onclick="sendGift('🌸 月夜桜')"
-      >
-        <span class="giftIcon">
-          🌸
-        </span>
-        月夜桜
-      </button>
-
-      <button
-        class="gift"
-        onclick="sendGift('⭐ 流れ星')"
-      >
-        <span class="giftIcon">
-          ⭐
-        </span>
-        流れ星
-      </button>
-
-      <button
-        class="gift"
-        onclick="sendGift('💎 青い宝石')"
-      >
-        <span class="giftIcon">
-          💎
-        </span>
-        青い宝石
-      </button>
-
     </div>
 
   </div>
@@ -1851,9 +1740,9 @@ button{
 
 <script>
 
-/* =========================================================
+/* =====================================================
    GLOBAL
-========================================================= */
+===================================================== */
 
 let socket = null;
 
@@ -1874,9 +1763,9 @@ let currentMeta = null;
 let audioStarted = false;
 
 
-/* =========================================================
+/* =====================================================
    WEBRTC
-========================================================= */
+===================================================== */
 
 const rtcConfig = {
 
@@ -1898,9 +1787,9 @@ const rtcConfig = {
 };
 
 
-/* =========================================================
+/* =====================================================
    BASIC
-========================================================= */
+===================================================== */
 
 function $(id){
   return document.getElementById(id);
@@ -1921,34 +1810,30 @@ function showScreen(id){
     el.classList.add("active");
   }
 
+
   document
     .querySelectorAll(".nav button")
     .forEach(x=>{
       x.classList.remove("active");
     });
 
-  const map={
-    home:"navHome",
-    search:"navSearch",
-    notice:"navNotice",
-    profile:"navProfile"
-  };
 
-  if(map[id]){
-    $(map[id])
-      .classList
-      .add("active");
+  if(id==="home"){
+    $("navHome").classList.add("active");
   }
 
-  window.scrollTo(0,0);
+  if(id==="profile"){
+    $("navProfile").classList.add("active");
+  }
+
+  if(id==="live"){
+    $("navLive").classList.add("active");
+  }
 
 }
 
 
-function setAudioStatus(
-  text,
-  type
-){
+function setAudioStatus(text,type){
 
   const el=$("audioStatus");
 
@@ -1963,44 +1848,43 @@ function setAudioStatus(
 }
 
 
-/* =========================================================
+/* =====================================================
    WEBSOCKET
-========================================================= */
+===================================================== */
 
 function connectSocket(){
 
   if(
     socket &&
     (
-      socket.readyState===
-      WebSocket.OPEN ||
-      socket.readyState===
-      WebSocket.CONNECTING
+      socket.readyState===WebSocket.OPEN ||
+      socket.readyState===WebSocket.CONNECTING
     )
   ){
     return;
   }
 
-  const protocol=
+
+  const protocol =
     location.protocol==="https:"
       ? "wss"
       : "ws";
 
-  socket=
+
+  socket =
     new WebSocket(
-      protocol+
-      "://"+
+      protocol +
+      "://" +
       location.host
     );
 
-  socket.binaryType=
-    "arraybuffer";
+
+  socket.binaryType="arraybuffer";
 
 
   socket.onopen=()=>{
 
-    $("status")
-      .textContent=
+    $("status").textContent=
       "● 接続済み";
 
     send({
@@ -2012,8 +1896,7 @@ function connectSocket(){
 
   socket.onerror=()=>{
 
-    $("status")
-      .textContent=
+    $("status").textContent=
       "● 接続エラー";
 
   };
@@ -2021,8 +1904,7 @@ function connectSocket(){
 
   socket.onclose=()=>{
 
-    $("status")
-      .textContent=
+    $("status").textContent=
       "● 切断";
 
     setTimeout(
@@ -2033,25 +1915,22 @@ function connectSocket(){
   };
 
 
-  socket.onmessage=
-    event=>{
+  socket.onmessage=(event)=>{
 
-      try{
+    try{
 
-        const message=
-          JSON.parse(
-            event.data
-          );
+      const message=
+        JSON.parse(event.data);
 
-        handleMessage(message);
+      handleMessage(message);
 
-      }catch(error){
+    }catch(error){
 
-        console.error(error);
+      console.error(error);
 
-      }
+    }
 
-    };
+  };
 
 }
 
@@ -2073,9 +1952,9 @@ function send(data){
 }
 
 
-/* =========================================================
-   MESSAGE
-========================================================= */
+/* =====================================================
+   SERVER MESSAGE
+===================================================== */
 
 function handleMessage(m){
 
@@ -2096,8 +1975,7 @@ function handleMessage(m){
 
   if(m.type==="host-ready"){
 
-    $("status")
-      .textContent=
+    $("status").textContent=
       "● LIVE";
 
     setAudioStatus(
@@ -2118,6 +1996,12 @@ function handleMessage(m){
     currentLive=true;
 
     updateLiveList();
+
+    if(role!=="host"){
+
+      updateLiveInfo();
+
+    }
 
     return;
 
@@ -2173,9 +2057,7 @@ function handleMessage(m){
     if(role==="host"){
 
       peer=
-        viewerPeers.get(
-          m.from
-        );
+        viewerPeers.get(m.from);
 
     }else{
 
@@ -2183,6 +2065,7 @@ function handleMessage(m){
         viewerPeer;
 
     }
+
 
     if(
       peer &&
@@ -2204,8 +2087,7 @@ function handleMessage(m){
 
   if(m.type==="count"){
 
-    $("viewerCount")
-      .textContent=
+    $("viewerCount").textContent=
       m.n;
 
     return;
@@ -2229,18 +2111,8 @@ function handleMessage(m){
 
     addComment(
       m.name,
-      "🎁 "+
-      m.gift
+      "🎁 " + m.gift
     );
-
-    return;
-
-  }
-
-
-  if(m.type==="heart"){
-
-    createHeart();
 
     return;
 
@@ -2287,69 +2159,79 @@ function handleMessage(m){
 }
 
 
-/* =========================================================
+/* =====================================================
    LIVE LIST
-========================================================= */
+===================================================== */
 
-function createLiveCard(
-  meta
-){
+function updateLiveList(){
+
+  const list=$("liveList");
+
+  list.innerHTML="";
+
+
+  if(!currentLive){
+
+    list.innerHTML=
+      '<div class="empty">' +
+      '現在配信中のライブはありません' +
+      '</div>';
+
+    return;
+
+  }
+
+
+  const meta=
+    currentMeta || {};
+
 
   const card=
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  card.className=
-    "liveCard";
+  card.className="liveCard";
 
 
   const thumb=
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  thumb.className=
-    "liveThumb";
+  thumb.className="liveThumb";
 
 
   if(meta.image){
 
     const img=
-      document.createElement(
-        "img"
-      );
+      document.createElement("img");
 
-    img.src=
-      meta.image;
+    img.src=meta.image;
 
     thumb.appendChild(img);
 
   }else{
 
-    thumb.textContent="🌙";
+    const img=
+      document.createElement("img");
+
+    img.src="/voicebotalive_bg.png";
+
+    thumb.appendChild(img);
 
   }
 
 
   const info=
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
   info.style.flex="1";
 
 
   const name=
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  name.className=
-    "liveName";
+  name.className="liveName";
 
   name.textContent=
-    "🔴 "+
+    "🔴 " +
     (
       meta.name ||
       "配信者"
@@ -2357,12 +2239,9 @@ function createLiveCard(
 
 
   const title=
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  title.className=
-    "liveTitle";
+  title.className="liveTitle";
 
   title.textContent=
     meta.title ||
@@ -2370,19 +2249,16 @@ function createLiveCard(
 
 
   info.appendChild(name);
+
   info.appendChild(title);
 
 
   const button=
-    document.createElement(
-      "button"
-    );
+    document.createElement("button");
 
-  button.className=
-    "btn";
+  button.className="btn";
 
-  button.textContent=
-    "見る";
+  button.textContent="見る";
 
   button.onclick=()=>{
     joinLive();
@@ -2390,129 +2266,64 @@ function createLiveCard(
 
 
   card.appendChild(thumb);
+
   card.appendChild(info);
+
   card.appendChild(button);
 
-  return card;
+  list.appendChild(card);
 
 }
 
 
-function updateLiveList(){
+/* =====================================================
+   LIVE INFO
+===================================================== */
 
-  const list=
-    $("liveList");
-
-  const searchList=
-    $("searchLiveList");
-
-  list.innerHTML="";
-  searchList.innerHTML="";
-
-
-  if(!currentLive){
-
-    list.innerHTML=
-      '<div class="empty">'+
-      '現在配信中のライブはありません'+
-      '</div>';
-
-    searchList.innerHTML=
-      '<div class="empty">'+
-      '現在配信中のライブはありません'+
-      '</div>';
-
-    return;
-
-  }
-
+function updateLiveInfo(){
 
   const meta=
     currentMeta || {};
 
 
-  list.appendChild(
-    createLiveCard(meta)
-  );
+  $("liveName").textContent=
+    meta.name ||
+    "配信者";
 
 
-  searchList.appendChild(
-    createLiveCard(meta)
-  );
+  $("liveTitleDisplay").textContent=
+    meta.title ||
+    "ライブ配信";
+
+
+  if(meta.image){
+
+    $("liveImage").src=
+      meta.image;
+
+    $("liveImage").style.display=
+      "block";
+
+  }else{
+
+    $("liveImage").src=
+      "/voicebotalive_bg.png";
+
+    $("liveImage").style.display=
+      "block";
+
+  }
 
 }
 
 
-function filterLives(){
-
-  const value=
-    (
-      $("searchInput").value ||
-      ""
-    )
-    .toLowerCase()
-    .trim();
-
-  const list=
-    $("searchLiveList");
-
-  list.innerHTML="";
-
-
-  if(!currentLive){
-
-    list.innerHTML=
-      '<div class="empty">'+
-      '配信中のライブはありません'+
-      '</div>';
-
-    return;
-
-  }
-
-
-  const meta=
-    currentMeta || {};
-
-  const text=
-    (
-      meta.name+
-      " "+
-      meta.title
-    )
-    .toLowerCase();
-
-
-  if(
-    value &&
-    !text.includes(value)
-  ){
-
-    list.innerHTML=
-      '<div class="empty">'+
-      '該当する配信がありません'+
-      '</div>';
-
-    return;
-
-  }
-
-
-  list.appendChild(
-    createLiveCard(meta)
-  );
-
-}
-
-
-/* =========================================================
+/* =====================================================
    BROADCAST
-========================================================= */
+===================================================== */
 
 async function startBroadcast(){
 
   if(role==="host"){
-    showScreen("live");
     return;
   }
 
@@ -2590,16 +2401,19 @@ async function startBroadcast(){
 
 
   $("profileName")
-    .textContent=
-    name;
+    .textContent=name;
+
 
   $("liveName")
-    .textContent=
-    name;
+    .textContent=name;
+
+
+  $("liveTitleDisplay")
+    .textContent=title;
+
 
   $("hostEndButton")
-    .style.display=
-    "block";
+    .style.display="block";
 
 
   send({
@@ -2643,9 +2457,9 @@ async function startBroadcast(){
 }
 
 
-/* =========================================================
+/* =====================================================
    JOIN LIVE
-========================================================= */
+===================================================== */
 
 function joinLive(){
 
@@ -2668,13 +2482,7 @@ function joinLive(){
 
 
   $("audioButton")
-    .style.display=
-    "block";
-
-
-  $("audioButton")
-    .textContent=
-    "🔊 音声を開始";
+    .style.display="block";
 
 
   setAudioStatus(
@@ -2683,33 +2491,10 @@ function joinLive(){
   );
 
 
-  const meta=
-    currentMeta || {};
+  updateLiveInfo();
 
 
-  $("liveName")
-    .textContent=
-    meta.name ||
-    "配信者";
-
-
-  if(meta.image){
-
-    $("liveImage")
-      .src=
-      meta.image;
-
-    $("liveImage")
-      .style.display=
-      "block";
-
-  }else{
-
-    $("liveImage")
-      .style.display=
-      "none";
-
-  }
+  $("comments").innerHTML="";
 
 
   showScreen("live");
@@ -2722,13 +2507,11 @@ function joinLive(){
 }
 
 
-/* =========================================================
+/* =====================================================
    HOST OFFER
-========================================================= */
+===================================================== */
 
-async function createOffer(
-  viewerId
-){
+async function createOffer(viewerId){
 
   if(!localStream){
     return;
@@ -2770,16 +2553,13 @@ async function createOffer(
         ){
 
           params.encodings[0]
-            .maxBitrate=
-            48000;
+            .maxBitrate=48000;
 
         }
 
 
         sender
-          .setParameters(
-            params
-          )
+          .setParameters(params)
           .catch(()=>{});
 
       }catch(e){}
@@ -2817,6 +2597,17 @@ async function createOffer(
         peer.connectionState
       );
 
+      if(
+        peer.connectionState==="failed" ||
+        peer.connectionState==="closed"
+      ){
+
+        viewerPeers.delete(
+          viewerId
+        );
+
+      }
+
     };
 
 
@@ -2838,10 +2629,9 @@ async function createOffer(
       );
 
 
-    await peer
-      .setLocalDescription(
-        offer
-      );
+    await peer.setLocalDescription(
+      offer
+    );
 
 
     send({
@@ -2867,13 +2657,11 @@ async function createOffer(
 }
 
 
-/* =========================================================
-   OPUS
-========================================================= */
+/* =====================================================
+   OPUS LOW LATENCY
+===================================================== */
 
-function optimizeOpusSDP(
-  sdp
-){
+function optimizeOpusSDP(sdp){
 
   if(!sdp){
     return sdp;
@@ -2895,7 +2683,8 @@ function optimizeOpusSDP(
 
     if(
       lines[i]
-        .startsWith("a=rtpmap:") &&
+        .startsWith("a=rtpmap:")
+      &&
       lines[i]
         .toLowerCase()
         .includes("opus/48000")
@@ -2906,6 +2695,7 @@ function optimizeOpusSDP(
           .match(
             /^a=rtpmap:(\\d+)/
           );
+
 
       if(match){
 
@@ -2927,16 +2717,12 @@ function optimizeOpusSDP(
 
 
   const fmtp=
-    "a=fmtp:"+
-    opusPayload+
-    " minptime=10;"+
-    "maxptime=10;"+
-    "useinbandfec=1;"+
-    "stereo=0;"+
-    "usedtx=0";
+    "a=fmtp:" +
+    opusPayload +
+    " minptime=10;maxptime=10;useinbandfec=1;stereo=0;usedtx=0";
 
 
-  let index=-1;
+  let found=false;
 
 
   for(
@@ -2952,7 +2738,10 @@ function optimizeOpusSDP(
         )
     ){
 
-      index=i;
+      lines[i]=fmtp;
+
+      found=true;
+
       break;
 
     }
@@ -2960,13 +2749,9 @@ function optimizeOpusSDP(
   }
 
 
-  if(index>=0){
+  if(!found){
 
-    lines[index]=fmtp;
-
-  }else{
-
-    const rtp=
+    const index=
       lines.findIndex(
         line=>
           line.startsWith(
@@ -2974,10 +2759,11 @@ function optimizeOpusSDP(
           )
       );
 
-    if(rtp>=0){
+
+    if(index>=0){
 
       lines.splice(
-        rtp+1,
+        index+1,
         0,
         fmtp
       );
@@ -2992,9 +2778,9 @@ function optimizeOpusSDP(
 }
 
 
-/* =========================================================
-   VIEWER
-========================================================= */
+/* =====================================================
+   VIEWER RECEIVE
+===================================================== */
 
 async function receiveOffer(m){
 
@@ -3036,8 +2822,13 @@ async function receiveOffer(m){
     ()=>{
 
       const state=
-        viewerPeer
-          .iceConnectionState;
+        viewerPeer.iceConnectionState;
+
+
+      console.log(
+        "VIEWER ICE:",
+        state
+      );
 
 
       if(
@@ -3088,6 +2879,12 @@ async function receiveOffer(m){
   viewerPeer.ontrack=
     event=>{
 
+      console.log(
+        "REMOTE TRACK:",
+        event.track.kind
+      );
+
+
       let audio=
         document.getElementById(
           "remoteAudio"
@@ -3101,8 +2898,10 @@ async function receiveOffer(m){
             "audio"
           );
 
+
         audio.id=
           "remoteAudio";
+
 
         audio.autoplay=true;
 
@@ -3110,29 +2909,26 @@ async function receiveOffer(m){
 
         audio.controls=false;
 
+
         audio.style.position=
           "fixed";
 
-        audio.style.width=
-          "1px";
+        audio.style.width="1px";
 
-        audio.style.height=
-          "1px";
+        audio.style.height="1px";
 
-        audio.style.opacity=
-          "0.01";
+        audio.style.opacity="0.01";
 
-        audio.style.pointerEvents=
-          "none";
+        audio.style.pointerEvents="none";
 
-        audio.style.left=
-          "-10px";
+        audio.style.left="-10px";
 
-        audio.style.top=
-          "-10px";
+        audio.style.top="-10px";
 
-        document.body
-          .appendChild(audio);
+
+        document.body.appendChild(
+          audio
+        );
 
       }
 
@@ -3158,8 +2954,7 @@ async function receiveOffer(m){
             .find(
               r=>
                 r.track &&
-                r.track.kind===
-                "audio"
+                r.track.kind==="audio"
             );
 
 
@@ -3170,10 +2965,15 @@ async function receiveOffer(m){
             in receiver
           ){
 
-            receiver
-              .playoutDelayHint=0;
+            try{
+
+              receiver
+                .playoutDelayHint=0;
+
+            }catch(e){}
 
           }
+
 
           if(
             "jitterBufferTarget"
@@ -3204,7 +3004,12 @@ async function receiveOffer(m){
 
         audio
           .play()
-          .catch(()=>{});
+          .catch(error=>{
+            console.log(
+              "AUDIO PLAY",
+              error
+            );
+          });
 
       }
 
@@ -3217,6 +3022,69 @@ async function receiveOffer(m){
       .setRemoteDescription(
         m.sdp
       );
+
+
+    try{
+
+      const transceivers=
+        viewerPeer
+          .getTransceivers();
+
+
+      transceivers.forEach(
+        transceiver=>{
+
+          if(
+            transceiver.receiver &&
+            transceiver.receiver.track &&
+            transceiver.receiver.track.kind===
+            "audio"
+          ){
+
+            const capabilities=
+              RTCRtpReceiver
+                .getCapabilities(
+                  "audio"
+                );
+
+
+            if(
+              capabilities &&
+              capabilities.codecs
+            ){
+
+              const opus=
+                capabilities.codecs.filter(
+                  codec=>
+                    codec.mimeType &&
+                    codec.mimeType
+                      .toLowerCase()
+                      ===
+                    "audio/opus"
+                );
+
+
+              if(opus.length){
+
+                try{
+
+                  transceiver
+                    .setCodecPreferences(
+                      opus
+                    );
+
+                }catch(e){}
+
+              }
+
+            }
+
+          }
+
+        }
+      );
+
+    }catch(e){}
 
 
     const answer=
@@ -3252,6 +3120,7 @@ async function receiveOffer(m){
       error
     );
 
+
     setAudioStatus(
       "🔴 音声接続エラー",
       "error"
@@ -3262,9 +3131,9 @@ async function receiveOffer(m){
 }
 
 
-/* =========================================================
-   AUDIO
-========================================================= */
+/* =====================================================
+   AUDIO START
+===================================================== */
 
 async function startAudio(){
 
@@ -3284,33 +3153,36 @@ async function startAudio(){
         "audio"
       );
 
+
     audio.id=
       "remoteAudio";
+
 
     audio.autoplay=true;
 
     audio.playsInline=true;
 
-    audio.style.position=
-      "fixed";
+    audio.controls=false;
 
-    audio.style.width=
-      "1px";
 
-    audio.style.height=
-      "1px";
+    audio.style.position="fixed";
 
-    audio.style.opacity=
-      "0.01";
+    audio.style.width="1px";
 
-    audio.style.left=
-      "-10px";
+    audio.style.height="1px";
 
-    audio.style.top=
-      "-10px";
+    audio.style.opacity="0.01";
 
-    document.body
-      .appendChild(audio);
+    audio.style.pointerEvents="none";
+
+    audio.style.left="-10px";
+
+    audio.style.top="-10px";
+
+
+    document.body.appendChild(
+      audio
+    );
 
   }
 
@@ -3332,6 +3204,12 @@ async function startAudio(){
 
   }catch(error){
 
+    console.error(
+      "AUDIO START ERROR",
+      error
+    );
+
+
     setAudioStatus(
       "🔴 もう一度「音声を開始」を押してください",
       "error"
@@ -3342,9 +3220,9 @@ async function startAudio(){
 }
 
 
-/* =========================================================
+/* =====================================================
    CLOSE VIEWER
-========================================================= */
+===================================================== */
 
 function closeViewerPeer(){
 
@@ -3355,6 +3233,7 @@ function closeViewerPeer(){
     }catch(e){}
 
   }
+
 
   viewerPeer=null;
 
@@ -3380,9 +3259,9 @@ function closeViewerPeer(){
 }
 
 
-/* =========================================================
-   STOP
-========================================================= */
+/* =====================================================
+   STOP BROADCAST
+===================================================== */
 
 function stopBroadcast(){
 
@@ -3395,11 +3274,9 @@ function stopBroadcast(){
 
     localStream
       .getTracks()
-      .forEach(
-        track=>{
-          track.stop();
-        }
-      );
+      .forEach(track=>{
+        track.stop();
+      });
 
   }
 
@@ -3409,9 +3286,11 @@ function stopBroadcast(){
 
   viewerPeers.forEach(
     peer=>{
+
       try{
         peer.close();
       }catch(e){}
+
     }
   );
 
@@ -3427,13 +3306,12 @@ function stopBroadcast(){
 
 
   $("hostEndButton")
-    .style.display=
-    "none";
+    .style.display="none";
 
 
   $("status")
     .textContent=
-    "● 接続済み";
+      "● 接続済み";
 
 
   showScreen("home");
@@ -3441,9 +3319,9 @@ function stopBroadcast(){
 }
 
 
-/* =========================================================
+/* =====================================================
    CHAT
-========================================================= */
+===================================================== */
 
 function sendChat(){
 
@@ -3505,8 +3383,7 @@ function addComment(
       "div"
     );
 
-  div.className=
-    "comment";
+  div.className="comment";
 
 
   const n=
@@ -3514,12 +3391,10 @@ function addComment(
       "span"
     );
 
-  n.className=
-    "commentName";
+  n.className="commentName";
 
   n.textContent=
-    name+
-    "：";
+    name + "：";
 
 
   const t=
@@ -3527,11 +3402,11 @@ function addComment(
       "span"
     );
 
-  t.textContent=
-    text;
+  t.textContent=text;
 
 
   div.appendChild(n);
+
   div.appendChild(t);
 
   box.appendChild(div);
@@ -3543,51 +3418,9 @@ function addComment(
 }
 
 
-/* =========================================================
-   HEART
-========================================================= */
-
-function sendHeart(){
-
-  send({
-    type:"heart"
-  });
-
-  createHeart();
-
-}
-
-
-function createHeart(){
-
-  const heart=
-    document.createElement(
-      "div"
-    );
-
-  heart.className=
-    "heartFloat";
-
-  heart.textContent=
-    "💜";
-
-  document.body
-    .appendChild(heart);
-
-
-  setTimeout(
-    ()=>{
-      heart.remove();
-    },
-    1300
-  );
-
-}
-
-
-/* =========================================================
+/* =====================================================
    IMAGE
-========================================================= */
+===================================================== */
 
 $("imageFile")
   .addEventListener(
@@ -3636,6 +3469,7 @@ $("imageFile")
             "img"
           );
 
+
         img.src=
           customImage;
 
@@ -3654,9 +3488,9 @@ $("imageFile")
   );
 
 
-/* =========================================================
+/* =====================================================
    HOST
-========================================================= */
+===================================================== */
 
 function openHost(){
 
@@ -3668,14 +3502,15 @@ function openHost(){
 
   }
 
+
   showScreen("setup");
 
 }
 
 
-/* =========================================================
+/* =====================================================
    GIFTS
-========================================================= */
+===================================================== */
 
 function openGifts(){
 
@@ -3710,16 +3545,16 @@ function sendGift(gift){
 
 
   showToast(
-    gift+
+    gift +
     " を送りました 🎁"
   );
 
 }
 
 
-/* =========================================================
+/* =====================================================
    TOAST
-========================================================= */
+===================================================== */
 
 let toastTimer=null;
 
@@ -3730,8 +3565,7 @@ function showToast(text){
     $("toast");
 
 
-  toast.textContent=
-    text;
+  toast.textContent=text;
 
 
   toast.classList
@@ -3755,9 +3589,11 @@ function showToast(text){
 }
 
 
-/* =========================================================
+/* =====================================================
    START
-========================================================= */
+===================================================== */
+
+showScreen("home");
 
 connectSocket();
 
@@ -3770,13 +3606,96 @@ connectSocket();
 `;
 
 
-/* =========================================================
+/* =====================================================
    HTTP SERVER
-========================================================= */
+===================================================== */
 
 const server =
   http.createServer(
     (req,res)=>{
+
+      /*
+        VoiceボタLive背景画像
+      */
+
+      if(
+        req.url ===
+        "/voicebotalive_bg.png"
+      ){
+
+        fs.readFile(
+          IMAGE_FILE,
+          (error,data)=>{
+
+            if(error){
+
+              console.error(
+                "IMAGE ERROR:",
+                error
+              );
+
+              res.writeHead(
+                404,
+                {
+                  "Content-Type":
+                    "text/plain; charset=utf-8"
+                }
+              );
+
+              res.end(
+                "Image not found"
+              );
+
+              return;
+
+            }
+
+
+            res.writeHead(
+              200,
+              {
+                "Content-Type":
+                  "image/png",
+
+                "Cache-Control":
+                  "public, max-age=3600"
+              }
+            );
+
+
+            res.end(data);
+
+          }
+        );
+
+        return;
+
+      }
+
+
+      /*
+        faviconなど
+      */
+
+      if(
+        req.url ===
+        "/favicon.ico"
+      ){
+
+        res.writeHead(
+          204
+        );
+
+        res.end();
+
+        return;
+
+      }
+
+
+      /*
+        アプリ本体
+      */
 
       res.writeHead(
         200,
@@ -3795,15 +3714,16 @@ const server =
         }
       );
 
+
       res.end(HTML);
 
     }
   );
 
 
-/* =========================================================
+/* =====================================================
    WEBSOCKET
-========================================================= */
+===================================================== */
 
 const wss =
   new WebSocket.Server({
@@ -3819,9 +3739,14 @@ let broadcaster=null;
 
 let liveMeta=null;
 
+
 const viewers =
   new Map();
 
+
+/* =====================================================
+   WS SEND
+===================================================== */
 
 function wsSend(
   ws,
@@ -3834,14 +3759,29 @@ function wsSend(
     WebSocket.OPEN
   ){
 
-    ws.send(
-      JSON.stringify(data)
-    );
+    try{
+
+      ws.send(
+        JSON.stringify(data)
+      );
+
+    }catch(error){
+
+      console.error(
+        "WS SEND ERROR",
+        error
+      );
+
+    }
 
   }
 
 }
 
+
+/* =====================================================
+   BROADCAST
+===================================================== */
 
 function broadcast(
   data,
@@ -3868,9 +3808,9 @@ function broadcast(
 }
 
 
-/* =========================================================
+/* =====================================================
    CONNECTION
-========================================================= */
+===================================================== */
 
 wss.on(
   "connection",
@@ -3882,13 +3822,14 @@ wss.on(
     socket.id=
       Math.random()
         .toString(36)
-        .slice(2)+
+        .slice(2) +
       Date.now()
         .toString(36);
 
 
     socket.name=
       "ゲスト";
+
 
     socket.role=
       "unknown";
@@ -3932,7 +3873,9 @@ wss.on(
         }
 
 
-        /* HELLO */
+        /* =================================================
+           HELLO
+        ================================================= */
 
         if(
           m.type==="hello"
@@ -3959,7 +3902,9 @@ wss.on(
         }
 
 
-        /* HOST */
+        /* =================================================
+           HOST
+        ================================================= */
 
         if(
           m.type==="join-host"
@@ -4033,7 +3978,9 @@ wss.on(
         }
 
 
-        /* META */
+        /* =================================================
+           META
+        ================================================= */
 
         if(
           m.type==="set-meta"
@@ -4095,7 +4042,9 @@ wss.on(
         }
 
 
-        /* VIEWER */
+        /* =================================================
+           VIEWER
+        ================================================= */
 
         if(
           m.type==="join-viewer"
@@ -4176,7 +4125,9 @@ wss.on(
         }
 
 
-        /* OFFER */
+        /* =================================================
+           OFFER
+        ================================================= */
 
         if(
           m.type==="offer"
@@ -4217,7 +4168,9 @@ wss.on(
         }
 
 
-        /* ANSWER */
+        /* =================================================
+           ANSWER
+        ================================================= */
 
         if(
           m.type==="answer"
@@ -4249,7 +4202,9 @@ wss.on(
         }
 
 
-        /* ICE */
+        /* =================================================
+           ICE
+        ================================================= */
 
         if(
           m.type==="ice"
@@ -4308,7 +4263,9 @@ wss.on(
         }
 
 
-        /* CHAT */
+        /* =================================================
+           CHAT
+        ================================================= */
 
         if(
           m.type==="chat"
@@ -4339,7 +4296,6 @@ wss.on(
 
               text:
                 text
-
             }
           );
 
@@ -4349,7 +4305,9 @@ wss.on(
         }
 
 
-        /* GIFT */
+        /* =================================================
+           GIFT
+        ================================================= */
 
         if(
           m.type==="gift"
@@ -4373,7 +4331,6 @@ wss.on(
 
               gift:
                 gift
-
             }
           );
 
@@ -4383,24 +4340,9 @@ wss.on(
         }
 
 
-        /* HEART */
-
-        if(
-          m.type==="heart"
-        ){
-
-          broadcast(
-            {
-              type:"heart"
-            }
-          );
-
-          return;
-
-        }
-
-
-        /* END */
+        /* =================================================
+           END HOST
+        ================================================= */
 
         if(
           m.type==="leave-host"
@@ -4423,15 +4365,15 @@ wss.on(
     );
 
 
-    /* CLOSE */
+    /* =====================================================
+       CLOSE
+    ===================================================== */
 
     socket.on(
       "close",
       ()=>{
 
-        clients.delete(
-          socket
-        );
+        clients.delete(socket);
 
 
         if(
@@ -4439,6 +4381,8 @@ wss.on(
         ){
 
           endLive();
+
+          return;
 
         }
 
@@ -4466,9 +4410,9 @@ wss.on(
   });
 
 
-/* =========================================================
+/* =====================================================
    END LIVE
-========================================================= */
+===================================================== */
 
 function endLive(){
 
@@ -4515,15 +4459,15 @@ function endLive(){
 }
 
 
-/* =========================================================
+/* =====================================================
    START
-========================================================= */
+===================================================== */
 
 server.listen(
   PORT,
   HOST,
   ()=>{
-
+    
     console.log(
       "================================"
     );
@@ -4533,16 +4477,17 @@ server.listen(
     );
 
     console.log(
-      " Moonlight Design"
+      " DESIGN + LOW LATENCY AUDIO"
     );
 
     console.log(
-      " LOW LATENCY AUDIO"
-    );
-
-    console.log(
-      " PORT:",
+      "PORT:",
       PORT
+    );
+
+    console.log(
+      "BACKGROUND:",
+      IMAGE_FILE
     );
 
     console.log(

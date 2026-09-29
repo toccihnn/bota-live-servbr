@@ -12,9 +12,9 @@ if (!fs.existsSync(PUBLIC_DIR)) {
   fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 }
 
+
 /* =====================================================
-   サンプルランキング
-   ※あとで実際のユーザーデータに変更
+   ランキング50人
 ===================================================== */
 
 const rankingUsers = [
@@ -70,12 +70,28 @@ const rankingUsers = [
   "月光アオ"
 ];
 
+
 const ranking = rankingUsers.map((name, index) => ({
   id: `rank-${index + 1}`,
+
+  rank: index + 1,
+
   name,
+
   score: 50000 - index * 731,
-  viewers: Math.max(1, 1200 - index * 19),
-  icon: ["🌙", "⭐", "🌸", "🎙️", "✨"][index % 5]
+
+  viewers: Math.max(
+    1,
+    1200 - index * 19
+  ),
+
+  icon: [
+    "🌙",
+    "⭐",
+    "🌸",
+    "🎙️",
+    "✨"
+  ][index % 5]
 }));
 
 
@@ -91,6 +107,7 @@ const newcomers = [
     icon: "🌙",
     live: true
   },
+
   {
     id: "new-2",
     name: "月音ゆい",
@@ -98,6 +115,7 @@ const newcomers = [
     icon: "🌸",
     live: false
   },
+
   {
     id: "new-3",
     name: "星空れん",
@@ -105,6 +123,7 @@ const newcomers = [
     icon: "⭐",
     live: true
   },
+
   {
     id: "new-4",
     name: "そら",
@@ -112,6 +131,7 @@ const newcomers = [
     icon: "🎙️",
     live: false
   },
+
   {
     id: "new-5",
     name: "みお",
@@ -119,6 +139,7 @@ const newcomers = [
     icon: "✨",
     live: true
   },
+
   {
     id: "new-6",
     name: "夜桜",
@@ -135,6 +156,7 @@ const newcomers = [
 
 const HTML = `
 <!DOCTYPE html>
+
 <html lang="ja">
 
 <head>
@@ -154,10 +176,6 @@ const HTML = `
 <title>VoiceポタLive</title>
 
 <style>
-
-/* =====================================================
-   BASE
-===================================================== */
 
 * {
   box-sizing: border-box;
@@ -191,13 +209,9 @@ button {
   font-family: inherit;
 }
 
-
-/* =====================================================
-   APP
-===================================================== */
-
 .app {
   min-height: 100vh;
+
   padding-bottom: 80px;
 }
 
@@ -219,6 +233,7 @@ button {
   z-index: 100;
 
   display: flex;
+
   align-items: center;
 
   padding: 0 18px;
@@ -226,10 +241,12 @@ button {
   background:
     rgba(3,5,16,.78);
 
-  backdrop-filter: blur(18px);
+  backdrop-filter:
+    blur(18px);
 
   border-bottom:
-    1px solid rgba(120,140,255,.10);
+    1px solid
+    rgba(120,140,255,.10);
 }
 
 .logo {
@@ -311,7 +328,6 @@ button {
     );
 }
 
-
 .hero-content {
 
   position: relative;
@@ -337,7 +353,8 @@ button {
   margin-bottom: 8px;
 
   text-shadow:
-    0 0 12px rgba(90,130,255,.7);
+    0 0 12px
+    rgba(90,130,255,.7);
 }
 
 .hero-title {
@@ -354,7 +371,8 @@ button {
   letter-spacing: -1px;
 
   text-shadow:
-    0 3px 20px rgba(0,0,0,.8);
+    0 3px 20px
+    rgba(0,0,0,.8);
 }
 
 .hero-title span {
@@ -633,7 +651,8 @@ button {
 
 .newcomer-card {
 
-  flex: 0 0 145px;
+  flex:
+    0 0 145px;
 
   min-height: 174px;
 
@@ -708,7 +727,8 @@ button {
   background: #ff3d6e;
 
   border:
-    3px solid #11162e;
+    3px solid
+    #11162e;
 
   box-shadow:
     0 0 9px
@@ -800,7 +820,8 @@ button {
   background:
     rgba(4,7,20,.94);
 
-  backdrop-filter: blur(20px);
+  backdrop-filter:
+    blur(20px);
 
   border-top:
     1px solid
@@ -926,10 +947,6 @@ button {
 <div class="app">
 
 
-<!-- =================================================
-     HEADER
-================================================= -->
-
 <header class="header">
 
   <div class="logo">
@@ -938,10 +955,6 @@ button {
 
 </header>
 
-
-<!-- =================================================
-     HERO
-================================================= -->
 
 <section class="hero">
 
@@ -952,23 +965,25 @@ button {
     </div>
 
     <h1 class="hero-title">
+
       <span>あなたの声が、</span><br>
+
       誰かの夜を照らす。
+
     </h1>
 
     <div class="hero-description">
+
       月明かりの下で、話して、聴いて、笑って。<br>
+
       VoiceポタLiveで、あなたの声をもっと近くに。
+
     </div>
 
   </div>
 
 </section>
 
-
-<!-- =================================================
-     TOP RANKING
-================================================= -->
 
 <section class="section">
 
@@ -984,10 +999,12 @@ button {
 
   </div>
 
+
   <div
     class="ranking-list"
     id="rankingList"
   ></div>
+
 
   <button
     class="more-button"
@@ -998,10 +1015,6 @@ button {
 
 </section>
 
-
-<!-- =================================================
-     NEWCOMER
-================================================= -->
 
 <section class="section">
 
@@ -1017,6 +1030,7 @@ button {
 
   </div>
 
+
   <div
     class="newcomer-list"
     id="newcomerList"
@@ -1025,42 +1039,61 @@ button {
 </section>
 
 
-<!-- =================================================
-     BOTTOM NAV
-================================================= -->
-
 <nav class="bottom-nav">
 
   <button
     class="nav-item active"
     onclick="goHome()"
   >
-    <div class="nav-icon">⌂</div>
+
+    <div class="nav-icon">
+      ⌂
+    </div>
+
     ホーム
+
   </button>
+
 
   <button
     class="nav-item"
     onclick="searchLive()"
   >
-    <div class="nav-icon">⌕</div>
+
+    <div class="nav-icon">
+      ⌕
+    </div>
+
     探す
+
   </button>
+
 
   <button
     class="nav-item"
     onclick="showNotice()"
   >
-    <div class="nav-icon">♧</div>
+
+    <div class="nav-icon">
+      ♧
+    </div>
+
     お知らせ
+
   </button>
+
 
   <button
     class="nav-item"
     onclick="showProfile()"
   >
-    <div class="nav-icon">♙</div>
+
+    <div class="nav-icon">
+      ♙
+    </div>
+
     マイページ
+
   </button>
 
 </nav>
@@ -1070,8 +1103,9 @@ button {
 
 <script>
 
+
 /* =====================================================
-   ランキング
+   RANKING
 ===================================================== */
 
 function renderRanking(list) {
@@ -1081,11 +1115,19 @@ function renderRanking(list) {
       "rankingList"
     );
 
+  if (!Array.isArray(list)) {
+
+    box.innerHTML =
+      "<div>ランキングを読み込めませんでした。</div>";
+
+    return;
+  }
+
+
   box.innerHTML =
     list
       .slice(0, 10)
-      .map(
-        user => `
+      .map(user => `
 
         <div
           class="ranking-card"
@@ -1093,15 +1135,20 @@ function renderRanking(list) {
         >
 
           <div
-            class="rank-number
-            ${user.rank <= 3 ? "top" : ""}"
+            class="rank-number ${
+              Number(user.rank) <= 3
+                ? "top"
+                : ""
+            }"
           >
             ${user.rank}
           </div>
 
+
           <div class="rank-avatar">
             ${user.icon}
           </div>
+
 
           <div class="rank-info">
 
@@ -1109,29 +1156,37 @@ function renderRanking(list) {
               ${escapeHtml(user.name)}
             </div>
 
+
             <div class="rank-score">
+
               応援ポイント
-              ${Number(user.score).toLocaleString()}
+              ${Number(
+                user.score
+              ).toLocaleString()}
+
             </div>
 
           </div>
 
+
           <div class="rank-viewers">
+
             👁 ${Number(
               user.viewers
             ).toLocaleString()}
+
           </div>
 
         </div>
-      `
-      )
+
+      `)
       .join("");
 
 }
 
 
 /* =====================================================
-   新人
+   NEWCOMERS
 ===================================================== */
 
 function renderNewcomers(list) {
@@ -1141,10 +1196,18 @@ function renderNewcomers(list) {
       "newcomerList"
     );
 
+
+  if (!Array.isArray(list)) {
+
+    box.innerHTML = "";
+
+    return;
+  }
+
+
   box.innerHTML =
     list
-      .map(
-        user => `
+      .map(user => `
 
         <div
           class="newcomer-card"
@@ -1157,29 +1220,41 @@ function renderNewcomers(list) {
               ${user.icon}
             </div>
 
+
             ${
               user.live
-                ? `<div class="live-dot"></div>`
+                ? `
+                  <div class="live-dot"></div>
+                `
                 : ""
             }
 
           </div>
 
+
           <div class="new-name">
+
             ${escapeHtml(user.name)}
+
           </div>
 
+
           <div class="new-title">
+
             ${escapeHtml(user.title)}
+
           </div>
+
 
           ${
             user.live
+
               ? `
                 <span class="new-badge">
                   LIVE
                 </span>
               `
+
               : `
                 <span
                   class="new-badge"
@@ -1195,8 +1270,7 @@ function renderNewcomers(list) {
 
         </div>
 
-      `
-      )
+      `)
       .join("");
 
 }
@@ -1217,14 +1291,106 @@ function openUser(id) {
 
 
 /* =====================================================
-   RANKING
+   RANKING 50
 ===================================================== */
 
 function showAllRanking() {
 
-  alert(
-    "ランキング50人のページを準備中です。"
+  const box =
+    document.getElementById(
+      "rankingList"
+    );
+
+
+  const button =
+    document.querySelector(
+      ".more-button"
+    );
+
+
+  if (
+    !window.allRankingShown
+  ) {
+
+    const current =
+      window.currentRanking || [];
+
+
+    box.innerHTML =
+      current
+        .map(user => `
+
+          <div
+            class="ranking-card"
+            onclick="openUser('${escapeHtml(user.id)}')"
+          >
+
+            <div
+              class="rank-number ${
+                Number(user.rank) <= 3
+                  ? "top"
+                  : ""
+              }"
+            >
+              ${user.rank}
+            </div>
+
+
+            <div class="rank-avatar">
+              ${user.icon}
+            </div>
+
+
+            <div class="rank-info">
+
+              <div class="rank-name">
+                ${escapeHtml(user.name)}
+              </div>
+
+
+              <div class="rank-score">
+
+                応援ポイント
+                ${Number(
+                  user.score
+                ).toLocaleString()}
+
+              </div>
+
+            </div>
+
+
+            <div class="rank-viewers">
+
+              👁 ${Number(
+                user.viewers
+              ).toLocaleString()}
+
+            </div>
+
+          </div>
+
+        `)
+        .join("");
+
+
+    window.allRankingShown = true;
+
+    button.textContent =
+      "ランキングを閉じる";
+
+    return;
+  }
+
+
+  renderRanking(
+    window.currentRanking || []
   );
+
+  window.allRankingShown = false;
+
+  button.textContent =
+    "ランキング50人を見る";
 
 }
 
@@ -1236,11 +1402,15 @@ function showAllRanking() {
 function goHome() {
 
   window.scrollTo({
+
     top: 0,
+
     behavior: "smooth"
+
   });
 
 }
+
 
 function searchLive() {
 
@@ -1250,6 +1420,7 @@ function searchLive() {
 
 }
 
+
 function showNotice() {
 
   alert(
@@ -1257,6 +1428,7 @@ function showNotice() {
   );
 
 }
+
 
 function showProfile() {
 
@@ -1309,12 +1481,14 @@ function escapeHtml(value) {
 
 let socket = null;
 
+
 function connectSocket() {
 
   const protocol =
     location.protocol === "https:"
       ? "wss:"
       : "ws:";
+
 
   socket =
     new WebSocket(
@@ -1348,12 +1522,16 @@ function connectSocket() {
         "home_data"
       ) {
 
+        window.currentRanking =
+          data.ranking || [];
+
         renderRanking(
-          data.ranking
+          window.currentRanking
         );
 
+
         renderNewcomers(
-          data.newcomers
+          data.newcomers || []
         );
 
       }
@@ -1370,7 +1548,22 @@ function connectSocket() {
   };
 
 
+  socket.onerror = error => {
+
+    console.log(
+      "WebSocket error",
+      error
+    );
+
+  };
+
+
   socket.onclose = () => {
+
+    console.log(
+      "WebSocket disconnected"
+    );
+
 
     setTimeout(
       connectSocket,
@@ -1391,6 +1584,7 @@ connectSocket();
 </script>
 
 </body>
+
 </html>
 `;
 
@@ -1403,7 +1597,9 @@ const server =
   http.createServer(
     (req, res) => {
 
-      /* HOME */
+      /* ===============================================
+         HOME
+      =============================================== */
 
       if (
         req.url === "/" ||
@@ -1427,7 +1623,9 @@ const server =
       }
 
 
-      /* HOME IMAGE */
+      /* ===============================================
+         HOME IMAGE
+      =============================================== */
 
       if (
         req.url === "/home.png"
@@ -1457,6 +1655,7 @@ const server =
             }
           );
 
+
           fs.createReadStream(
             imagePath
           ).pipe(res);
@@ -1473,6 +1672,7 @@ const server =
           }
         );
 
+
         res.end(
           "home.png がありません"
         );
@@ -1481,6 +1681,10 @@ const server =
       }
 
 
+      /* ===============================================
+         404
+      =============================================== */
+
       res.writeHead(
         404,
         {
@@ -1488,6 +1692,7 @@ const server =
             "text/plain; charset=utf-8"
         }
       );
+
 
       res.end(
         "Not Found"
@@ -1498,13 +1703,14 @@ const server =
 
 
 /* =====================================================
-   WEBSOCKET
+   WEBSOCKET SERVER
 ===================================================== */
 
 const wss =
   new WebSocket.Server({
     server
   });
+
 
 const clients =
   new Set();
@@ -1521,52 +1727,20 @@ wss.on(
     );
 
 
-    sendHomeData(ws);
+    /* ===============================================
+       ホームデータ送信
+    =============================================== */
 
+    ws.send(
+      JSON.stringify({
 
-    ws.on(
-      "message",
-      message => {
+        type: "home_data",
 
-        let data;
+        ranking,
 
-        try {
+        newcomers
 
-          data =
-            JSON.parse(
-              message.toString()
-            );
-
-        } catch {
-
-          return;
-        }
-
-
-        /*
-         * 今後WebRTCの
-         * シグナリングにも使用
-         */
-
-        for (
-          const client of clients
-        ) {
-
-          if (
-            client !== ws &&
-            client.readyState ===
-            WebSocket.OPEN
-          ) {
-
-            client.send(
-              JSON.stringify(data)
-            );
-
-          }
-
-        }
-
-      }
+      })
     );
 
 
@@ -1583,50 +1757,25 @@ wss.on(
       }
     );
 
+
+    ws.on(
+      "error",
+      error => {
+
+        console.log(
+          "WebSocket error:",
+          error.message
+        );
+
+      }
+    );
+
   }
 );
 
 
 /* =====================================================
-   HOME DATA
-===================================================== */
-
-function sendHomeData(ws) {
-
-  const rankingData =
-    ranking.map(
-      (user, index) => ({
-        ...user,
-        rank: index + 1
-      })
-    );
-
-
-  const data =
-    JSON.stringify({
-      type: "home_data",
-
-      ranking:
-        rankingData,
-
-      newcomers
-    });
-
-
-  if (
-    ws.readyState ===
-    WebSocket.OPEN
-  ) {
-
-    ws.send(data);
-
-  }
-
-}
-
-
-/* =====================================================
-   START SERVER
+   サーバー起動
 ===================================================== */
 
 server.listen(
@@ -1635,11 +1784,11 @@ server.listen(
   () => {
 
     console.log(
-      "================================="
+      "======================================"
     );
 
     console.log(
-      "VoiceポタLive started"
+      "VoiceポタLive server started"
     );
 
     console.log(
@@ -1648,7 +1797,22 @@ server.listen(
     );
 
     console.log(
-      "================================="
+      "HOST:",
+      HOST
+    );
+
+    console.log(
+      "Ranking:",
+      ranking.length
+    );
+
+    console.log(
+      "Newcomers:",
+      newcomers.length
+    );
+
+    console.log(
+      "======================================"
     );
 
   }

@@ -1,25 +1,29 @@
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 8080;
 const HOST = "0.0.0.0";
 
 /*
-  VoiceボタLive
-  - WebRTC低遅延音声
-  - 人気トップ50
-  - 新人ライバー
-  - 横スクロール10人
-  - 一覧ページ
-  - ギフト
-  - いいね
-  - ブロック
-  - 配信画面カスタム
-  - 画像を切らない object-fit:contain
+  VoiceボタLive - stable integrated version
+  - WebRTC audio path kept from the previously working low-latency version
+  - Home / TOP50 / 新人ライバー pages
+  - Horizontal ranking previews (10 entries)
+  - Live screen: gift / like / block / custom image
+  - Comments
+  - Images use object-fit:contain so they are never cropped
 */
 
-const HERO_IMAGE_URL =
-  "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1200&q=90";
+const PUBLIC_DIR = path.join(__dirname, "public");
+
+if (!fs.existsSync(PUBLIC_DIR)) {
+  fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+}
+
+// public/home.png
+const HERO_IMAGE_URL = "/home.png";
 
 const RANK_IMAGES = [
   "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=700&q=85",
@@ -34,19 +38,63 @@ const RANK_IMAGES = [
   "https://images.unsplash.com/photo-1503095396549-807759245b35?auto=format&fit=crop&w=700&q=85"
 ];
 
-const HERO_COPY = "声でつながる、みんなの居場所。";
-const HERO_TITLE = "あなたの声が、誰かの夜を照らす。";
+const HERO_COPY =
+  "声でつながる、みんなの居場所。";
+
+const HERO_TITLE =
+  "あなたの声が、誰かの夜を照らす。";
 
 const names = [
-  "月夜ぼた","蒼い月","花音","夜空りん","ミルキー","星乃こえ",
-  "しずく","月灯り","あかね","みお","ルナ","そらね",
-  "ゆら","ひなた","ことは","あお","みつき","ほたる",
-  "しおん","りつ","ねむ","すず","こはる","あんず",
-  "つむぎ","なぎ","ひかり","さくら","ゆめ","かえで",
-  "みなと","れん","あいり","ゆき","ましろ","うた",
-  "りお","こよみ","かなで","なな","つき","こまち",
-  "あおい","すみれ","ちさ","えま","ゆう","りんね",
-  "ほのか","せな"
+  "月夜ぼた",
+  "蒼い月",
+  "花音",
+  "夜空りん",
+  "ミルキー",
+  "星乃こえ",
+  "しずく",
+  "月灯り",
+  "あかね",
+  "みお",
+  "ルナ",
+  "そらね",
+  "ゆら",
+  "ひなた",
+  "ことは",
+  "あお",
+  "みつき",
+  "ほたる",
+  "しおん",
+  "りつ",
+  "ねむ",
+  "すず",
+  "こはる",
+  "あんず",
+  "つむぎ",
+  "なぎ",
+  "ひかり",
+  "さくら",
+  "ゆめ",
+  "かえで",
+  "みなと",
+  "れん",
+  "あいり",
+  "ゆき",
+  "ましろ",
+  "うた",
+  "りお",
+  "こよみ",
+  "かなで",
+  "なな",
+  "つき",
+  "こまち",
+  "あおい",
+  "すみれ",
+  "ちさ",
+  "えま",
+  "ゆう",
+  "りんね",
+  "ほのか",
+  "せな"
 ];
 
 const top50 = names.map((name, i) => ({
@@ -59,12 +107,20 @@ const top50 = names.map((name, i) => ({
   room: "月光花の部屋"
 }));
 
-const newcomers = Array.from({length: 30}, (_, i) => ({
+const newcomers = Array.from({ length: 30 }, (_, i) => ({
   rank: i + 1,
   name:
     [
-      "新人ぼた","はじめまして月","ことり声","新人ルナ","初配信あお",
-      "夜ふかし新人","新人かなで","星くず","新人しずく","月見うた"
+      "新人ぼた",
+      "はじめまして月",
+      "ことり声",
+      "新人ルナ",
+      "初配信あお",
+      "夜ふかし新人",
+      "新人かなで",
+      "星くず",
+      "新人しずく",
+      "月見うた"
     ][i % 10] + (i >= 10 ? i + 1 : ""),
   viewers: Math.max(1, 220 - i * 6),
   likes: Math.max(10, 1300 - i * 31),
@@ -75,7 +131,9 @@ const newcomers = Array.from({length: 30}, (_, i) => ({
 
 const HTML = `<!doctype html>
 <html lang="ja">
+
 <head>
+
 <meta charset="UTF-8">
 
 <meta
@@ -87,150 +145,156 @@ const HTML = `<!doctype html>
 
 <style>
 
-*{
-  box-sizing:border-box;
+* {
+  box-sizing: border-box;
 }
 
-:root{
-  --bg:#050713;
-  --panel:#0d1125;
-  --panel2:#121938;
-  --line:#282d55;
-  --text:#fff;
-  --muted:#9da6c9;
-  --blue:#4fc8ff;
-  --violet:#8d67ff;
-  --pink:#f14cff;
-  --danger:#ff426d;
-  --green:#63f7ae;
+:root {
+  --bg: #050713;
+  --panel: #0d1125;
+  --panel2: #121938;
+  --line: #282d55;
+  --text: #fff;
+  --muted: #9da6c9;
+  --blue: #4fc8ff;
+  --violet: #8d67ff;
+  --pink: #f14cff;
+  --danger: #ff426d;
+  --green: #63f7ae;
 }
 
 html,
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:Arial,"Noto Sans JP",sans-serif;
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, "Noto Sans JP", sans-serif;
 }
 
-body{
-  min-height:100vh;
-  overflow-x:hidden;
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
-input{
-  font:inherit;
+input {
+  font: inherit;
 }
 
-button{
-  cursor:pointer;
+button {
+  cursor: pointer;
 }
 
-.hidden{
-  display:none!important;
+.hidden {
+  display: none !important;
 }
 
-#app{
-  min-height:100vh;
-  padding-bottom:92px;
+#app {
+  min-height: 100vh;
+  padding-bottom: 92px;
 }
 
-.topbar{
-  position:sticky;
-  top:0;
-  z-index:50;
-  height:62px;
-  padding:0 16px;
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 62px;
+  padding: 0 16px;
 
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
-  background:rgba(5,7,19,.92);
-  backdrop-filter:blur(18px);
+  background: rgba(5, 7, 19, 0.92);
+  backdrop-filter: blur(18px);
 
-  border-bottom:1px solid rgba(255,255,255,.07);
+  border-bottom: 1px solid rgba(255,255,255,.07);
 }
 
-.brand{
-  font-size:21px;
-  font-weight:900;
+.brand {
+  font-size: 21px;
+  font-weight: 900;
 
-  background:linear-gradient(
-    90deg,
-    #fff,
-    #5bd6ff,
-    #cf74ff
-  );
+  background:
+    linear-gradient(
+      90deg,
+      #fff,
+      #5bd6ff,
+      #cf74ff
+    );
 
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.online{
-  font-size:11px;
-  color:#8fffc0;
+.online {
+  font-size: 11px;
+  color: #8fffc0;
 
-  display:flex;
-  gap:6px;
-  align-items:center;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
-.online i{
-  width:7px;
-  height:7px;
-  border-radius:50%;
-  background:#5dffab;
-  box-shadow:0 0 12px #5dffab;
+.online i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+
+  background: #5dffab;
+
+  box-shadow:
+    0 0 12px #5dffab;
 }
 
-.page{
-  max-width:760px;
-  margin:auto;
-  padding:12px 12px 30px;
+.page {
+  max-width: 760px;
+  margin: auto;
+  padding: 12px 12px 30px;
 }
 
-.hero{
-  position:relative;
-  overflow:hidden;
+.hero {
+  position: relative;
+  overflow: hidden;
 
-  border-radius:28px;
-  min-height:560px;
+  border-radius: 28px;
+  min-height: 560px;
 
-  background:#070914;
-  border:1px solid #2a2e58;
+  background: #070914;
+
+  border: 1px solid #2a2e58;
 
   box-shadow:
     0 20px 70px rgba(52,60,170,.22);
 }
 
-.hero-img-wrap{
-  position:absolute;
-  inset:0;
+.hero-img-wrap {
+  position: absolute;
+  inset: 0;
 
-  background:#02030a;
+  background: #02030a;
 
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.hero-img{
-  width:100%;
-  height:100%;
+.hero-img {
+  width: 100%;
+  height: 100%;
 
-  object-fit:contain;
-  object-position:center;
+  object-fit: contain;
+  object-position: center;
 
-  display:block;
-  opacity:.78;
+  display: block;
+
+  opacity: .78;
 }
 
-.hero-shade{
-  position:absolute;
-  inset:0;
+.hero-shade {
+  position: absolute;
+  inset: 0;
 
   background:
     linear-gradient(
@@ -241,76 +305,83 @@ button{
     );
 }
 
-.hero-content{
-  position:relative;
-  z-index:2;
+.hero-content {
+  position: relative;
+  z-index: 2;
 
-  min-height:560px;
+  min-height: 560px;
 
-  padding:32px 22px 25px;
+  padding: 32px 22px 25px;
 
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-end;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
-.pill{
-  align-self:flex-start;
+.pill {
+  align-self: flex-start;
 
-  padding:7px 11px;
+  padding: 7px 11px;
 
-  border:1px solid rgba(130,205,255,.35);
-  border-radius:999px;
+  border: 1px solid rgba(130,205,255,.35);
 
-  background:rgba(10,20,50,.58);
+  border-radius: 999px;
 
-  font-size:11px;
+  background: rgba(10,20,50,.58);
+
+  font-size: 11px;
 }
 
-.hero h1{
-  font-size:42px;
-  line-height:1.05;
+.hero h1 {
+  font-size: 42px;
+  line-height: 1.05;
 
-  margin:14px 0 8px;
+  margin: 14px 0 8px;
 
-  letter-spacing:-1.5px;
+  letter-spacing: -1.5px;
 }
 
-.hero .sub{
-  font-size:14px;
-  color:#d8dcf3;
-  letter-spacing:1px;
+.hero .sub {
+  font-size: 14px;
+  color: #d8dcf3;
+  letter-spacing: 1px;
 }
 
-.hero .copy{
-  font-size:27px;
-  line-height:1.4;
-  font-weight:900;
-  margin-top:16px;
+.hero .copy {
+  font-size: 27px;
+  line-height: 1.4;
+
+  font-weight: 900;
+
+  margin-top: 16px;
 }
 
-.hero .desc{
-  color:#c2c7dc;
-  font-size:12px;
-  line-height:1.8;
-  margin-top:10px;
+.hero .desc {
+  color: #c2c7dc;
+
+  font-size: 12px;
+  line-height: 1.8;
+
+  margin-top: 10px;
 }
 
 .primary,
-.secondary{
-  width:100%;
+.secondary {
+  width: 100%;
 
-  border:0;
-  border-radius:17px;
+  border-radius: 17px;
 
-  padding:15px;
-  margin-top:14px;
+  padding: 15px;
 
-  font-weight:900;
+  margin-top: 14px;
+
+  font-weight: 900;
 }
 
-.primary{
-  color:#fff;
+.primary {
+  border: 0;
+
+  color: #fff;
 
   background:
     linear-gradient(
@@ -324,61 +395,64 @@ button{
     0 12px 30px rgba(109,73,255,.3);
 }
 
-.secondary{
-  color:#eee;
+.secondary {
+  color: #eee;
 
-  border:1px solid #41466e;
+  border: 1px solid #41466e;
 
-  background:rgba(10,13,30,.75);
+  background: rgba(10,13,30,.75);
 }
 
-.section{
-  margin-top:22px;
+.section {
+  margin-top: 22px;
 }
 
-.section-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+.section-head {
+  display: flex;
 
-  margin:0 4px 10px;
+  justify-content: space-between;
+  align-items: center;
+
+  margin: 0 4px 10px;
 }
 
-.section-title{
-  font-size:20px;
-  font-weight:900;
+.section-title {
+  font-size: 20px;
+  font-weight: 900;
 }
 
-.more{
-  font-size:12px;
-  color:#b28cff;
+.more {
+  font-size: 12px;
+  color: #b28cff;
 
-  background:none;
-  border:0;
+  background: none;
+  border: 0;
 }
 
-.scroller{
-  display:flex;
-  gap:10px;
+.scroller {
+  display: flex;
 
-  overflow-x:auto;
+  gap: 10px;
 
-  padding:2px 2px 10px;
+  overflow-x: auto;
 
-  scroll-snap-type:x proximity;
+  padding: 2px 2px 10px;
+
+  scroll-snap-type: x proximity;
 }
 
-.scroller::-webkit-scrollbar{
-  display:none;
+.scroller::-webkit-scrollbar {
+  display: none;
 }
 
-.rank-card{
-  flex:0 0 112px;
+.rank-card {
+  flex: 0 0 112px;
 
-  scroll-snap-align:start;
+  scroll-snap-align: start;
 
-  border-radius:17px;
-  overflow:hidden;
+  border-radius: 17px;
+
+  overflow: hidden;
 
   background:
     linear-gradient(
@@ -387,156 +461,172 @@ button{
       #0c1024
     );
 
-  border:1px solid #272d55;
+  border: 1px solid #272d55;
 
-  position:relative;
+  position: relative;
 }
 
-.rank-img{
-  width:100%;
-  height:128px;
+.rank-img {
+  width: 100%;
+  height: 128px;
 
-  display:block;
+  display: block;
 
-  object-fit:contain;
+  object-fit: contain;
 
-  background:#05060d;
+  background: #05060d;
 }
 
-.rank-body{
-  padding:8px;
+.rank-body {
+  padding: 8px;
 }
 
-.rank-no{
-  font-size:10px;
-  color:#aeb5d2;
+.rank-no {
+  font-size: 10px;
+  color: #aeb5d2;
 }
 
-.rank-name{
-  font-size:12px;
-  font-weight:900;
+.rank-name {
+  font-size: 12px;
+  font-weight: 900;
 
-  margin-top:2px;
+  margin-top: 2px;
 
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.rank-meta{
-  font-size:9px;
-  color:#9199ba;
+.rank-meta {
+  font-size: 9px;
 
-  margin-top:4px;
+  color: #9199ba;
+
+  margin-top: 4px;
 }
 
-.live-pill{
-  position:absolute;
-  top:7px;
-  left:7px;
+.live-pill {
+  position: absolute;
 
-  background:#f02c7d;
-  color:#fff;
+  top: 7px;
+  left: 7px;
 
-  padding:4px 7px;
+  background: #f02c7d;
+  color: #fff;
 
-  border-radius:999px;
+  padding: 4px 7px;
 
-  font-size:8px;
-  font-weight:900;
+  border-radius: 999px;
+
+  font-size: 8px;
+
+  font-weight: 900;
 }
 
-.features{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
+.features {
+  display: grid;
 
-  gap:10px;
+  grid-template-columns:
+    repeat(2, 1fr);
 
-  margin-top:18px;
+  gap: 10px;
+
+  margin-top: 18px;
 }
 
-.feature{
-  padding:15px;
+.feature {
+  padding: 15px;
 
-  border-radius:18px;
+  border-radius: 18px;
 
-  background:#0d1127;
+  background: #0d1127;
 
-  border:1px solid #24294e;
+  border: 1px solid #24294e;
 }
 
-.feature b{
-  font-size:13px;
+.feature b {
+  font-size: 13px;
 }
 
-.feature p{
-  font-size:10px;
-  color:#8f98ba;
+.feature p {
+  font-size: 10px;
 
-  line-height:1.6;
+  color: #8f98ba;
 
-  margin:6px 0 0;
+  line-height: 1.6;
+
+  margin: 6px 0 0;
 }
 
-.bottom-nav{
-  position:fixed;
+.bottom-nav {
+  position: fixed;
 
-  z-index:100;
+  z-index: 100;
 
-  left:0;
-  right:0;
-  bottom:0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 
-  height:78px;
+  height: 78px;
 
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
+  display: grid;
 
-  align-items:center;
+  grid-template-columns:
+    repeat(5, 1fr);
 
-  background:rgba(5,7,19,.95);
+  align-items: center;
 
-  backdrop-filter:blur(18px);
+  background:
+    rgba(5,7,19,.95);
 
-  border-top:1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(18px);
 
-  padding-bottom:env(safe-area-inset-bottom);
+  border-top:
+    1px solid rgba(255,255,255,.08);
+
+  padding-bottom:
+    env(safe-area-inset-bottom);
 }
 
-.nav-item{
-  background:none;
-  border:0;
+.nav-item {
+  background: none;
 
-  color:#7f88ad;
+  border: 0;
 
-  font-size:10px;
-  font-weight:700;
+  color: #7f88ad;
 
-  display:flex;
-  flex-direction:column;
-  align-items:center;
+  font-size: 10px;
 
-  gap:4px;
+  font-weight: 700;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 4px;
 }
 
-.nav-item.active{
-  color:#bd8cff;
+.nav-item.active {
+  color: #bd8cff;
 }
 
-.nav-icon{
-  font-size:21px;
+.nav-icon {
+  font-size: 21px;
 }
 
-.nav-center{
-  width:54px;
-  height:54px;
+.nav-center {
+  width: 54px;
+  height: 54px;
 
-  margin-top:-26px;
+  margin-top: -26px;
 
-  border-radius:50%;
+  border-radius: 50%;
 
-  display:grid;
-  place-items:center;
+  display: grid;
+
+  place-items: center;
 
   background:
     linear-gradient(
@@ -546,201 +636,210 @@ button{
       #e34cff
     );
 
-  border:3px solid #111632;
+  border: 3px solid #111632;
 
   box-shadow:
     0 0 28px rgba(111,91,255,.65);
 
-  font-size:24px;
-  color:#fff;
+  font-size: 24px;
+
+  color: #fff;
 }
 
-.page-view{
-  padding-top:4px;
+.page-view {
+  padding-top: 4px;
 }
 
-.back{
-  border:0;
-  background:none;
+.back {
+  border: 0;
 
-  color:#b18bff;
+  background: none;
 
-  padding:8px 0;
+  color: #b18bff;
 
-  font-weight:900;
+  padding: 8px 0;
+
+  font-weight: 900;
 }
 
-.list-grid{
-  display:grid;
+.list-grid {
+  display: grid;
 
-  grid-template-columns:repeat(2,1fr);
+  grid-template-columns:
+    repeat(2, 1fr);
 
-  gap:10px;
+  gap: 10px;
 }
 
-.list-card{
-  border:1px solid #282d55;
-  border-radius:18px;
+.list-card {
+  border:
+    1px solid #282d55;
 
-  overflow:hidden;
+  border-radius: 18px;
 
-  background:#0d1127;
+  overflow: hidden;
+
+  background: #0d1127;
 }
 
-.list-card img{
-  width:100%;
-  height:160px;
+.list-card img {
+  width: 100%;
+  height: 160px;
 
-  object-fit:contain;
+  object-fit: contain;
 
-  background:#05060d;
+  background: #05060d;
 
-  display:block;
+  display: block;
 }
 
-.list-card .lb{
-  padding:10px;
+.list-card .lb {
+  padding: 10px;
 }
 
-.list-card .nm{
-  font-weight:900;
+.list-card .nm {
+  font-weight: 900;
 }
 
-.list-card .sm{
-  font-size:10px;
+.list-card .sm {
+  font-size: 10px;
 
-  color:#9099b8;
+  color: #9099b8;
 
-  margin-top:4px;
+  margin-top: 4px;
 }
 
-.live-screen{
-  position:fixed;
+.live-screen {
+  position: fixed;
 
-  inset:0;
+  inset: 0;
 
-  z-index:200;
+  z-index: 200;
 
-  background:#02030a;
+  background: #02030a;
 
-  color:#fff;
+  color: #fff;
 
-  overflow:auto;
+  overflow: auto;
 
-  padding-bottom:28px;
+  padding-bottom: 28px;
 }
 
-.live-top{
-  height:58px;
+.live-top {
+  height: 58px;
 
-  display:flex;
+  display: flex;
 
-  align-items:center;
+  align-items: center;
 
-  justify-content:space-between;
+  justify-content: space-between;
 
-  padding:0 14px;
+  padding: 0 14px;
 
-  position:sticky;
+  position: sticky;
 
-  top:0;
+  top: 0;
 
-  z-index:3;
+  z-index: 3;
 
-  background:rgba(0,0,0,.72);
+  background:
+    rgba(0,0,0,.72);
 
-  backdrop-filter:blur(14px);
+  backdrop-filter: blur(14px);
 }
 
-.live-title{
-  font-weight:900;
+.live-title {
+  font-weight: 900;
 }
 
-.live-dot{
-  color:#ff4d91;
+.live-dot {
+  color: #ff4d91;
 
-  font-size:11px;
+  font-size: 11px;
 
-  font-weight:900;
+  font-weight: 900;
 }
 
-.live-media{
-  width:100%;
+.live-media {
+  width: 100%;
 
-  height:min(68vh,620px);
+  height:
+    min(68vh,620px);
 
-  background:#000;
+  background: #000;
 
-  display:flex;
+  display: flex;
 
-  align-items:center;
+  align-items: center;
 
-  justify-content:center;
+  justify-content: center;
 
-  border-bottom:1px solid #1d2140;
+  border-bottom:
+    1px solid #1d2140;
 }
 
-.live-media img{
-  width:100%;
-  height:100%;
+.live-media img {
+  width: 100%;
+  height: 100%;
 
-  object-fit:contain;
+  object-fit: contain;
 
-  display:block;
+  display: block;
 }
 
-.live-info{
-  padding:13px 14px;
+.live-info {
+  padding: 13px 14px;
 }
 
-.host-name{
-  font-size:19px;
-  font-weight:900;
+.host-name {
+  font-size: 19px;
+  font-weight: 900;
 }
 
-.viewers{
-  font-size:11px;
+.viewers {
+  font-size: 11px;
 
-  color:#9da6c9;
+  color: #9da6c9;
 
-  margin-top:3px;
+  margin-top: 3px;
 }
 
-.tagline{
-  color:#c7cbe0;
+.tagline {
+  color: #c7cbe0;
 
-  font-size:12px;
+  font-size: 12px;
 
-  line-height:1.7;
+  line-height: 1.7;
 
-  margin-top:10px;
+  margin-top: 10px;
 }
 
-.actions{
-  display:grid;
+.actions {
+  display: grid;
 
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:
+    repeat(3, 1fr);
 
-  gap:8px;
+  gap: 8px;
 
-  margin-top:13px;
+  margin-top: 13px;
 }
 
-.action{
-  border:0;
+.action {
+  border: 0;
 
-  border-radius:14px;
+  border-radius: 14px;
 
-  padding:12px 6px;
+  padding: 12px 6px;
 
-  font-weight:900;
+  font-weight: 900;
 
-  color:#fff;
+  color: #fff;
 
-  background:#151a38;
+  background: #151a38;
 }
 
-.action.gift{
+.action.gift {
   background:
     linear-gradient(
       90deg,
@@ -749,7 +848,7 @@ button{
     );
 }
 
-.action.like{
+.action.like {
   background:
     linear-gradient(
       90deg,
@@ -758,82 +857,86 @@ button{
     );
 }
 
-.action.block{
-  background:#2a0e1a;
+.action.block {
+  background: #2a0e1a;
 }
 
-.count{
-  font-size:10px;
-  opacity:.85;
+.count {
+  font-size: 10px;
 
-  margin-left:3px;
+  opacity: .85;
+
+  margin-left: 3px;
 }
 
-.custom-panel{
-  margin-top:12px;
+.custom-panel {
+  margin-top: 12px;
 
-  padding:12px;
+  padding: 12px;
 
-  border-radius:16px;
+  border-radius: 16px;
 
-  background:#0d1128;
+  background: #0d1128;
 
-  border:1px solid #252a4d;
+  border:
+    1px solid #252a4d;
 }
 
-.custom-panel h3{
-  font-size:13px;
+.custom-panel h3 {
+  font-size: 13px;
 
-  margin:0 0 8px;
+  margin: 0 0 8px;
 }
 
-.custom-row{
-  display:flex;
-  gap:7px;
+.custom-row {
+  display: flex;
+
+  gap: 7px;
 }
 
-.custom-row input{
-  min-width:0;
+.custom-row input {
+  min-width: 0;
 
-  flex:1;
+  flex: 1;
 
-  border:1px solid #343a63;
+  border:
+    1px solid #343a63;
 
-  background:#070914;
+  background: #070914;
 
-  color:#fff;
+  color: #fff;
 
-  border-radius:11px;
+  border-radius: 11px;
 
-  padding:10px;
+  padding: 10px;
 
-  font-size:11px;
+  font-size: 11px;
 }
 
-.small-btn{
-  border:0;
+.small-btn {
+  border: 0;
 
-  border-radius:11px;
+  border-radius: 11px;
 
-  padding:0 12px;
+  padding: 0 12px;
 
-  background:#7564ff;
+  background: #7564ff;
 
-  color:#fff;
+  color: #fff;
 
-  font-weight:900;
+  font-weight: 900;
 }
 
-.stop-live{
-  width:100%;
+.stop-live {
+  width: 100%;
 
-  border:0;
+  border: 0;
 
-  border-radius:14px;
+  border-radius: 14px;
 
-  padding:14px;
+  padding: 14px;
 
-  margin-top:12px;
+  margin-top: 12px;
 
   background:
     linear-gradient(
@@ -842,145 +945,243 @@ button{
       #a845ff
     );
 
-  color:#fff;
+  color: #fff;
 
-  font-weight:900;
+  font-weight: 900;
 }
 
-.audio-on{
-  width:100%;
+.audio-on {
+  width: 100%;
 
-  border:0;
+  border: 0;
 
-  border-radius:14px;
+  border-radius: 14px;
 
-  padding:14px;
+  padding: 14px;
 
-  margin-top:10px;
+  margin-top: 10px;
 
-  background:#ffbf3e;
+  background: #ffbf3e;
 
-  color:#1c1200;
+  color: #1c1200;
 
-  font-weight:900;
+  font-weight: 900;
 }
 
-.gift-panel{
-  position:fixed;
+.gift-panel {
+  position: fixed;
 
-  left:10px;
-  right:10px;
+  left: 10px;
+  right: 10px;
 
-  bottom:88px;
+  bottom: 88px;
 
-  z-index:220;
+  z-index: 220;
 
-  padding:12px;
+  padding: 12px;
 
-  border-radius:20px;
+  border-radius: 20px;
 
-  background:rgba(12,15,34,.98);
+  background:
+    rgba(12,15,34,.98);
 
-  border:1px solid #3a3f6b;
+  border:
+    1px solid #3a3f6b;
 
   box-shadow:
     0 20px 60px rgba(0,0,0,.5);
 }
 
-.gift-grid{
-  display:grid;
+.gift-grid {
+  display: grid;
 
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:
+    repeat(4, 1fr);
 
-  gap:8px;
+  gap: 8px;
 }
 
-.gift-btn{
-  border:0;
+.gift-btn {
+  border: 0;
 
-  border-radius:14px;
+  border-radius: 14px;
 
-  padding:10px 3px;
+  padding: 10px 3px;
 
-  background:#171c3d;
+  background: #171c3d;
 
-  color:#fff;
+  color: #fff;
 }
 
-.gift-btn b{
-  display:block;
-  font-size:22px;
+.gift-btn b {
+  display: block;
+
+  font-size: 22px;
 }
 
-.gift-btn span{
-  font-size:9px;
+.gift-btn span {
+  font-size: 9px;
 }
 
-.status{
-  margin-top:10px;
+.status {
+  margin-top: 10px;
 
-  padding:10px;
+  padding: 10px;
 
-  border-radius:12px;
+  border-radius: 12px;
 
-  background:#0d1229;
+  background: #0d1229;
 
-  border:1px solid #252b50;
+  border:
+    1px solid #252b50;
 
-  color:#aab2d0;
+  color: #aab2d0;
 
-  text-align:center;
+  text-align: center;
 
-  font-size:11px;
+  font-size: 11px;
 }
 
-.log{
-  margin:10px 14px;
+.comments {
+  margin-top: 14px;
 
-  padding:10px;
+  border:
+    1px solid #252b50;
 
-  background:#05060d;
+  background: #080b18;
 
-  border-radius:12px;
+  border-radius: 16px;
 
-  min-height:60px;
-
-  max-height:140px;
-
-  overflow:auto;
-
-  color:#75ffc1;
-
-  font-size:10px;
-
-  white-space:pre-wrap;
+  padding: 10px;
 }
 
-@media(min-width:650px){
+.comments-title {
+  font-size: 12px;
 
-  .hero h1{
-    font-size:58px;
+  font-weight: 900;
+
+  margin-bottom: 8px;
+}
+
+.comment-list {
+  height: 150px;
+
+  overflow: auto;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+.comment {
+  font-size: 11px;
+
+  color: #eef1ff;
+
+  line-height: 1.45;
+}
+
+.comment b {
+  color: #9fc9ff;
+}
+
+.comment-form {
+  display: flex;
+
+  gap: 7px;
+
+  margin-top: 8px;
+}
+
+.comment-form input {
+  min-width: 0;
+
+  flex: 1;
+
+  border:
+    1px solid #343a63;
+
+  background: #05060d;
+
+  color: #fff;
+
+  border-radius: 11px;
+
+  padding: 11px;
+
+  font-size: 12px;
+}
+
+.comment-form button {
+  border: 0;
+
+  border-radius: 11px;
+
+  padding: 0 14px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #20caff,
+      #7866ff
+    );
+
+  color: #fff;
+
+  font-weight: 900;
+}
+
+.log {
+  margin: 10px 14px;
+
+  padding: 10px;
+
+  background: #05060d;
+
+  border-radius: 12px;
+
+  min-height: 60px;
+
+  max-height: 140px;
+
+  overflow: auto;
+
+  color: #75ffc1;
+
+  font-size: 10px;
+
+  white-space: pre-wrap;
+}
+
+@media(min-width:650px) {
+
+  .hero h1 {
+    font-size: 58px;
   }
 
-  .hero-content{
-    padding:45px 38px;
+  .hero-content {
+    padding: 45px 38px;
   }
 
-  .list-grid{
-    grid-template-columns:repeat(4,1fr);
+  .list-grid {
+    grid-template-columns:
+      repeat(4, 1fr);
   }
 
-  .rank-card{
-    flex-basis:140px;
+  .rank-card {
+    flex-basis: 140px;
   }
 
-  .rank-img{
-    height:160px;
+  .rank-img {
+    height: 160px;
   }
 
 }
 
 </style>
+
 </head>
 
 <body>
@@ -988,13 +1189,18 @@ button{
 <div id="app">
 
 <header class="topbar">
-  <div class="brand">VoiceボタLive</div>
+
+  <div class="brand">
+    VoiceボタLive
+  </div>
 
   <div class="online">
     <i></i>
     オンライン
   </div>
+
 </header>
+
 
 <main class="page" id="homePage">
 
@@ -1011,6 +1217,7 @@ button{
     <div class="hero-shade"></div>
 
   </div>
+
 
   <div class="hero-content">
 
@@ -1053,6 +1260,7 @@ button{
 
 </section>
 
+
 <section class="section">
 
   <div class="section-head">
@@ -1076,6 +1284,7 @@ button{
   ></div>
 
 </section>
+
 
 <section class="section">
 
@@ -1101,39 +1310,41 @@ button{
 
 </section>
 
+
 <section class="features">
 
   <div class="feature">
     <b>🎙️ 高音質音声</b>
     <p>
-      WebRTCによる低遅延音声配信。
+      前に音声が聞こえていたWebRTC経路をそのまま使用。
     </p>
   </div>
 
   <div class="feature">
     <b>⚡ 低遅延</b>
     <p>
-      Opusと受信側の低遅延設定。
+      Opusと受信側の低遅延設定を維持。
     </p>
   </div>
 
   <div class="feature">
     <b>🎁 ギフト・いいね</b>
     <p>
-      ライブ中にリアルタイム送信。
+      ライブ中にリアルタイムで送信。
     </p>
   </div>
 
   <div class="feature">
     <b>🚫 ブロック</b>
     <p>
-      視聴者側からブロックできます。
+      視聴者側から配信者をブロック。
     </p>
   </div>
 
 </section>
 
 </main>
+
 
 <main
   class="page page-view hidden"
@@ -1155,6 +1366,7 @@ button{
   ></div>
 
 </main>
+
 
 <nav class="bottom-nav">
 
@@ -1178,7 +1390,9 @@ button{
     class="nav-item"
     onclick="startHost()"
   >
-    <span class="nav-center">🎙️</span>
+    <span class="nav-center">
+      🎙️
+    </span>
     配信
   </button>
 
@@ -1201,6 +1415,7 @@ button{
 </nav>
 
 </div>
+
 
 <div
   id="liveScreen"
@@ -1227,6 +1442,7 @@ button{
 
   </div>
 
+
   <div class="live-media">
 
     <img
@@ -1236,6 +1452,7 @@ button{
     >
 
   </div>
+
 
   <div class="live-info">
 
@@ -1253,6 +1470,38 @@ button{
     <div class="tagline">
       声でつながる、みんなの居場所。
     </div>
+
+
+    <div class="comments">
+
+      <div class="comments-title">
+        💬 コメント
+      </div>
+
+      <div
+        id="commentList"
+        class="comment-list"
+      ></div>
+
+      <form
+        class="comment-form"
+        onsubmit="sendComment(event)"
+      >
+
+        <input
+          id="commentInput"
+          maxlength="120"
+          placeholder="コメントを入力"
+        >
+
+        <button type="submit">
+          送信
+        </button>
+
+      </form>
+
+    </div>
+
 
     <div class="actions">
 
@@ -1284,6 +1533,7 @@ button{
       </button>
 
     </div>
+
 
     <div
       id="customPanel"
@@ -1320,12 +1570,14 @@ button{
 
     </div>
 
+
     <button
       class="secondary"
       onclick="toggleCustom()"
     >
       🎨 配信画面カスタムを開く
     </button>
+
 
     <button
       id="audioButton"
@@ -1335,12 +1587,14 @@ button{
       🔊 音声をONにする
     </button>
 
+
     <button
       class="stop-live"
       onclick="stopLive()"
     >
       ⛔ 配信を終了する
     </button>
+
 
     <div
       id="liveStatus"
@@ -1351,12 +1605,14 @@ button{
 
   </div>
 
+
   <div
     id="log"
     class="log"
   ></div>
 
 </div>
+
 
 <div
   id="giftPanel"
@@ -1401,42 +1657,56 @@ button{
 
 </div>
 
+
 <audio
   id="remoteAudio"
   autoplay
   playsinline
 ></audio>
 
+
 <script>
 
 "use strict";
 
+
 const top50 = ${JSON.stringify(top50)};
+
 const newcomers = ${JSON.stringify(newcomers)};
-const defaultLiveImage = ${JSON.stringify(RANK_IMAGES[0])};
+
+const defaultLiveImage =
+  ${JSON.stringify(HERO_IMAGE_URL)};
+
 
 let ws = null;
+
 let myId = null;
+
 let myRole = null;
 
 let localStream = null;
 
 let viewerPeer = null;
+
 let viewerId = null;
 
 let viewerConnections = new Map();
 
 let pendingCandidates = [];
+
 let hostPendingCandidates = new Map();
 
 let reconnectTimer = null;
 
 let manuallyStopped = false;
+
 let roomJoined = false;
 
 let likeCount = 0;
 
+
 const room = "bota";
+
 
 const liveScreen =
   document.getElementById("liveScreen");
@@ -1450,175 +1720,261 @@ const liveImage =
 const liveLog =
   document.getElementById("log");
 
+const commentList =
+  document.getElementById("commentList");
+
+const commentInput =
+  document.getElementById("commentInput");
+
 const remoteAudio =
   document.getElementById("remoteAudio");
 
-function log(text){
+
+function log(text) {
 
   console.log(text);
 
-  liveLog.textContent += text + "\\n";
+  liveLog.textContent +=
+    text + "\\n";
 
   liveLog.scrollTop =
     liveLog.scrollHeight;
 }
 
-function setLiveStatus(text){
 
-  liveStatus.textContent = text;
+function setLiveStatus(text) {
 
+  liveStatus.textContent =
+    text;
 }
+
+
+function addComment(name, text) {
+
+  const div =
+    document.createElement("div");
+
+  div.className =
+    "comment";
+
+
+  const b =
+    document.createElement("b");
+
+  b.textContent =
+    name + "：";
+
+
+  div.appendChild(b);
+
+
+  div.appendChild(
+    document.createTextNode(text)
+  );
+
+
+  commentList.appendChild(div);
+
+
+  while (
+    commentList.children.length > 80
+  ) {
+
+    commentList.removeChild(
+      commentList.firstChild
+    );
+
+  }
+
+
+  commentList.scrollTop =
+    commentList.scrollHeight;
+}
+
+
+function sendComment(event) {
+
+  event.preventDefault();
+
+  const text =
+    commentInput.value.trim();
+
+  if (!text) return;
+
+  send({
+    type: "comment",
+    text
+  });
+
+  commentInput.value = "";
+}
+
 
 function renderCards(
   list,
   targetId,
   limit
-){
+) {
 
   const el =
     document.getElementById(targetId);
 
+
   el.innerHTML =
-    list.slice(0,limit).map(x => \`
-
-      <article
-        class="rank-card"
-        onclick="startViewer()"
-      >
-
-        \${x.live
-          ? '<div class="live-pill">LIVE</div>'
-          : ''
-        }
-
-        <img
-          class="rank-img"
-          src="\${x.image}"
-          alt=""
-          loading="lazy"
-        >
-
-        <div class="rank-body">
-
-          <div class="rank-no">
-            #\${x.rank}
-          </div>
-
-          <div class="rank-name">
-            \${x.name}
-          </div>
-
-          <div class="rank-meta">
-            👥 \${x.viewers}
-            ·
-            ♥ \${x.likes}
-          </div>
-
-        </div>
-
-      </article>
-
-    \`).join("");
-
-}
-
-function renderList(type){
-
-  const list =
-    type === "top50"
-      ? top50
-      : newcomers;
-
-  document
-    .getElementById("homePage")
-    .classList
-    .add("hidden");
-
-  document
-    .getElementById("listPage")
-    .classList
-    .remove("hidden");
-
-  document.getElementById("listTitle")
-    .textContent =
-      type === "top50"
-        ? "🏆 人気トップ50"
-        : "🌱 新人ライバー";
-
-  document.getElementById("listGrid")
-    .innerHTML =
-      list.map(x => \`
+    list
+      .slice(0, limit)
+      .map(x => `
 
         <article
-          class="list-card"
+          class="rank-card"
           onclick="startViewer()"
         >
 
+          ${
+            x.live
+              ? '<div class="live-pill">LIVE</div>'
+              : ''
+          }
+
           <img
-            src="\${x.image}"
+            class="rank-img"
+            src="${x.image}"
             alt=""
             loading="lazy"
           >
 
-          <div class="lb">
+          <div class="rank-body">
 
-            <div class="nm">
-              #\${x.rank}
-              \${x.name}
+            <div class="rank-no">
+              #${x.rank}
             </div>
 
-            <div class="sm">
-              \${x.live
-                ? "🔴 LIVE"
-                : "⚪ 待機中"
-              }
+            <div class="rank-name">
+              ${x.name}
+            </div>
 
-              👥 \${x.viewers}
-
-              ♥ \${x.likes}
+            <div class="rank-meta">
+              👥 ${x.viewers}
+              ·
+              ♥ ${x.likes}
             </div>
 
           </div>
 
         </article>
 
-      \`).join("");
-
-  window.scrollTo(0,0);
-
+      `)
+      .join("");
 }
 
-function openPage(page){
 
-  if(page === "home"){
+function renderList(type) {
+
+  const list =
+    type === "top50"
+      ? top50
+      : newcomers;
+
+
+  document
+    .getElementById("homePage")
+    .classList.add("hidden");
+
+
+  document
+    .getElementById("listPage")
+    .classList.remove("hidden");
+
+
+  document
+    .getElementById("listTitle")
+    .textContent =
+      type === "top50"
+        ? "🏆 人気トップ50"
+        : "🌱 新人ライバー";
+
+
+  document
+    .getElementById("listGrid")
+    .innerHTML =
+      list
+        .map(x => `
+
+          <article
+            class="list-card"
+            onclick="startViewer()"
+          >
+
+            <img
+              src="${x.image}"
+              alt=""
+              loading="lazy"
+            >
+
+            <div class="lb">
+
+              <div class="nm">
+                #${x.rank}
+                ${x.name}
+              </div>
+
+              <div class="sm">
+                ${
+                  x.live
+                    ? "🔴 LIVE"
+                    : "⚪ 待機中"
+                }
+
+                👥 ${x.viewers}
+
+                ♥ ${x.likes}
+
+              </div>
+
+            </div>
+
+          </article>
+
+        `)
+        .join("");
+
+
+  window.scrollTo(0, 0);
+}
+
+
+function openPage(page) {
+
+  if (page === "home") {
 
     document
       .getElementById("homePage")
-      .classList
-      .remove("hidden");
+      .classList.remove("hidden");
+
 
     document
       .getElementById("listPage")
-      .classList
-      .add("hidden");
+      .classList.add("hidden");
 
-  }else{
+  } else {
 
     renderList(page);
 
   }
+
 
   history.replaceState(
     {},
     "",
     page === "home"
       ? location.pathname
-      : "?page="+page
+      : "?page=" + page
   );
 
-  window.scrollTo(0,0);
 
+  window.scrollTo(0, 0);
 }
+
 
 renderCards(
   top50,
@@ -1626,27 +1982,31 @@ renderCards(
   10
 );
 
+
 renderCards(
   newcomers,
   "newPreview",
   10
 );
 
+
 const initialPage =
   new URLSearchParams(
     location.search
   ).get("page");
 
-if(
+
+if (
   initialPage === "top50" ||
   initialPage === "newcomers"
-){
+) {
 
   renderList(initialPage);
 
 }
 
-function getSocketURL(){
+
+function getSocketURL() {
 
   return (
     location.protocol === "https:"
@@ -1656,20 +2016,21 @@ function getSocketURL(){
 
 }
 
-function send(data){
 
-  if(
+function send(data) {
+
+  if (
     ws &&
     ws.readyState === WebSocket.OPEN
-  ){
+  ) {
 
-    try{
+    try {
 
       ws.send(
         JSON.stringify(data)
       );
 
-    }catch(e){
+    } catch (e) {
 
       log(
         "送信エラー: " +
@@ -1682,35 +2043,41 @@ function send(data){
 
 }
 
-function connectSocket(){
+
+function connectSocket() {
 
   return new Promise(
-    (resolve,reject)=>{
+    (resolve, reject) => {
 
-      if(
+      if (
         ws &&
-        ws.readyState === WebSocket.OPEN
-      ){
+        ws.readyState ===
+          WebSocket.OPEN
+      ) {
 
         resolve();
-        return;
 
+        return;
       }
+
 
       ws =
         new WebSocket(
           getSocketURL()
         );
 
+
       let settled = false;
 
-      ws.onopen = ()=>{
+
+      ws.onopen = () => {
 
         log(
           "WebSocket接続OK"
         );
 
-        if(!settled){
+
+        if (!settled) {
 
           settled = true;
 
@@ -1718,14 +2085,15 @@ function connectSocket(){
 
         }
 
-        if(
+
+        if (
           myRole &&
           !roomJoined
-        ){
+        ) {
 
           send({
-            type:"join",
-            role:myRole,
+            type: "join",
+            role: myRole,
             room
           });
 
@@ -1733,9 +2101,10 @@ function connectSocket(){
 
       };
 
-      ws.onerror = ()=>{
 
-        if(!settled){
+      ws.onerror = () => {
+
+        if (!settled) {
 
           settled = true;
 
@@ -1747,25 +2116,29 @@ function connectSocket(){
 
         }
 
+
         log(
           "WebSocketエラー"
         );
 
       };
 
-      ws.onclose = e=>{
+
+      ws.onclose = e => {
 
         roomJoined = false;
+
 
         log(
           "WebSocket切断 code=" +
           e.code
         );
 
-        if(
+
+        if (
           !manuallyStopped &&
           myRole
-        ){
+        ) {
 
           setLiveStatus(
             "接続が切れました。再接続中..."
@@ -1777,55 +2150,61 @@ function connectSocket(){
 
       };
 
-      ws.onmessage = async e=>{
 
-        try{
+      ws.onmessage =
+        async e => {
 
-          await handleMessage(
-            JSON.parse(e.data)
-          );
+          try {
 
-        }catch(err){
+            await handleMessage(
+              JSON.parse(e.data)
+            );
 
-          log(
-            "Message Error: " +
-            err.message
-          );
+          } catch (err) {
 
-        }
+            log(
+              "Message Error: " +
+              err.message
+            );
 
-      };
+          }
+
+        };
 
     }
   );
 
 }
 
-function scheduleReconnect(){
 
-  if(reconnectTimer)
+function scheduleReconnect() {
+
+  if (reconnectTimer)
     return;
+
 
   reconnectTimer =
     setTimeout(
-      async ()=>{
+      async () => {
 
         reconnectTimer = null;
 
-        if(
+
+        if (
           manuallyStopped ||
           !myRole
-        ){
+        ) {
 
           return;
 
         }
 
-        try{
+
+        try {
 
           await connectSocket();
 
-        }catch(e){
+        } catch (e) {
 
           scheduleReconnect();
 
@@ -1837,49 +2216,59 @@ function scheduleReconnect(){
 
 }
 
-async function startHost(){
+
+async function startHost() {
 
   manuallyStopped = false;
 
   myRole = "host";
 
+
   openLive();
 
-  try{
+
+  try {
 
     await connectSocket();
 
-    if(!roomJoined){
+
+    if (!roomJoined) {
 
       send({
-        type:"join",
-        role:"host",
+        type: "join",
+        role: "host",
         room
       });
 
     }
 
+
     await startMicrophone();
+
 
     setLiveStatus(
       "🎙️ 配信中"
     );
 
-    send({
-      type:"stream-started"
-    });
 
     send({
-      type:"live-meta",
-      image:liveImage.src
+      type: "stream-started"
     });
 
-  }catch(e){
+
+    send({
+      type: "live-meta",
+      image: liveImage.src
+    });
+
+
+  } catch (e) {
 
     setLiveStatus(
       "配信開始失敗: " +
       e.message
     );
+
 
     log(
       "配信開始失敗: " +
@@ -1890,37 +2279,43 @@ async function startHost(){
 
 }
 
-async function startViewer(){
+
+async function startViewer() {
 
   manuallyStopped = false;
 
   myRole = "viewer";
 
+
   openLive();
+
 
   setLiveStatus(
     "配信を接続中..."
   );
 
-  try{
+
+  try {
 
     await connectSocket();
 
-    if(!roomJoined){
+
+    if (!roomJoined) {
 
       send({
-        type:"join",
-        role:"viewer",
+        type: "join",
+        role: "viewer",
         room
       });
 
     }
 
-  }catch(e){
+  } catch (e) {
 
     setLiveStatus(
       "接続失敗"
     );
+
 
     log(e.message);
 
@@ -1928,28 +2323,29 @@ async function startViewer(){
 
 }
 
-function openLive(){
 
-  liveScreen
-    .classList
-    .remove("hidden");
+function openLive() {
+
+  liveScreen.classList.remove(
+    "hidden"
+  );
 
   document.body.style.overflow =
     "hidden";
-
 }
 
-function closeLive(){
 
-  if(myRole){
+function closeLive() {
+
+  if (myRole) {
 
     stopLive();
 
-  }else{
+  } else {
 
-    liveScreen
-      .classList
-      .add("hidden");
+    liveScreen.classList.add(
+      "hidden"
+    );
 
     document.body.style.overflow =
       "";
@@ -1958,12 +2354,13 @@ function closeLive(){
 
 }
 
-async function startMicrophone(){
 
-  if(
+async function startMicrophone() {
+
+  if (
     !navigator.mediaDevices ||
     !navigator.mediaDevices.getUserMedia
-  ){
+  ) {
 
     throw new Error(
       "マイク機能が利用できません"
@@ -1971,21 +2368,29 @@ async function startMicrophone(){
 
   }
 
+
   localStream =
     await navigator.mediaDevices
       .getUserMedia({
 
-        audio:{
-          echoCancellation:false,
-          noiseSuppression:false,
-          autoGainControl:false,
-          channelCount:1,
-          sampleRate:48000
+        audio: {
+
+          echoCancellation: false,
+
+          noiseSuppression: false,
+
+          autoGainControl: false,
+
+          channelCount: 1,
+
+          sampleRate: 48000
+
         },
 
-        video:false
+        video: false
 
       });
+
 
   log(
     "マイク取得OK / LOW LATENCY AUDIO"
@@ -1993,26 +2398,29 @@ async function startMicrophone(){
 
 }
 
-function optimizeOpusSDP(sdp){
 
-  if(!sdp)
+function optimizeOpusSDP(sdp) {
+
+  if (!sdp)
     return sdp;
+
 
   const lines =
     sdp.split("\\r\\n");
 
+
   let payload = null;
 
-  for(
-    const line of lines
-  ){
+
+  for (const line of lines) {
 
     const m =
       line.match(
         /^a=rtpmap:(\\d+) opus\\/48000\\/2/i
       );
 
-    if(m){
+
+    if (m) {
 
       payload = m[1];
 
@@ -2022,28 +2430,30 @@ function optimizeOpusSDP(sdp){
 
   }
 
-  if(!payload)
+
+  if (!payload)
     return sdp;
+
 
   const fmtp =
     "a=fmtp:" +
     payload +
-    " minptime=10;" +
-    "useinbandfec=0;" +
-    "stereo=0;" +
-    "sprop-stereo=0;" +
-    "maxaveragebitrate=32000";
+    " minptime=10;useinbandfec=0;stereo=0;sprop-stereo=0;maxaveragebitrate=32000";
+
 
   let replaced = false;
 
-  const out =
-    lines.map(line=>{
 
-      if(
+  const out =
+    lines.map(line => {
+
+      if (
         line.startsWith(
-          "a=fmtp:"+payload+" "
+          "a=fmtp:" +
+          payload +
+          " "
         )
-      ){
+      ) {
 
         replaced = true;
 
@@ -2051,24 +2461,28 @@ function optimizeOpusSDP(sdp){
 
       }
 
+
       return line;
 
     });
 
-  if(!replaced){
+
+  if (!replaced) {
 
     const i =
       out.findIndex(
         x =>
           x.startsWith(
-            "a=rtpmap:"+payload
+            "a=rtpmap:" +
+            payload
           )
       );
 
-    if(i >= 0){
+
+    if (i >= 0) {
 
       out.splice(
-        i+1,
+        i + 1,
         0,
         fmtp
       );
@@ -2077,18 +2491,20 @@ function optimizeOpusSDP(sdp){
 
   }
 
+
   const pi =
     out.findIndex(
       x =>
         /^a=ptime:/i.test(x)
     );
 
-  if(pi >= 0){
+
+  if (pi >= 0) {
 
     out[pi] =
       "a=ptime:10";
 
-  }else{
+  } else {
 
     out.push(
       "a=ptime:10"
@@ -2096,59 +2512,64 @@ function optimizeOpusSDP(sdp){
 
   }
 
-  return out.join(
-    "\\r\\n"
-  );
+
+  return out.join("\\r\\n");
 
 }
 
+
 function applyReceiverLowLatency(
   receiver
-){
+) {
 
-  try{
+  try {
 
-    if(
-      "playoutDelayHint"
-      in receiver
-    ){
+    if (
+      "playoutDelayHint" in
+      receiver
+    ) {
 
       receiver.playoutDelayHint =
         0;
 
     }
 
-  }catch(e){}
+  } catch (e) {}
 
-  try{
 
-    if(
-      "jitterBufferTarget"
-      in receiver
-    ){
+  try {
+
+    if (
+      "jitterBufferTarget" in
+      receiver
+    ) {
 
       receiver.jitterBufferTarget =
         0;
 
     }
 
-  }catch(e){}
+  } catch (e) {}
 
 }
 
-function makePeerConnection(){
+
+function makePeerConnection() {
 
   return new RTCPeerConnection({
 
-    iceServers:[
+    iceServers: [
+
       {
         urls:
           "stun:stun.l.google.com:19302"
       },
+
       {
         urls:
           "stun:stun1.l.google.com:19302"
       }
+
     ],
 
     bundlePolicy:
@@ -2164,35 +2585,42 @@ function makePeerConnection(){
 
 }
 
-function createHostPeer(viewer){
+
+function createHostPeer(
+  viewer
+) {
 
   const old =
     viewerConnections.get(
       viewer
     );
 
-  if(old){
 
-    try{
+  if (old) {
+
+    try {
       old.close();
-    }catch(e){}
+    } catch (e) {}
 
   }
 
+
   const pc =
     makePeerConnection();
+
 
   viewerConnections.set(
     viewer,
     pc
   );
 
-  if(localStream){
 
-    for(
+  if (localStream) {
+
+    for (
       const track of
       localStream.getAudioTracks()
-    ){
+    ) {
 
       const sender =
         pc.addTrack(
@@ -2200,95 +2628,125 @@ function createHostPeer(viewer){
           localStream
         );
 
-      try{
+
+      try {
 
         const p =
           sender.getParameters();
 
-        if(!p.encodings)
-          p.encodings=[{}];
+
+        if (!p.encodings)
+          p.encodings = [{}];
+
 
         p.encodings[0].maxBitrate =
           32000;
 
+
         p.encodings[0].priority =
           "high";
 
+
         sender
           .setParameters(p)
-          .catch(()=>{});
+          .catch(() => {});
 
-      }catch(e){}
+      } catch (e) {}
 
     }
 
   }
 
-  pc.onicecandidate = e=>{
 
-    if(e.candidate){
+  pc.onicecandidate =
+    e => {
 
-      send({
-        type:"signal",
-        target:viewer,
-        signal:{
-          type:"candidate",
-          candidate:e.candidate
-        }
-      });
+      if (e.candidate) {
 
-    }
+        send({
 
-  };
+          type: "signal",
 
-  pc.onconnectionstatechange = ()=>{
+          target: viewer,
 
-    log(
-      "視聴者 " +
-      viewer +
-      " : " +
-      pc.connectionState
-    );
+          signal: {
 
-  };
+            type: "candidate",
+
+            candidate:
+              e.candidate
+
+          }
+
+        });
+
+      }
+
+    };
+
+
+  pc.onconnectionstatechange =
+    () => {
+
+      log(
+        "視聴者 " +
+        viewer +
+        " : " +
+        pc.connectionState
+      );
+
+    };
+
 
   return pc;
 
 }
 
-async function sendOffer(viewer){
 
-  try{
+async function sendOffer(
+  viewer
+) {
+
+  try {
 
     const pc =
       createHostPeer(
         viewer
       );
 
+
     let offer =
       await pc.createOffer({
-        offerToReceiveAudio:false
+        offerToReceiveAudio: false
       });
 
+
     offer = {
-      type:"offer",
+      type: "offer",
+
       sdp:
         optimizeOpusSDP(
           offer.sdp
         )
     };
 
+
     await pc.setLocalDescription(
       offer
     );
 
+
     send({
-      type:"signal",
-      target:viewer,
-      signal:offer
+
+      type: "signal",
+
+      target: viewer,
+
+      signal: offer
+
     });
 
-  }catch(e){
+  } catch (e) {
 
     log(
       "Offerエラー: " +
@@ -2299,54 +2757,66 @@ async function sendOffer(viewer){
 
 }
 
-function createViewerPeer(){
 
-  if(viewerPeer)
+function createViewerPeer() {
+
+  if (viewerPeer)
     return viewerPeer;
+
 
   viewerPeer =
     makePeerConnection();
 
-  viewerPeer.onicecandidate =
-    e=>{
 
-      if(
+  viewerPeer.onicecandidate =
+    e => {
+
+      if (
         e.candidate &&
         viewerId
-      ){
+      ) {
 
         send({
-          type:"signal",
-          target:viewerId,
-          signal:{
-            type:"candidate",
-            candidate:e.candidate
+
+          type: "signal",
+
+          target: viewerId,
+
+          signal: {
+
+            type: "candidate",
+
+            candidate:
+              e.candidate
+
           }
+
         });
 
       }
 
     };
 
+
   viewerPeer.ontrack =
-    e=>{
+    e => {
 
       const receiver =
         e.receiver;
 
-      if(receiver){
 
+      if (receiver)
         applyReceiverLowLatency(
           receiver
         );
 
-      }
 
       let stream =
         e.streams &&
         e.streams[0];
 
-      if(!stream){
+
+      if (!stream) {
 
         stream =
           new MediaStream();
@@ -2357,26 +2827,34 @@ function createViewerPeer(){
 
       }
 
+
       remoteAudio.srcObject =
         stream;
 
-      remoteAudio.volume = 1;
 
-      remoteAudio.muted = false;
+      remoteAudio.volume =
+        1;
+
+      remoteAudio.muted =
+        false;
+
 
       const p =
         remoteAudio.play();
 
-      if(p){
 
-        p.catch(()=>{
+      if (p) {
+
+        p.catch(() => {
 
           document
             .getElementById(
               "audioButton"
             )
-            .classList
-            .remove("hidden");
+            .classList.remove(
+              "hidden"
+            );
+
 
           setLiveStatus(
             "🔊 音声ONを押してください"
@@ -2386,9 +2864,11 @@ function createViewerPeer(){
 
       }
 
+
       setLiveStatus(
         "🔴 配信中 / 音声受信中"
       );
+
 
       log(
         "音声トラック受信"
@@ -2396,16 +2876,18 @@ function createViewerPeer(){
 
     };
 
-  viewerPeer.onconnectionstatechange =
-    ()=>{
 
-      if(!viewerPeer)
+  viewerPeer.onconnectionstatechange =
+    () => {
+
+      if (!viewerPeer)
         return;
 
-      if(
+
+      if (
         viewerPeer.connectionState ===
         "connected"
-      ){
+      ) {
 
         setLiveStatus(
           "🔴 配信中"
@@ -2413,10 +2895,11 @@ function createViewerPeer(){
 
       }
 
-      if(
+
+      if (
         viewerPeer.connectionState ===
         "failed"
-      ){
+      ) {
 
         setLiveStatus(
           "WebRTC接続失敗"
@@ -2426,63 +2909,82 @@ function createViewerPeer(){
 
     };
 
+
   return viewerPeer;
 
 }
 
-async function handleViewerSignal(msg){
+
+async function handleViewerSignal(
+  msg
+) {
 
   const pc =
     createViewerPeer();
 
-  if(msg.type === "offer"){
 
-    try{
+  if (msg.type === "offer") {
+
+    try {
 
       await pc.setRemoteDescription({
-        type:"offer",
-        sdp:msg.sdp
+        type: "offer",
+        sdp: msg.sdp
       });
 
-      for(
+
+      for (
         const c of
         pendingCandidates
-      ){
+      ) {
 
-        try{
+        try {
 
           await pc.addIceCandidate(
             c
           );
 
-        }catch(e){}
+        } catch (e) {}
 
       }
 
+
       pendingCandidates = [];
+
 
       let answer =
         await pc.createAnswer();
 
+
       answer = {
-        type:"answer",
+
+        type: "answer",
+
         sdp:
           optimizeOpusSDP(
             answer.sdp
           )
+
       };
+
 
       await pc.setLocalDescription(
         answer
       );
 
+
       send({
-        type:"signal",
-        target:viewerId,
-        signal:answer
+
+        type: "signal",
+
+        target: viewerId,
+
+        signal: answer
+
       });
 
-    }catch(e){
+
+    } catch (e) {
 
       log(
         "Offer処理エラー: " +
@@ -2491,30 +2993,33 @@ async function handleViewerSignal(msg){
 
     }
 
+
     return;
 
   }
 
-  if(msg.type === "candidate"){
+
+  if (msg.type === "candidate") {
 
     const c =
       new RTCIceCandidate(
         msg.candidate
       );
 
-    if(
-      pc.remoteDescription
-    ){
 
-      try{
+    if (
+      pc.remoteDescription
+    ) {
+
+      try {
 
         await pc.addIceCandidate(
           c
         );
 
-      }catch(e){}
+      } catch (e) {}
 
-    }else{
+    } else {
 
       pendingCandidates.push(
         c
@@ -2526,82 +3031,97 @@ async function handleViewerSignal(msg){
 
 }
 
-async function handleHostSignal(msg){
+
+async function handleHostSignal(
+  msg
+) {
 
   const pc =
     viewerConnections.get(
       msg.from
     );
 
-  if(!pc)
+
+  if (!pc)
     return;
 
-  if(
+
+  if (
     msg.signal.type ===
     "answer"
-  ){
+  ) {
 
     await pc.setRemoteDescription({
-      type:"answer",
-      sdp:msg.signal.sdp
+
+      type: "answer",
+
+      sdp:
+        msg.signal.sdp
+
     });
+
 
     const list =
       hostPendingCandidates.get(
         msg.from
       ) || [];
 
-    for(
-      const c of list
-    ){
 
-      try{
+    for (
+      const c of list
+    ) {
+
+      try {
 
         await pc.addIceCandidate(
           c
         );
 
-      }catch(e){}
+      } catch (e) {}
 
     }
+
 
     hostPendingCandidates.delete(
       msg.from
     );
 
+
     return;
 
   }
 
-  if(
+
+  if (
     msg.signal.type ===
     "candidate"
-  ){
+  ) {
 
     const c =
       new RTCIceCandidate(
         msg.signal.candidate
       );
 
-    if(
-      pc.remoteDescription
-    ){
 
-      try{
+    if (
+      pc.remoteDescription
+    ) {
+
+      try {
 
         await pc.addIceCandidate(
           c
         );
 
-      }catch(e){}
+      } catch (e) {}
 
-    }else{
+    } else {
 
-      if(
+      if (
         !hostPendingCandidates.has(
           msg.from
         )
-      ){
+      ) {
 
         hostPendingCandidates.set(
           msg.from,
@@ -2609,6 +3129,7 @@ async function handleHostSignal(msg){
         );
 
       }
+
 
       hostPendingCandidates
         .get(msg.from)
@@ -2620,18 +3141,27 @@ async function handleHostSignal(msg){
 
 }
 
-async function handleMessage(msg){
 
-  if(msg.type === "welcome"){
+async function handleMessage(
+  msg
+) {
 
-    myId =
-      msg.id;
+  if (
+    msg.type ===
+    "welcome"
+  ) {
+
+    myId = msg.id;
 
     return;
 
   }
 
-  if(msg.type === "join-ok"){
+
+  if (
+    msg.type ===
+    "join-ok"
+  ) {
 
     roomJoined = true;
 
@@ -2639,7 +3169,11 @@ async function handleMessage(msg){
 
   }
 
-  if(msg.type === "room-status"){
+
+  if (
+    msg.type ===
+    "room-status"
+  ) {
 
     document
       .getElementById(
@@ -2650,10 +3184,11 @@ async function handleMessage(msg){
         msg.viewers +
         "人";
 
-    if(
+
+    if (
       myRole === "viewer" &&
       !msg.live
-    ){
+    ) {
 
       setLiveStatus(
         "配信者を待っています..."
@@ -2661,13 +3196,21 @@ async function handleMessage(msg){
 
     }
 
+
     return;
 
   }
 
-  if(msg.type === "viewer-joined"){
 
-    if(myRole === "host"){
+  if (
+    msg.type ===
+    "viewer-joined"
+  ) {
+
+    if (
+      myRole ===
+      "host"
+    ) {
 
       await sendOffer(
         msg.viewerId
@@ -2675,19 +3218,27 @@ async function handleMessage(msg){
 
     }
 
+
     return;
 
   }
 
-  if(msg.type === "signal"){
 
-    if(myRole === "host"){
+  if (
+    msg.type ===
+    "signal"
+  ) {
+
+    if (
+      myRole ===
+      "host"
+    ) {
 
       await handleHostSignal(
         msg
       );
 
-    }else{
+    } else {
 
       viewerId =
         msg.from;
@@ -2698,14 +3249,16 @@ async function handleMessage(msg){
 
     }
 
+
     return;
 
   }
 
-  if(
+
+  if (
     msg.type ===
     "stream-started"
-  ){
+  ) {
 
     setLiveStatus(
       "🔴 配信中"
@@ -2715,39 +3268,45 @@ async function handleMessage(msg){
 
   }
 
-  if(
+
+  if (
     msg.type ===
       "stream-stopped" ||
     msg.type ===
       "host-left"
-  ){
+  ) {
 
     setLiveStatus(
       "配信終了"
     );
 
+
     remoteAudio.srcObject =
       null;
+
 
     return;
 
   }
 
-  if(
+
+  if (
     msg.type ===
     "viewer-left"
-  ){
+  ) {
 
     const pc =
       viewerConnections.get(
         msg.viewerId
       );
 
-    if(pc){
 
-      try{
+    if (pc) {
+
+      try {
         pc.close();
-      }catch(e){}
+      } catch (e) {}
+
 
       viewerConnections.delete(
         msg.viewerId
@@ -2755,31 +3314,42 @@ async function handleMessage(msg){
 
     }
 
+
     hostPendingCandidates.delete(
       msg.viewerId
     );
+
 
     return;
 
   }
 
-  if(msg.type === "live-meta"){
 
-    if(
+  if (
+    msg.type ===
+    "live-meta"
+  ) {
+
+    if (
       myRole === "viewer" &&
       msg.image
-    ){
+    ) {
 
       liveImage.src =
         msg.image;
 
     }
 
+
     return;
 
   }
 
-  if(msg.type === "like-count"){
+
+  if (
+    msg.type ===
+    "like-count"
+  ) {
 
     document
       .getElementById(
@@ -2788,11 +3358,16 @@ async function handleMessage(msg){
       .textContent =
         msg.count;
 
+
     return;
 
   }
 
-  if(msg.type === "gift"){
+
+  if (
+    msg.type ===
+    "gift"
+  ) {
 
     log(
       "🎁 " +
@@ -2800,15 +3375,41 @@ async function handleMessage(msg){
       " が届きました"
     );
 
+
     return;
 
   }
 
-  if(msg.type === "blocked"){
+
+  if (
+    msg.type ===
+    "comment"
+  ) {
+
+    addComment(
+      msg.name ||
+        "ライバー",
+
+      String(
+        msg.text || ""
+      )
+    );
+
+
+    return;
+
+  }
+
+
+  if (
+    msg.type ===
+    "blocked"
+  ) {
 
     setLiveStatus(
       "この配信者をブロックしました"
     );
+
 
     return;
 
@@ -2816,9 +3417,10 @@ async function handleMessage(msg){
 
 }
 
-async function enableAudio(){
 
-  try{
+async function enableAudio() {
+
+  try {
 
     remoteAudio.muted =
       false;
@@ -2826,20 +3428,25 @@ async function enableAudio(){
     remoteAudio.volume =
       1;
 
+
     await remoteAudio.play();
+
 
     document
       .getElementById(
         "audioButton"
       )
-      .classList
-      .add("hidden");
+      .classList.add(
+        "hidden"
+      );
+
 
     setLiveStatus(
       "🔴 配信中 / 音声ON"
     );
 
-  }catch(e){
+
+  } catch (e) {
 
     log(
       "音声再生エラー: " +
@@ -2850,44 +3457,54 @@ async function enableAudio(){
 
 }
 
-function sendLike(){
+
+function sendLike() {
 
   send({
-    type:"like"
+    type: "like"
   });
 
 }
 
-function toggleGifts(){
+
+function toggleGifts() {
 
   document
     .getElementById(
       "giftPanel"
     )
-    .classList
-    .toggle("hidden");
+    .classList.toggle(
+      "hidden"
+    );
 
 }
+
 
 function sendGift(
   icon,
   name
-){
+) {
 
   send({
-    type:"gift",
+
+    type: "gift",
+
     gift:
       icon +
       " " +
       name
+
   });
+
 
   document
     .getElementById(
       "giftPanel"
     )
-    .classList
-    .add("hidden");
+    .classList.add(
+      "hidden"
+    );
+
 
   log(
     "🎁 " +
@@ -2897,34 +3514,38 @@ function sendGift(
 
 }
 
-function sendBlock(){
 
-  if(
+function sendBlock() {
+
+  if (
     confirm(
       "この配信者をブロックしますか？"
     )
-  ){
+  ) {
 
     send({
-      type:"block"
+      type: "block"
     });
 
   }
 
 }
 
-function toggleCustom(){
+
+function toggleCustom() {
 
   document
     .getElementById(
       "customPanel"
     )
-    .classList
-    .toggle("hidden");
+    .classList.toggle(
+      "hidden"
+    );
 
 }
 
-function applyCustomImage(){
+
+function applyCustomImage() {
 
   const url =
     document
@@ -2934,46 +3555,66 @@ function applyCustomImage(){
       .value
       .trim();
 
-  if(!url)
+
+  if (!url)
     return;
+
 
   liveImage.src =
     url;
 
-  if(myRole === "host"){
+
+  if (
+    myRole === "host"
+  ) {
 
     send({
-      type:"live-meta",
-      image:url
+
+      type: "live-meta",
+
+      image: url
+
     });
 
   }
 
 }
 
-function resetCustomImage(){
+
+function resetCustomImage() {
 
   liveImage.src =
     defaultLiveImage;
 
-  if(myRole === "host"){
+
+  if (
+    myRole === "host"
+  ) {
 
     send({
-      type:"live-meta",
-      image:defaultLiveImage
+
+      type: "live-meta",
+
+      image:
+        defaultLiveImage
+
     });
 
   }
 
 }
 
-function stopLive(){
 
-  manuallyStopped = true;
+function stopLive() {
 
-  roomJoined = false;
+  manuallyStopped =
+    true;
 
-  if(reconnectTimer){
+  roomJoined =
+    false;
+
+
+  if (reconnectTimer) {
 
     clearTimeout(
       reconnectTimer
@@ -2984,12 +3625,13 @@ function stopLive(){
 
   }
 
-  if(localStream){
 
-    for(
+  if (localStream) {
+
+    for (
       const t of
       localStream.getTracks()
-    ){
+    ) {
 
       t.stop();
 
@@ -3000,61 +3642,74 @@ function stopLive(){
 
   }
 
-  for(
+
+  for (
     const pc of
     viewerConnections.values()
-  ){
+  ) {
 
-    try{
+    try {
+
       pc.close();
-    }catch(e){}
+
+    } catch (e) {}
 
   }
 
+
   viewerConnections.clear();
+
 
   hostPendingCandidates.clear();
 
-  if(viewerPeer){
 
-    try{
+  if (viewerPeer) {
+
+    try {
+
       viewerPeer.close();
-    }catch(e){}
+
+    } catch (e) {}
 
     viewerPeer =
       null;
 
   }
 
-  pendingCandidates = [];
 
-  if(
+  pendingCandidates =
+    [];
+
+
+  if (
     ws &&
     ws.readyState ===
     WebSocket.OPEN
-  ){
+  ) {
 
     send({
-      type:"stream-stopped"
+      type:
+        "stream-stopped"
     });
 
   }
 
-  if(ws){
 
-    try{
+  if (ws) {
+
+    try {
 
       ws.close(
         1000,
         "user stopped"
       );
 
-    }catch(e){}
+    } catch (e) {}
 
-    ws =
-      null;
+    ws = null;
 
   }
+
 
   remoteAudio.srcObject =
     null;
@@ -3062,31 +3717,39 @@ function stopLive(){
   remoteAudio.muted =
     true;
 
+
   myRole =
     null;
 
   viewerId =
     null;
 
+
   document
     .getElementById(
       "giftPanel"
     )
-    .classList
-    .add("hidden");
+    .classList.add(
+      "hidden"
+    );
+
 
   liveScreen
-    .classList
-    .add("hidden");
+    .classList.add(
+      "hidden"
+    );
+
 
   document.body.style.overflow =
     "";
+
 
   setLiveStatus(
     "停止しました"
   );
 
 }
+
 
 remoteAudio.autoplay =
   true;
@@ -3097,51 +3760,107 @@ remoteAudio.playsInline =
 remoteAudio.volume =
   1;
 
+
 document.addEventListener(
   "click",
-  ()=>{
-    if(
+  () => {
+
+    if (
       myRole === "viewer" &&
       remoteAudio.srcObject &&
       remoteAudio.paused
-    ){
+    ) {
 
       remoteAudio.muted =
         false;
 
+
       remoteAudio
         .play()
         .then(
-          ()=>{
+          () =>
             document
               .getElementById(
                 "audioButton"
               )
-              .classList
-              .add("hidden");
-          }
+              .classList.add(
+                "hidden"
+              )
         )
         .catch(
-          ()=>{}
+          () => {}
         );
 
     }
+
   },
   {
-    passive:true
+    passive: true
   }
 );
 
 </script>
 
 </body>
+
 </html>`;
+
 
 const server =
   http.createServer(
-    (req,res)=>{
+    (req, res) => {
 
-      if(req.url === "/health"){
+      const urlPath =
+        decodeURIComponent(
+          (req.url || "/")
+            .split("?")[0]
+        );
+
+
+      if (
+        urlPath ===
+        "/home.png"
+      ) {
+
+        const file =
+          path.join(
+            PUBLIC_DIR,
+            "home.png"
+          );
+
+
+        if (
+          fs.existsSync(file)
+        ) {
+
+          res.writeHead(
+            200,
+            {
+              "Content-Type":
+                "image/png",
+
+              "Cache-Control":
+                "no-store"
+            }
+          );
+
+
+          fs
+            .createReadStream(file)
+            .pipe(res);
+
+
+          return;
+
+        }
+
+      }
+
+
+      if (
+        req.url ===
+        "/health"
+      ) {
 
         res.writeHead(
           200,
@@ -3151,11 +3870,13 @@ const server =
           }
         );
 
+
         res.end("OK");
 
         return;
 
       }
+
 
       res.writeHead(
         200,
@@ -3168,46 +3889,52 @@ const server =
         }
       );
 
-      res.end(
-        HTML
-      );
+
+      res.end(HTML);
 
     }
   );
 
+
 const wss =
   new WebSocket.Server({
     server,
-    perMessageDeflate:false
+
+    perMessageDeflate:
+      false
   });
+
 
 let nextId =
   1;
 
+
 const clients =
   new Map();
+
 
 let likeCount =
   0;
 
+
 function send(
   ws,
   data
-){
+) {
 
-  if(
+  if (
     ws &&
     ws.readyState ===
-    WebSocket.OPEN
-  ){
+      WebSocket.OPEN
+  ) {
 
-    try{
+    try {
 
       ws.send(
         JSON.stringify(data)
       );
 
-    }catch(e){
+    } catch (e) {
 
       console.log(
         "[SEND ERROR]",
@@ -3220,21 +3947,22 @@ function send(
 
 }
 
+
 function broadcastRoom(
   room,
   data,
-  exceptId=null
-){
+  exceptId = null
+) {
 
-  for(
+  for (
     const c of
     clients.values()
-  ){
+  ) {
 
-    if(
+    if (
       c.room === room &&
       c.id !== exceptId
-    ){
+    ) {
 
       send(
         c.ws,
@@ -3247,9 +3975,10 @@ function broadcastRoom(
 
 }
 
+
 function updateRoomStatus(
   room
-){
+) {
 
   let host =
     false;
@@ -3260,35 +3989,44 @@ function updateRoomStatus(
   let viewers =
     0;
 
-  for(
+
+  for (
     const c of
     clients.values()
-  ){
+  ) {
 
-    if(
+    if (
       c.room !== room
-    ){
+    ) {
 
       continue;
 
     }
 
-    if(
-      c.role === "host"
-    ){
 
-      host =
-        true;
+    if (
+      c.role ===
+      "host"
+    ) {
 
-      if(c.streaming)
+      host = true;
+
+      if (
+        c.streaming
+      ) {
+
         streaming =
           true;
 
+      }
+
     }
 
-    if(
-      c.role === "viewer"
-    ){
+
+    if (
+      c.role ===
+      "viewer"
+    ) {
 
       viewers++;
 
@@ -3296,22 +4034,27 @@ function updateRoomStatus(
 
   }
 
-  for(
+
+  for (
     const c of
     clients.values()
-  ){
+  ) {
 
-    if(
-      c.room === room
-    ){
+    if (
+      c.room ===
+      room
+    ) {
 
       send(
         c.ws,
         {
-          type:"room-status",
+          type:
+            "room-status",
+
           live:
             host &&
             streaming,
+
           viewers
         }
       );
@@ -3322,105 +4065,129 @@ function updateRoomStatus(
 
 }
 
+
 wss.on(
   "connection",
-  ws=>{
+  ws => {
 
     const id =
-      String(
-        nextId++
-      );
+      String(nextId++);
+
 
     const client = {
+
       id,
+
       ws,
-      role:null,
-      room:"bota",
-      streaming:false,
-      isAlive:true,
-      blocked:false
+
+      role: null,
+
+      room: "bota",
+
+      streaming: false,
+
+      isAlive: true,
+
+      blocked: false
+
     };
+
 
     clients.set(
       id,
       client
     );
 
+
     send(
       ws,
       {
-        type:"welcome",
+        type:
+          "welcome",
+
         id
       }
     );
 
+
     ws.on(
       "pong",
-      ()=>{
+      () => {
+
         client.isAlive =
           true;
+
       }
     );
 
+
     ws.on(
       "message",
-      raw=>{
+      raw => {
 
         let msg;
 
-        try{
+
+        try {
 
           msg =
             JSON.parse(
               raw.toString()
             );
 
-        }catch(e){
+        } catch (e) {
 
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
           "join"
-        ){
+        ) {
 
           client.role =
-            msg.role === "host"
+            msg.role ===
+            "host"
               ? "host"
               : "viewer";
+
 
           client.room =
             msg.room ||
             "bota";
 
-          if(
+
+          if (
             client.role ===
             "host"
-          ){
+          ) {
 
-            for(
+            for (
               const other of
               clients.values()
-            ){
+            ) {
 
-              if(
+              if (
                 other.id !== id &&
                 other.room ===
                   client.room &&
                 other.role ===
                   "host"
-              ){
+              ) {
 
                 send(
                   ws,
                   {
-                    type:"join-error",
+                    type:
+                      "join-error",
+
                     text:
                       "このルームには既に配信者がいます"
                   }
                 );
+
 
                 return;
 
@@ -3430,35 +4197,40 @@ wss.on(
 
           }
 
+
           send(
             ws,
             {
-              type:"join-ok"
+              type:
+                "join-ok"
             }
           );
 
-          if(
+
+          if (
             client.role ===
             "host"
-          ){
+          ) {
 
-            for(
+            for (
               const other of
               clients.values()
-            ){
+            ) {
 
-              if(
+              if (
                 other.id !== id &&
                 other.room ===
                   client.room &&
                 other.role ===
                   "viewer"
-              ){
+              ) {
 
                 send(
                   ws,
                   {
-                    type:"viewer-joined",
+                    type:
+                      "viewer-joined",
+
                     viewerId:
                       other.id
                   }
@@ -3468,31 +4240,35 @@ wss.on(
 
             }
 
-          }else{
+          } else {
 
-            for(
+            for (
               const other of
               clients.values()
-            ){
+            ) {
 
-              if(
+              if (
                 other.room ===
                   client.room &&
                 other.role ===
                   "host"
-              ){
+              ) {
 
                 send(
                   other.ws,
                   {
-                    type:"viewer-joined",
-                    viewerId:id
+                    type:
+                      "viewer-joined",
+
+                    viewerId:
+                      id
                   }
                 );
 
-                if(
+
+                if (
                   other.streaming
-                ){
+                ) {
 
                   send(
                     ws,
@@ -3510,61 +4286,75 @@ wss.on(
 
           }
 
+
           updateRoomStatus(
             client.room
           );
+
 
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
           "signal"
-        ){
+        ) {
 
           const target =
             clients.get(
               msg.target
             );
 
-          if(
+
+          if (
             !target ||
             target.room !==
               client.room
-          ){
+          ) {
 
             return;
 
           }
 
+
           send(
             target.ws,
             {
-              type:"signal",
-              from:client.id,
-              signal:msg.signal
+              type:
+                "signal",
+
+              from:
+                client.id,
+
+              signal:
+                msg.signal
             }
           );
+
 
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
             "stream-started" &&
           client.role ===
             "host"
-        ){
+        ) {
 
           client.streaming =
             true;
+
 
           console.log(
             "[LIVE START]",
             id
           );
+
 
           broadcastRoom(
             client.room,
@@ -3574,28 +4364,33 @@ wss.on(
             }
           );
 
+
           updateRoomStatus(
             client.room
           );
+
 
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
             "stream-stopped" &&
           client.role ===
             "host"
-        ){
+        ) {
 
           client.streaming =
             false;
+
 
           console.log(
             "[LIVE STOP]",
             id
           );
+
 
           broadcastRoom(
             client.room,
@@ -3605,62 +4400,76 @@ wss.on(
             }
           );
 
+
           updateRoomStatus(
             client.room
           );
+
 
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
           "live-meta"
-        ){
+        ) {
 
           broadcastRoom(
             client.room,
             {
-              type:"live-meta",
+              type:
+                "live-meta",
+
               image:
                 msg.image
             },
             client.id
           );
 
+
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
           "like"
-        ){
+        ) {
 
           likeCount++;
+
 
           broadcastRoom(
             client.room,
             {
-              type:"like-count",
+              type:
+                "like-count",
+
               count:
                 likeCount
             }
           );
 
+
           return;
 
         }
 
-        if(
+
+        if (
           msg.type ===
           "gift"
-        ){
+        ) {
 
           broadcastRoom(
             client.room,
             {
-              type:"gift",
+              type:
+                "gift",
+
               gift:
                 String(
                   msg.gift ||
@@ -3670,24 +4479,74 @@ wss.on(
             client.id
           );
 
+
           return;
 
         }
 
-        if(
+
+        if (
+          msg.type ===
+          "comment"
+        ) {
+
+          const text =
+            String(
+              msg.text || ""
+            )
+              .trim()
+              .slice(
+                0,
+                120
+              );
+
+
+          if (!text)
+            return;
+
+
+          const name =
+            client.role ===
+            "host"
+              ? "配信者"
+              : "視聴者";
+
+
+          broadcastRoom(
+            client.room,
+            {
+              type:
+                "comment",
+
+              name,
+
+              text
+            }
+          );
+
+
+          return;
+
+        }
+
+
+        if (
           msg.type ===
           "block"
-        ){
+        ) {
 
           client.blocked =
             true;
 
+
           send(
             ws,
             {
-              type:"blocked"
+              type:
+                "blocked"
             }
           );
+
 
           return;
 
@@ -3696,9 +4555,10 @@ wss.on(
       }
     );
 
+
     ws.on(
       "close",
-      ()=>{
+      () => {
 
         const room =
           client.room;
@@ -3706,26 +4566,28 @@ wss.on(
         const role =
           client.role;
 
+
         clients.delete(
           id
         );
 
-        if(
+
+        if (
           role ===
           "host"
-        ){
+        ) {
 
-          for(
+          for (
             const other of
             clients.values()
-          ){
+          ) {
 
-            if(
+            if (
               other.room ===
                 room &&
               other.role ===
                 "viewer"
-            ){
+            ) {
 
               send(
                 other.ws,
@@ -3741,28 +4603,30 @@ wss.on(
 
         }
 
-        if(
+
+        if (
           role ===
           "viewer"
-        ){
+        ) {
 
-          for(
+          for (
             const other of
             clients.values()
-          ){
+          ) {
 
-            if(
+            if (
               other.room ===
                 room &&
               other.role ===
                 "host"
-            ){
+            ) {
 
               send(
                 other.ws,
                 {
                   type:
                     "viewer-left",
+
                   viewerId:
                     id
                 }
@@ -3774,6 +4638,7 @@ wss.on(
 
         }
 
+
         updateRoomStatus(
           room
         );
@@ -3781,50 +4646,58 @@ wss.on(
       }
     );
 
+
     ws.on(
       "error",
-      e=>{
+      e => {
+
         console.log(
           "[WS ERROR]",
           id,
           e.message
         );
+
       }
     );
 
   }
 );
 
+
 const heartbeat =
   setInterval(
-    ()=>{
+    () => {
 
-      for(
+      for (
         const c of
         clients.values()
-      ){
+      ) {
 
-        if(
+        if (
           c.isAlive ===
           false
-        ){
+        ) {
 
-          try{
+          try {
+
             c.ws.terminate();
-          }catch(e){}
+
+          } catch (e) {}
 
           continue;
 
         }
 
+
         c.isAlive =
           false;
 
-        try{
+
+        try {
 
           c.ws.ping();
 
-        }catch(e){}
+        } catch (e) {}
 
       }
 
@@ -3832,29 +4705,37 @@ const heartbeat =
     25000
   );
 
+
 wss.on(
   "close",
-  ()=>{
+  () => {
+
     clearInterval(
       heartbeat
     );
+
   }
 );
 
+
 server.on(
   "error",
-  e=>{
+  e => {
+
     console.error(
       "[SERVER ERROR]",
       e
     );
+
   }
 );
+
 
 server.listen(
   PORT,
   HOST,
-  ()=>{
+  () => {
+
     console.log(
       "================================="
     );
@@ -3875,5 +4756,6 @@ server.listen(
     console.log(
       "================================="
     );
+
   }
 );

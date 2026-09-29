@@ -3,199 +3,268 @@ const fs = require("fs");
 const path = require("path");
 const WebSocket = require("ws");
 
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = process.env.PORT || 10000;
 const HOST = "0.0.0.0";
 
-const PUBLIC_DIR = path.join(__dirname, "public");
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
 
-if (!fs.existsSync(PUBLIC_DIR)) {
-  fs.mkdirSync(PUBLIC_DIR, { recursive: true });
-}
+/* =========================================================
+   VoiceポタLive
+   - WebRTC音声配信
+   - 配信開始 / 終了
+   - 視聴
+   - WebSocketシグナリング
+   - 人気ランキング
+   - 新人ライバー
+   - ギフト
+   - いいね
+   - ブロック
+   - 配信画像カスタム
+   - 横スクロール
+   - TOP50ページ
+   ========================================================= */
+
+const liveRooms = new Map();
+const sockets = new Map();
 
 /* =========================================================
    データ
-========================================================= */
+   ========================================================= */
 
-const rankingNames = [
-  "月夜ぼた","星空レン","夜桜ミク","蒼空レイ","月乃あかり",
-  "白雪ユナ","黒猫ルナ","天音ソラ","星野ナギ","桜音ミオ",
-  "夜空カナ","水瀬リオ","月島ハル","青葉ナナ","神楽ユイ",
-  "雪村レナ","花音メイ","星川アオ","春風ミナ","雨宮シオン",
-  "月城アイ","白石ユウ","天宮コト","星宮リナ","夜凪マオ",
-  "桜庭ユキ","水野ソラ","月影ナナ","青空ミオ","花咲レイ",
-  "星乃ユメ","白月カナ","夜風リオ","春野アカリ","天音ミナ",
-  "雪空ユイ","月森レン","桜井ソラ","星空ミオ","花月ナギ",
-  "夜空ユナ","水城レイ","白雪ミオ","月野カナ","星川ユキ",
-  "春風ソラ","天宮ナナ","夜桜レナ","花音ユイ","月光アオ"
+const ranking = [
+  {
+    id: "live001",
+    name: "月夜ほたる",
+    viewers: 1280,
+    likes: 9320,
+    category: "歌・雑談",
+    image:
+      "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live002",
+    name: "夜空ミナ",
+    viewers: 980,
+    likes: 7210,
+    category: "雑談",
+    image:
+      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live003",
+    name: "青月レイ",
+    viewers: 860,
+    likes: 6800,
+    category: "歌枠",
+    image:
+      "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live004",
+    name: "星乃ルナ",
+    viewers: 740,
+    likes: 5910,
+    category: "弾き語り",
+    image:
+      "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live005",
+    name: "黒猫ミク",
+    viewers: 650,
+    likes: 5300,
+    category: "雑談",
+    image:
+      "https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live006",
+    name: "月白カナ",
+    viewers: 590,
+    likes: 4700,
+    category: "歌・雑談",
+    image:
+      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live007",
+    name: "雨音しずく",
+    viewers: 510,
+    likes: 4200,
+    category: "癒し",
+    image:
+      "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live008",
+    name: "蒼井ソラ",
+    viewers: 480,
+    likes: 3900,
+    category: "雑談",
+    image:
+      "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live009",
+    name: "夜凪アオ",
+    viewers: 430,
+    likes: 3500,
+    category: "歌枠",
+    image:
+      "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "live010",
+    name: "白月ユイ",
+    viewers: 390,
+    likes: 3200,
+    category: "雑談",
+    image:
+      "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=900&q=85"
+  }
 ];
-
-const ranking = rankingNames.map((name, i) => ({
-  id: `rank-${i + 1}`,
-  name,
-  score: 50000 - i * 731,
-  viewers: Math.max(1, 1200 - i * 19),
-  icon: ["🌙","⭐","🌸","🎙️","✨"][i % 5]
-}));
 
 const newcomers = [
   {
-    id: "new-1",
-    name: "新人ぼた",
-    title: "はじめまして🌙",
-    icon: "🌙",
-    score: 9800,
-    viewers: 220
+    id: "new001",
+    name: "新人ほしこ",
+    viewers: 180,
+    likes: 920,
+    category: "新人・雑談",
+    image:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-2",
-    name: "月音ゆい",
-    title: "のんびりお話しします",
-    icon: "🌸",
-    score: 9100,
-    viewers: 190
+    id: "new002",
+    name: "新人あかり",
+    viewers: 155,
+    likes: 810,
+    category: "新人・歌",
+    image:
+      "https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-3",
-    name: "星空れん",
-    title: "夜のおしゃべり",
-    icon: "⭐",
-    score: 8500,
-    viewers: 170
+    id: "new003",
+    name: "新人ゆら",
+    viewers: 132,
+    likes: 730,
+    category: "新人・雑談",
+    image:
+      "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-4",
-    name: "そら",
-    title: "歌ってみる🎙️",
-    icon: "🎙️",
-    score: 7900,
-    viewers: 140
+    id: "new004",
+    name: "新人ナギ",
+    viewers: 118,
+    likes: 690,
+    category: "新人・歌",
+    image:
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-5",
-    name: "みお",
-    title: "初配信です",
-    icon: "✨",
-    score: 7200,
-    viewers: 120
+    id: "new005",
+    name: "新人ミオ",
+    viewers: 106,
+    likes: 630,
+    category: "新人・雑談",
+    image:
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-6",
-    name: "夜桜",
-    title: "まったり雑談",
-    icon: "🌸",
-    score: 6800,
-    viewers: 100
+    id: "new006",
+    name: "新人ルイ",
+    viewers: 94,
+    likes: 580,
+    category: "新人・歌",
+    image:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-7",
-    name: "月乃そら",
-    title: "夜に少しだけ",
-    icon: "🌙",
-    score: 6400,
-    viewers: 95
+    id: "new007",
+    name: "新人さくら",
+    viewers: 86,
+    likes: 520,
+    category: "新人・雑談",
+    image:
+      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=900&q=85"
   },
   {
-    id: "new-8",
-    name: "星野ミナ",
-    title: "初見さん歓迎",
-    icon: "⭐",
-    score: 6100,
-    viewers: 90
+    id: "new008",
+    name: "新人レン",
+    viewers: 80,
+    likes: 480,
+    category: "新人・歌",
+    image:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "new009",
+    name: "新人ひなた",
+    viewers: 75,
+    likes: 430,
+    category: "新人・雑談",
+    image:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    id: "new010",
+    name: "新人そら",
+    viewers: 70,
+    likes: 400,
+    category: "新人・歌",
+    image:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85"
   }
 ];
 
 /* =========================================================
-   LIVE ROOM
-========================================================= */
+   50人生成
+   ========================================================= */
 
-const liveRooms = new Map();
+function makeExtraPeople(base, prefix, count) {
+  const result = [...base];
 
-/*
-room = {
-  id,
-  hostId,
-  hostName,
-  title,
-  icon,
-  theme,
-  background,
-  viewers: Map(),
-  likes,
-  gifts,
-  startedAt
-}
-*/
+  while (result.length < count) {
+    const n = result.length + 1;
 
-function createId(prefix = "user") {
-  return (
-    prefix +
-    "-" +
-    Math.random().toString(36).slice(2, 10) +
-    "-" +
-    Date.now().toString(36)
-  );
-}
-
-function send(ws, data) {
-  if (
-    ws &&
-    ws.readyState === WebSocket.OPEN
-  ) {
-    ws.send(JSON.stringify(data));
+    result.push({
+      id: prefix + String(n).padStart(3, "0"),
+      name:
+        prefix === "live"
+          ? "ライバー" + n
+          : "新人ライバー" + n,
+      viewers: Math.max(10, 350 - n * 5),
+      likes: Math.max(50, 3000 - n * 40),
+      category: prefix === "live" ? "雑談・歌" : "新人・雑談",
+      image:
+        "https://images.unsplash.com/photo-" +
+        [
+          "1516280440614-37939bbacd81",
+          "1516589178581-6cd7833ae3b2",
+          "1493225457124-a3eb161ffa5f",
+          "1524368535928-5b5e00ddc76b",
+          "1514525253161-7a46d19cd819",
+          "1534528741775-53994a69daeb"
+        ][n % 6] +
+        "?auto=format&fit=crop&w=900&q=85"
+    });
   }
+
+  return result;
 }
 
-function broadcastRoom(room, data) {
-  if (!room) return;
-
-  send(room.hostSocket, data);
-
-  for (const viewer of room.viewers.values()) {
-    send(viewer.socket, data);
-  }
-}
-
-function publicLiveRoom(room) {
-  return {
-    id: room.id,
-    hostId: room.hostId,
-    hostName: room.hostName,
-    title: room.title,
-    icon: room.icon,
-    theme: room.theme,
-    background: room.background,
-    viewers: room.viewers.size,
-    likes: room.likes,
-    gifts: room.gifts
-  };
-}
-
-function getHomeData() {
-  return {
-    type: "home_data",
-    ranking,
-    newcomers,
-    liveRooms: [...liveRooms.values()].map(publicLiveRoom)
-  };
-}
-
-function broadcastHome() {
-  const message = getHomeData();
-
-  for (const ws of clients) {
-    send(ws, message);
-  }
-}
+const allRanking = makeExtraPeople(ranking, "live", 50);
+const allNewcomers = makeExtraPeople(newcomers, "new", 50);
 
 /* =========================================================
    HTML
-========================================================= */
+   ========================================================= */
 
 const HTML = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-
 <meta charset="UTF-8">
 
 <meta
@@ -203,3641 +272,1899 @@ const HTML = `
   content="width=device-width,initial-scale=1.0,user-scalable=no"
 >
 
-<meta name="theme-color" content="#030510">
-
 <title>VoiceポタLive</title>
 
 <style>
 
 * {
-  box-sizing:border-box;
-  -webkit-tap-highlight-color:transparent;
+  box-sizing: border-box;
 }
 
 html,
 body {
-  margin:0;
-  padding:0;
-  background:#030510;
-  color:#fff;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background: #050509;
+  color: #fff;
   font-family:
     -apple-system,
     BlinkMacSystemFont,
     "Noto Sans JP",
-    "Yu Gothic",
     sans-serif;
 }
 
 body {
-  overflow-x:hidden;
-}
-
-button,
-input,
-textarea,
-select {
-  font-family:inherit;
+  padding-bottom: 78px;
 }
 
 button {
-  cursor:pointer;
+  font: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
 }
 
 .app {
-  min-height:100vh;
-  padding-bottom:90px;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-/* =========================================================
-HEADER
-========================================================= */
-
 .header {
-  position:fixed;
-  top:0;
-  left:0;
-  right:0;
-  height:58px;
-  z-index:1000;
-
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-
-  padding:0 17px;
-
-  background:rgba(3,5,16,.88);
-  backdrop-filter:blur(18px);
-
-  border-bottom:
-    1px solid
-    rgba(120,140,255,.12);
+  height: 58px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: #08080e;
+  border-bottom: 1px solid #1d1d29;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .logo {
-  font-size:18px;
-  font-weight:900;
-
-  background:
-    linear-gradient(
-      90deg,
-      #fff,
-      #9bd8ff,
-      #d18cff
-    );
-
-  -webkit-background-clip:text;
-  color:transparent;
+  font-size: 20px;
+  font-weight: 800;
 }
 
-/* =========================================================
-PAGE
-========================================================= */
+.logo span {
+  color: #7c5cff;
+}
 
 .page {
-  display:none;
-  padding-top:58px;
+  padding: 0 14px 24px;
 }
-
-.page.active {
-  display:block;
-}
-
-/* =========================================================
-HOME HERO
-========================================================= */
 
 .hero {
-  position:relative;
-  width:100%;
-
-  background:#000;
-
-  overflow:hidden;
+  margin-top: 14px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0c0c14;
 }
 
 .hero-image {
-  display:block;
-
-  width:100%;
-  height:auto;
-
-  max-height:70vh;
-
-  object-fit:contain;
-
-  object-position:center top;
-
-  background:#000;
+  width: 100%;
+  height: auto;
+  max-height: 560px;
+  object-fit: contain;
+  background: #000;
 }
 
-.hero-content {
-  position:relative;
-
-  padding:
-    25px
-    18px
-    30px;
-
-  background:
-    linear-gradient(
-      180deg,
-      #030510 0%,
-      #080b1d 100%
-    );
+.hero-copy {
+  padding: 16px;
 }
 
 .hero-small {
-  font-size:12px;
-  font-weight:800;
-
-  color:#b7c9ff;
-
-  margin-bottom:9px;
+  color: #9f9fb0;
+  font-size: 13px;
 }
 
 .hero-title {
-  margin:0;
-
-  font-size:
-    clamp(27px,8vw,48px);
-
-  line-height:1.18;
-
-  font-weight:900;
+  font-size: 25px;
+  line-height: 1.3;
+  font-weight: 800;
+  margin: 8px 0;
 }
 
-.hero-title span {
-  background:
-    linear-gradient(
-      90deg,
-      #fff,
-      #9bdcff,
-      #d68cff
-    );
-
-  -webkit-background-clip:text;
-  color:transparent;
+.hero-text {
+  color: #bdbdcc;
+  line-height: 1.7;
+  font-size: 14px;
 }
-
-.hero-description {
-  margin-top:12px;
-
-  max-width:500px;
-
-  font-size:13px;
-  line-height:1.8;
-
-  color:#d9def1;
-}
-
-/* =========================================================
-SECTION
-========================================================= */
 
 .section {
-  padding:
-    26px
-    15px
-    0;
+  margin-top: 25px;
 }
 
 .section-head {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-
-  margin-bottom:13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .section-title {
-  font-size:20px;
-  font-weight:900;
+  font-size: 20px;
+  font-weight: 800;
 }
 
-.section-sub {
-  font-size:10px;
-  color:#7581a7;
-  letter-spacing:1px;
+.more {
+  color: #8d79ff;
+  font-size: 13px;
+  border: 0;
+  background: transparent;
+  padding: 8px;
 }
 
-.more-link {
-  border:0;
-  background:none;
-  color:#9fb7ff;
-  font-size:11px;
-  font-weight:800;
+.horizontal {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 3px 1px 12px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
 }
 
-/* =========================================================
-HORIZONTAL LIST
-========================================================= */
-
-.horizontal-list {
-  display:flex;
-
-  gap:10px;
-
-  overflow-x:auto;
-
-  padding:
-    2px
-    1px
-    12px;
-
-  scrollbar-width:none;
-
-  scroll-snap-type:x mandatory;
+.horizontal::-webkit-scrollbar {
+  display: none;
 }
 
-.horizontal-list::-webkit-scrollbar {
-  display:none;
+.card {
+  flex: 0 0 138px;
+  scroll-snap-align: start;
+  background: #101018;
+  border: 1px solid #20202d;
+  border-radius: 15px;
+  overflow: hidden;
 }
 
-/* =========================================================
-RANK CARD
-========================================================= */
-
-.rank-card {
-  flex:
-    0 0
-    min(250px,82vw);
-
-  min-height:112px;
-
-  scroll-snap-align:start;
-
-  display:flex;
-  align-items:center;
-
-  padding:12px;
-
-  border-radius:18px;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(25,33,82,.98),
-      rgba(7,10,28,.98)
-    );
-
-  border:
-    1px solid
-    rgba(120,140,255,.14);
-
-  box-shadow:
-    0 8px 25px
-    rgba(0,0,0,.25);
+.card-image-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 0.82;
+  background: #08080d;
+  overflow: hidden;
 }
 
-.rank-number {
-  width:34px;
-
-  text-align:center;
-
-  font-size:17px;
-  font-weight:900;
-
-  color:#8d98bb;
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.rank-number.top {
-  color:#ffd76a;
-
-  text-shadow:
-    0 0 12px
-    rgba(255,215,100,.55);
+.live-dot {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  padding: 4px 7px;
+  border-radius: 20px;
+  background: #ff315f;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
 }
 
-.avatar {
-  width:52px;
-  height:52px;
-
-  flex-shrink:0;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  border-radius:50%;
-
-  font-size:25px;
-
-  background:
-    radial-gradient(
-      circle,
-      #75d8ff,
-      #3555e8 55%,
-      #160d46
-    );
-
-  box-shadow:
-    0 0 18px
-    rgba(80,130,255,.28);
+.card-body {
+  padding: 9px;
 }
 
-.rank-info {
-  min-width:0;
-  flex:1;
-
-  padding-left:10px;
+.card-name {
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.rank-name {
-  font-size:13px;
-  font-weight:900;
-
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+.card-meta {
+  color: #9292a3;
+  font-size: 11px;
+  margin-top: 4px;
 }
-
-.rank-score {
-  margin-top:4px;
-
-  font-size:10px;
-
-  color:#8f9abd;
-}
-
-.rank-viewers {
-  margin-top:5px;
-
-  font-size:9px;
-
-  color:#687495;
-}
-
-/* =========================================================
-NEWCOMER
-========================================================= */
-
-.new-card {
-  flex:
-    0 0
-    145px;
-
-  min-height:180px;
-
-  padding:14px;
-
-  scroll-snap-align:start;
-
-  border-radius:20px;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(25,32,75,.98),
-      rgba(8,11,28,.98)
-    );
-
-  border:
-    1px solid
-    rgba(120,140,255,.13);
-}
-
-.new-avatar {
-  width:58px;
-  height:58px;
-
-  margin-bottom:10px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  border-radius:50%;
-
-  font-size:27px;
-
-  background:
-    radial-gradient(
-      circle,
-      #75d8ff,
-      #3555e8 55%,
-      #160d46
-    );
-}
-
-.new-name {
-  font-size:13px;
-  font-weight:900;
-
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.new-title {
-  margin-top:5px;
-
-  height:32px;
-
-  font-size:10px;
-  line-height:1.5;
-
-  color:#8f9abb;
-
-  overflow:hidden;
-}
-
-.live-badge {
-  display:inline-block;
-
-  margin-top:8px;
-
-  padding:4px 8px;
-
-  border-radius:999px;
-
-  font-size:8px;
-  font-weight:900;
-
-  color:#fff;
-
-  background:
-    linear-gradient(
-      90deg,
-      #ff3e72,
-      #a52fff
-    );
-}
-
-/* =========================================================
-LIVE LIST
-========================================================= */
-
-.live-card {
-  position:relative;
-
-  flex:
-    0 0
-    190px;
-
-  min-height:155px;
-
-  padding:15px;
-
-  border-radius:20px;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(35,35,85,.98),
-      rgba(8,10,25,.98)
-    );
-
-  border:
-    1px solid
-    rgba(120,140,255,.14);
-}
-
-.live-icon {
-  font-size:38px;
-}
-
-.live-title {
-  margin-top:10px;
-
-  font-size:13px;
-  font-weight:900;
-}
-
-.live-host {
-  margin-top:5px;
-
-  font-size:10px;
-
-  color:#929cbd;
-}
-
-.live-meta {
-  margin-top:9px;
-
-  font-size:10px;
-
-  color:#7682a4;
-}
-
-.live-label {
-  position:absolute;
-
-  top:10px;
-  right:10px;
-
-  padding:4px 7px;
-
-  border-radius:999px;
-
-  background:#ff3d6e;
-
-  font-size:8px;
-  font-weight:900;
-}
-
-/* =========================================================
-BUTTON
-========================================================= */
-
-.primary-button {
-  width:100%;
-
-  min-height:48px;
-
-  border:0;
-
-  border-radius:15px;
-
-  color:#fff;
-
-  font-size:13px;
-  font-weight:900;
-
-  background:
-    linear-gradient(
-      90deg,
-      #4d65ff,
-      #9b3cff
-    );
-
-  box-shadow:
-    0 8px 25px
-    rgba(80,80,255,.22);
-}
-
-.secondary-button {
-  width:100%;
-
-  min-height:45px;
-
-  border-radius:14px;
-
-  border:
-    1px solid
-    rgba(120,140,255,.18);
-
-  background:
-    rgba(20,25,55,.8);
-
-  color:#b9c5e7;
-
-  font-weight:800;
-}
-
-/* =========================================================
-BOTTOM NAV
-========================================================= */
 
 .bottom-nav {
-  position:fixed;
-
-  left:0;
-  right:0;
-  bottom:0;
-
-  height:78px;
-
-  z-index:2000;
-
-  display:grid;
-
-  grid-template-columns:
-    repeat(5,1fr);
-
-  padding:
-    7px
-    5px
-    calc(
-      7px +
-      env(safe-area-inset-bottom)
-    );
-
-  background:
-    rgba(4,7,20,.96);
-
-  backdrop-filter:blur(20px);
-
-  border-top:
-    1px solid
-    rgba(120,140,255,.12);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 70px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: rgba(8,8,14,.96);
+  border-top: 1px solid #252532;
+  z-index: 100;
+  backdrop-filter: blur(15px);
 }
 
 .nav-item {
-  border:0;
-
-  background:none;
-
-  color:#687497;
-
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-
-  gap:4px;
-
-  font-size:9px;
+  border: 0;
+  background: transparent;
+  color: #858594;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 10px;
 }
 
 .nav-icon {
-  font-size:20px;
+  font-size: 22px;
 }
 
-.nav-item.active {
-  color:#bcd2ff;
+.nav-live {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  margin-top: -17px;
+  background: linear-gradient(135deg,#725cff,#d64cff);
+  color: #fff;
+  border: 5px solid #08080e;
+  font-size: 24px;
 }
-
-/* =========================================================
-LIST PAGE
-========================================================= */
 
 .list-page {
-  padding:
-    82px
-    15px
-    30px;
+  padding: 16px 14px 30px;
 }
 
-.back-button {
-  border:0;
-  background:none;
-
-  color:#aebeff;
-
-  font-size:13px;
-  font-weight:800;
-
-  margin-bottom:18px;
+.list-title {
+  font-size: 24px;
+  font-weight: 900;
+  margin-bottom: 16px;
 }
 
-.full-list {
-  display:flex;
-  flex-direction:column;
-
-  gap:9px;
+.list {
+  display: grid;
+  gap: 12px;
 }
 
-.full-rank {
-  display:flex;
-  align-items:center;
-
-  min-height:72px;
-
-  padding:10px 12px;
-
-  border-radius:17px;
-
-  background:
-    linear-gradient(
-      120deg,
-      rgba(20,28,72,.95),
-      rgba(8,12,32,.98)
-    );
-
-  border:
-    1px solid
-    rgba(120,140,255,.11);
+.list-card {
+  display: flex;
+  gap: 12px;
+  background: #101018;
+  border: 1px solid #20202d;
+  border-radius: 15px;
+  padding: 8px;
+  align-items: center;
 }
 
-/* =========================================================
-LIVE PAGE
-========================================================= */
+.list-rank {
+  width: 30px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 900;
+  color: #a99aff;
+}
+
+.list-image {
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #000;
+}
+
+.list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-name {
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.list-meta {
+  color: #9292a3;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.open-live {
+  border: 0;
+  background: #6d57ff;
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-weight: 800;
+  font-size: 11px;
+}
+
+/* =====================================================
+   配信画面
+   ===================================================== */
 
 .live-page {
-  min-height:100vh;
-
-  background:#030510;
+  min-height: calc(100vh - 58px);
+  background: #050509;
 }
 
-.live-top {
-  position:fixed;
-
-  top:0;
-  left:0;
-  right:0;
-
-  height:58px;
-
-  z-index:1000;
-
-  display:flex;
-  align-items:center;
-
-  justify-content:space-between;
-
-  padding:0 12px;
-
-  background:
-    rgba(3,5,16,.85);
-
-  backdrop-filter:blur(18px);
+.live-header {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid #20202a;
 }
 
-.live-top button {
-  border:0;
-
-  background:
-    rgba(255,255,255,.08);
-
-  color:#fff;
-
-  width:38px;
-  height:38px;
-
-  border-radius:50%;
+.back-btn {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  background: #15151e;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 20px;
 }
 
-.live-stage {
-  position:relative;
-
-  min-height:
-    55vh;
-
-  padding-top:58px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  overflow:hidden;
-
-  background:
-    radial-gradient(
-      circle at center,
-      #17245d,
-      #030510 70%
-    );
-}
-
-.live-background {
-  position:absolute;
-
-  inset:0;
-
-  width:100%;
-  height:100%;
-
-  object-fit:cover;
-
-  opacity:.35;
-}
-
-.live-overlay {
-  position:relative;
-
-  z-index:2;
-
-  width:100%;
-
-  padding:30px 18px;
-
-  text-align:center;
-}
-
-.live-avatar-big {
-  width:90px;
-  height:90px;
-
-  margin:auto;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  border-radius:50%;
-
-  font-size:45px;
-
-  background:
-    radial-gradient(
-      circle,
-      #75d8ff,
-      #3555e8 55%,
-      #160d46
-    );
-
-  box-shadow:
-    0 0 35px
-    rgba(90,130,255,.45);
-}
-
-.live-name-big {
-  margin-top:13px;
-
-  font-size:19px;
-  font-weight:900;
-}
-
-.live-title-big {
-  margin-top:5px;
-
-  font-size:12px;
-
-  color:#c0c8e2;
+.live-name {
+  flex: 1;
+  font-weight: 800;
 }
 
 .live-status {
-  margin-top:12px;
-
-  font-size:11px;
-
-  color:#93a4d4;
+  color: #ff4c73;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-#remoteAudio {
-  display:none;
+.live-visual {
+  width: 100%;
+  background: #000;
+  position: relative;
 }
 
-.live-controls {
-  padding:15px;
-
-  background:
-    #060916;
+.live-image {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #000;
 }
 
-.control-row {
-  display:grid;
-
-  grid-template-columns:
-    repeat(4,1fr);
-
-  gap:8px;
+.live-video {
+  width: 100%;
+  height: auto;
+  min-height: 280px;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #000;
 }
 
-.action-button {
-  min-height:55px;
-
-  border:0;
-
-  border-radius:16px;
-
-  background:
-    rgba(30,37,75,.9);
-
-  color:#fff;
-
-  font-size:11px;
-  font-weight:800;
-}
-
-.action-button .emoji {
-  display:block;
-
-  font-size:21px;
-
-  margin-bottom:3px;
-}
-
-.action-button.like {
-  background:
-    linear-gradient(
-      145deg,
-      #702d83,
-      #36226e
-    );
-}
-
-.action-button.gift {
-  background:
-    linear-gradient(
-      145deg,
-      #8b4c20,
-      #4b2632
-    );
-}
-
-.action-button.block {
-  background:
-    linear-gradient(
-      145deg,
-      #572638,
-      #271527
-    );
+.live-overlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
 }
 
 .live-info {
-  padding:5px 15px 25px;
-
-  color:#9ba6c5;
-
-  font-size:11px;
-
-  line-height:1.8;
+  pointer-events: auto;
+  background: rgba(0,0,0,.55);
+  border-radius: 13px;
+  padding: 10px 12px;
 }
 
-/* =========================================================
-GIFT PANEL
-========================================================= */
-
-.modal {
-  position:fixed;
-
-  inset:0;
-
-  z-index:5000;
-
-  display:none;
-
-  align-items:flex-end;
-
-  background:
-    rgba(0,0,0,.65);
+.live-info-title {
+  font-weight: 900;
 }
 
-.modal.show {
-  display:flex;
+.live-info-sub {
+  color: #ddd;
+  font-size: 12px;
+  margin-top: 3px;
 }
 
-.modal-box {
-  width:100%;
-
-  padding:20px;
-
-  border-radius:
-    24px
-    24px
-    0
-    0;
-
-  background:
-    #0b1025;
-
-  border-top:
-    1px solid
-    rgba(120,140,255,.18);
+.live-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
 }
 
-.modal-title {
-  font-size:18px;
-  font-weight:900;
+.circle-action {
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(20,20,30,.88);
+  color: #fff;
+  font-size: 21px;
+}
 
-  margin-bottom:15px;
+.like-active {
+  background: #ff3571;
+}
+
+.live-content {
+  padding: 13px;
+}
+
+.live-message {
+  color: #aaaabd;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.live-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.action-button {
+  border: 1px solid #292938;
+  border-radius: 12px;
+  padding: 12px 6px;
+  color: #fff;
+  background: #11111a;
+  font-weight: 800;
+}
+
+.gift-button {
+  background: linear-gradient(135deg,#ff8b45,#ff3e8d);
+  border: 0;
+}
+
+.block-button {
+  color: #ff738d;
+}
+
+.host-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 15px;
+  background: #101018;
+  border: 1px solid #252532;
+}
+
+.host-title {
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.host-controls {
+  display: grid;
+  gap: 9px;
+}
+
+.control-button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 13px;
+  background: #20202c;
+  color: #fff;
+  font-weight: 800;
+}
+
+.control-button.primary {
+  background: #6d57ff;
+}
+
+.control-button.danger {
+  background: #d82f54;
+}
+
+.custom-input {
+  width: 100%;
+  border: 1px solid #30303d;
+  border-radius: 11px;
+  background: #08080e;
+  color: #fff;
+  padding: 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 86px;
+  transform: translateX(-50%);
+  background: rgba(25,25,35,.96);
+  border: 1px solid #39394a;
+  color: #fff;
+  padding: 11px 16px;
+  border-radius: 30px;
+  z-index: 300;
+  font-size: 13px;
+}
+
+.gift-panel {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 78px;
+  background: #101018;
+  border: 1px solid #353547;
+  border-radius: 18px;
+  padding: 14px;
+  z-index: 200;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5);
+}
+
+.gift-title {
+  font-weight: 900;
+  margin-bottom: 10px;
 }
 
 .gift-grid {
-  display:grid;
-
-  grid-template-columns:
-    repeat(4,1fr);
-
-  gap:9px;
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 8px;
 }
 
 .gift-item {
-  min-height:72px;
-
-  border:0;
-
-  border-radius:15px;
-
-  background:
-    rgba(30,38,75,.9);
-
-  color:#fff;
-
-  font-size:11px;
+  border: 1px solid #2b2b3a;
+  background: #171720;
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 5px;
 }
 
-.gift-item span {
-  display:block;
-  font-size:25px;
-  margin-bottom:3px;
+.gift-emoji {
+  font-size: 25px;
 }
 
-/* =========================================================
-CUSTOM PANEL
-========================================================= */
-
-.custom-box {
-  margin-top:15px;
-
-  padding:16px;
-
-  border-radius:18px;
-
-  background:
-    rgba(14,19,43,.95);
-
-  border:
-    1px solid
-    rgba(120,140,255,.12);
+.gift-name {
+  font-size: 10px;
+  margin-top: 3px;
 }
 
-.custom-box input,
-.custom-box select {
-  width:100%;
-
-  height:44px;
-
-  margin-top:8px;
-
-  padding:0 12px;
-
-  border-radius:12px;
-
-  border:
-    1px solid
-    rgba(120,140,255,.18);
-
-  background:#070b1d;
-
-  color:#fff;
+.close-gift {
+  margin-top: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #292938;
+  color: #fff;
 }
 
-/* =========================================================
-DESKTOP
-========================================================= */
-
-@media (min-width:700px) {
-
-  .hero-image {
-    max-height:760px;
-  }
-
-  .hero-content {
-    padding-left:
-      max(
-        30px,
-        calc(
-          (100vw - 1000px) / 2
-        )
-      );
-  }
-
-  .section {
-    max-width:1000px;
-    margin:auto;
-  }
-
-  .live-stage {
-    max-width:900px;
-    margin:auto;
-  }
-
+.empty {
+  text-align: center;
+  color: #888899;
+  padding: 40px 10px;
 }
 
 </style>
-
 </head>
 
 <body>
 
-<div class="app">
-
-<header class="header">
-
-  <div class="logo">
-    VoiceポタLive
-  </div>
-
-</header>
-
-
-<!-- =====================================================
- HOME
-===================================================== -->
-
-<main
-  id="homePage"
-  class="page active"
->
-
-<section class="hero">
-
-  <img
-    class="hero-image"
-    src="/home.png"
-    alt="VoiceポタLive"
-    onerror="this.style.display='none'"
-  >
-
-  <div class="hero-content">
-
-    <div class="hero-small">
-      声でつながる、みんなの居場所。
-    </div>
-
-    <h1 class="hero-title">
-      <span>あなたの声が、</span><br>
-      誰かの夜を照らす。
-    </h1>
-
-    <div class="hero-description">
-      月明かりの下で、話して、聴いて、笑って。<br>
-      VoiceポタLiveで、あなたの声をもっと近くに。
-    </div>
-
-  </div>
-
-</section>
-
-
-<section class="section">
-
-  <div class="section-head">
-
-    <div class="section-title">
-      🏆 トップランキング
-    </div>
-
-    <button
-      class="more-link"
-      onclick="showRankingPage()"
-    >
-      TOP50を見る →
-    </button>
-
-  </div>
-
-  <div
-    id="rankingHorizontal"
-    class="horizontal-list"
-  ></div>
-
-</section>
-
-
-<section class="section">
-
-  <div class="section-head">
-
-    <div class="section-title">
-      🌱 新人ライバー
-    </div>
-
-    <button
-      class="more-link"
-      onclick="showNewcomerPage()"
-    >
-      全員を見る →
-    </button>
-
-  </div>
-
-  <div
-    id="newcomerHorizontal"
-    class="horizontal-list"
-  ></div>
-
-</section>
-
-
-<section class="section">
-
-  <div class="section-head">
-
-    <div class="section-title">
-      🔴 配信中
-    </div>
-
-    <div class="section-sub">
-      LIVE
-    </div>
-
-  </div>
-
-  <div
-    id="liveHorizontal"
-    class="horizontal-list"
-  ></div>
-
-</section>
-
-</main>
-
-
-<!-- =====================================================
- RANKING PAGE
-===================================================== -->
-
-<main
-  id="rankingPage"
-  class="page"
->
-
-<div class="list-page">
-
-  <button
-    class="back-button"
-    onclick="goHome()"
-  >
-    ← ホームに戻る
-  </button>
-
-  <div class="section-title">
-    🏆 トップランキング TOP50
-  </div>
-
-  <div
-    id="rankingFull"
-    class="full-list"
-    style="margin-top:15px"
-  ></div>
-
-</div>
-
-</main>
-
-
-<!-- =====================================================
- NEWCOMER PAGE
-===================================================== -->
-
-<main
-  id="newcomerPage"
-  class="page"
->
-
-<div class="list-page">
-
-  <button
-    class="back-button"
-    onclick="goHome()"
-  >
-    ← ホームに戻る
-  </button>
-
-  <div class="section-title">
-    🌱 新人ライバー
-  </div>
-
-  <div
-    id="newcomerFull"
-    class="full-list"
-    style="margin-top:15px"
-  ></div>
-
-</div>
-
-</main>
-
-
-<!-- =====================================================
- SEARCH
-===================================================== -->
-
-<main
-  id="searchPage"
-  class="page"
->
-
-<div class="list-page">
-
-  <div class="section-title">
-    🔎 配信を探す
-  </div>
-
-  <div style="margin-top:15px">
-
-    <input
-      id="searchInput"
-      placeholder="ライバー名・配信タイトルを検索"
-      style="
-        width:100%;
-        height:48px;
-        border-radius:14px;
-        border:1px solid rgba(120,140,255,.18);
-        background:#090d20;
-        color:#fff;
-        padding:0 14px;
-        outline:none;
-      "
-      oninput="searchRooms()"
-    >
-
-  </div>
-
-  <div
-    id="searchResults"
-    class="full-list"
-    style="margin-top:15px"
-  ></div>
-
-</div>
-
-</main>
-
-
-<!-- =====================================================
- PROFILE
-===================================================== -->
-
-<main
-  id="profilePage"
-  class="page"
->
-
-<div class="list-page">
-
-  <div class="section-title">
-    👤 マイページ
-  </div>
-
-  <div class="custom-box">
-
-    <div>
-      現在のユーザー名
-    </div>
-
-    <input
-      id="profileName"
-      placeholder="名前"
-      value="ぼた"
-    >
-
-    <button
-      class="primary-button"
-      style="margin-top:12px"
-      onclick="saveProfile()"
-    >
-      保存
-    </button>
-
-  </div>
-
-</div>
-
-</main>
-
-
-<!-- =====================================================
- NOTICE
-===================================================== -->
-
-<main
-  id="noticePage"
-  class="page"
->
-
-<div class="list-page">
-
-  <div class="section-title">
-    ♧ お知らせ
-  </div>
-
-  <div class="custom-box">
-    現在、お知らせはありません。
-  </div>
-
-</div>
-
-</main>
-
-
-<!-- =====================================================
- BOTTOM NAV
-===================================================== -->
-
-<nav class="bottom-nav">
-
-  <button
-    class="nav-item active"
-    onclick="goHome()"
-  >
-    <div class="nav-icon">⌂</div>
+<div class="app" id="app"></div>
+<div id="toast" class="toast hidden"></div>
+
+<div class="bottom-nav" id="bottomNav">
+  <button class="nav-item" onclick="goHome()">
+    <span class="nav-icon">⌂</span>
     ホーム
   </button>
 
-  <button
-    class="nav-item"
-    onclick="showSearchPage()"
-  >
-    <div class="nav-icon">⌕</div>
+  <button class="nav-item" onclick="showPage('ranking')">
+    <span class="nav-icon">⌕</span>
     探す
   </button>
 
-  <button
-    class="nav-item"
-    onclick="showNotice()"
-  >
-    <div class="nav-icon">♧</div>
+  <button class="nav-item nav-live" onclick="startBroadcast()">
+    ＋
+  </button>
+
+  <button class="nav-item" onclick="showToast('お知らせ機能')">
+    <span class="nav-icon">♧</span>
     お知らせ
   </button>
 
-  <button
-    class="nav-item"
-    onclick="startLive()"
-  >
-    <div class="nav-icon">🎙</div>
-    配信
-  </button>
-
-  <button
-    class="nav-item"
-    onclick="showProfile()"
-  >
-    <div class="nav-icon">♙</div>
+  <button class="nav-item" onclick="showToast('マイページ')">
+    <span class="nav-icon">♙</span>
     マイページ
   </button>
-
-</nav>
-
 </div>
-
-
-<!-- =====================================================
- LIVE SCREEN
-===================================================== -->
-
-<div
-  id="liveScreen"
-  style="display:none"
-  class="live-page"
->
-
-  <div class="live-top">
-
-    <button onclick="closeLive()">
-      ←
-    </button>
-
-    <div
-      id="liveTopTitle"
-      style="
-        font-size:13px;
-        font-weight:900;
-      "
-    >
-      LIVE
-    </div>
-
-    <button onclick="toggleCustomPanel()">
-      ⚙
-    </button>
-
-  </div>
-
-
-  <section class="live-stage">
-
-    <img
-      id="liveBackground"
-      class="live-background"
-      style="display:none"
-    >
-
-    <div class="live-overlay">
-
-      <div
-        id="liveAvatarBig"
-        class="live-avatar-big"
-      >
-        🌙
-      </div>
-
-      <div
-        id="liveNameBig"
-        class="live-name-big"
-      >
-        配信
-      </div>
-
-      <div
-        id="liveTitleBig"
-        class="live-title-big"
-      >
-        声でつながる、みんなの居場所。
-      </div>
-
-      <div
-        id="liveStatus"
-        class="live-status"
-      >
-        接続中...
-      </div>
-
-    </div>
-
-    <audio
-      id="remoteAudio"
-      autoplay
-      playsinline
-    ></audio>
-
-  </section>
-
-
-  <section class="live-controls">
-
-    <div class="control-row">
-
-      <button
-        class="action-button like"
-        onclick="sendLike()"
-      >
-        <span class="emoji">❤️</span>
-        いいね
-        <span id="likeCount">0</span>
-      </button>
-
-      <button
-        class="action-button gift"
-        onclick="openGift()"
-      >
-        <span class="emoji">🎁</span>
-        ギフト
-      </button>
-
-      <button
-        class="action-button"
-        onclick="shareLive()"
-      >
-        <span class="emoji">↗️</span>
-        シェア
-      </button>
-
-      <button
-        class="action-button block"
-        onclick="blockCurrentLive()"
-      >
-        <span class="emoji">🚫</span>
-        ブロック
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <div class="live-info">
-
-    <div id="giftResult"></div>
-
-    <div id="viewerCount">
-      👁 0人
-    </div>
-
-    <div style="margin-top:8px">
-      VoiceポタLive
-    </div>
-
-  </div>
-
-
-  <!-- CUSTOM -->
-
-  <div
-    id="customPanel"
-    class="custom-box"
-    style="
-      display:none;
-      margin:0 15px 25px;
-    "
-  >
-
-    <div
-      style="
-        font-size:16px;
-        font-weight:900;
-      "
-    >
-      🎨 配信画面カスタム
-    </div>
-
-    <input
-      id="customTitle"
-      placeholder="配信タイトル"
-    >
-
-    <input
-      id="customBackground"
-      placeholder="背景画像URL（任意）"
-    >
-
-    <select id="customTheme">
-
-      <option value="blue">
-        月夜ブルー
-      </option>
-
-      <option value="purple">
-        星空パープル
-      </option>
-
-      <option value="pink">
-        夜桜ピンク
-      </option>
-
-      <option value="green">
-        月森グリーン
-      </option>
-
-    </select>
-
-    <button
-      class="primary-button"
-      style="margin-top:10px"
-      onclick="applyCustom()"
-    >
-      カスタムを反映
-    </button>
-
-    <button
-      class="secondary-button"
-      style="margin-top:8px"
-      onclick="toggleCustomPanel()"
-    >
-      閉じる
-    </button>
-
-  </div>
-
-</div>
-
-
-<!-- =====================================================
- GIFT MODAL
-===================================================== -->
-
-<div
-  id="giftModal"
-  class="modal"
-  onclick="closeGift(event)"
->
-
-  <div
-    class="modal-box"
-    onclick="event.stopPropagation()"
-  >
-
-    <div class="modal-title">
-      🎁 ギフトを送る
-    </div>
-
-    <div class="gift-grid">
-
-      <button
-        class="gift-item"
-        onclick="sendGift('ハート','❤️')"
-      >
-        <span>❤️</span>
-        ハート
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('星','⭐')"
-      >
-        <span>⭐</span>
-        星
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('月','🌙')"
-      >
-        <span>🌙</span>
-        月
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('花','🌸')"
-      >
-        <span>🌸</span>
-        花
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('ダイヤ','💎')"
-      >
-        <span>💎</span>
-        ダイヤ
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('王冠','👑')"
-      >
-        <span>👑</span>
-        王冠
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('マイク','🎤')"
-      >
-        <span>🎤</span>
-        マイク
-      </button>
-
-      <button
-        class="gift-item"
-        onclick="sendGift('花火','🎆')"
-      >
-        <span>🎆</span>
-        花火
-      </button>
-
-    </div>
-
-    <button
-      class="secondary-button"
-      style="margin-top:15px"
-      onclick="closeGift()"
-    >
-      閉じる
-    </button>
-
-  </div>
-
-</div>
-
 
 <script>
 
 /* =========================================================
- STATE
-========================================================= */
+   共通
+   ========================================================= */
 
-let socket = null;
+const state = {
+  ws: null,
+  wsReady: false,
+  socketId: null,
 
-let rankingData = [];
-let newcomerData = [];
-let liveData = [];
+  liveId: null,
+  isHost: false,
+  localStream: null,
 
-let currentLiveId = null;
-let currentLiveIsHost = false;
+  peers: {},
+  blocked: {},
 
-let localStream = null;
+  liked: false,
+  likes: 0,
 
-let peerConnections = {};
+  currentImage: "",
 
-let currentRoom = null;
-
-let myUserId =
-  localStorage.getItem("voice_bota_user_id");
-
-if (!myUserId) {
-
-  myUserId =
-    "user-" +
-    Math.random()
-      .toString(36)
-      .slice(2,10);
-
-  localStorage.setItem(
-    "voice_bota_user_id",
-    myUserId
-  );
-}
-
-let myName =
-  localStorage.getItem(
-    "voice_bota_name"
-  ) || "ぼた";
-
-
-/* =========================================================
- ESCAPE
-========================================================= */
+  reconnectTimer: null
+};
 
 function escapeHtml(value) {
-
-  return String(value ?? "")
-
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;")
-    .replace(/'/g,"&#039;");
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
+function showToast(text) {
+  const el = document.getElementById("toast");
 
-/* =========================================================
- SOCKET
-========================================================= */
+  el.textContent = text;
+  el.classList.remove("hidden");
 
-function connectSocket() {
+  clearTimeout(window.__toastTimer);
+
+  window.__toastTimer = setTimeout(() => {
+    el.classList.add("hidden");
+  }, 1800);
+}
+
+function wsSend(data) {
+  if (!state.ws) return;
+
+  if (state.ws.readyState !== WebSocket.OPEN) return;
+
+  state.ws.send(JSON.stringify(data));
+}
+
+function connectWS() {
+  if (
+    state.ws &&
+    (
+      state.ws.readyState === WebSocket.OPEN ||
+      state.ws.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
 
   const protocol =
     location.protocol === "https:"
       ? "wss:"
       : "ws:";
 
-  socket =
-    new WebSocket(
-      protocol +
-      "//" +
-      location.host
-    );
+  state.ws = new WebSocket(
+    protocol + "//" + location.host
+  );
 
-  socket.onopen = () => {
+  state.ws.onopen = () => {
+    state.wsReady = true;
 
-    console.log(
-      "WebSocket connected"
-    );
-
-    sendSocket({
-      type:"request_home"
-    });
-
+    if (state.liveId) {
+      joinLiveSocket();
+    }
   };
 
-  socket.onmessage = event => {
-
+  state.ws.onmessage = async event => {
     try {
-
-      const data =
-        JSON.parse(event.data);
-
-      handleSocketMessage(data);
-
-    } catch(error) {
-
-      console.error(
-        "Socket message error",
-        error
-      );
-
+      const data = JSON.parse(event.data);
+      await handleSocketMessage(data);
+    } catch (error) {
+      console.error(error);
     }
-
   };
 
-  socket.onclose = () => {
+  state.ws.onclose = () => {
+    state.wsReady = false;
 
-    console.log(
-      "WebSocket disconnected"
-    );
+    clearTimeout(state.reconnectTimer);
 
-    setTimeout(
-      connectSocket,
-      2000
-    );
-
+    state.reconnectTimer = setTimeout(() => {
+      connectWS();
+    }, 1500);
   };
 
-  socket.onerror = error => {
-
-    console.error(
-      "WebSocket error",
-      error
-    );
-
+  state.ws.onerror = () => {
+    state.wsReady = false;
   };
-
 }
 
-
-function sendSocket(data) {
-
-  if (
-    socket &&
-    socket.readyState === WebSocket.OPEN
-  ) {
-
-    socket.send(
-      JSON.stringify(data)
-    );
-
-  }
-
-}
-
+connectWS();
 
 /* =========================================================
- SOCKET MESSAGE
-========================================================= */
-
-async function handleSocketMessage(data) {
-
-  if (
-    data.type ===
-    "home_data"
-  ) {
-
-    rankingData =
-      data.ranking || [];
-
-    newcomerData =
-      data.newcomers || [];
-
-    liveData =
-      data.liveRooms || [];
-
-    renderHome();
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "offer"
-  ) {
-
-    await receiveOffer(data);
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "answer"
-  ) {
-
-    const pc =
-      peerConnections[data.from];
-
-    if (pc) {
-
-      await pc.setRemoteDescription(
-        new RTCSessionDescription(
-          data.answer
-        )
-      );
-
-    }
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "ice_candidate"
-  ) {
-
-    const pc =
-      peerConnections[data.from];
-
-    if (
-      pc &&
-      data.candidate
-    ) {
-
-      try {
-
-        await pc.addIceCandidate(
-          new RTCIceCandidate(
-            data.candidate
-          )
-        );
-
-      } catch(error) {
-
-        console.error(
-          "ICE error",
-          error
-        );
-
-      }
-
-    }
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "viewer_joined"
-  ) {
-
-    if (currentLiveIsHost) {
-
-      await createOfferForViewer(
-        data.viewerId
-      );
-
-    }
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "viewer_left"
-  ) {
-
-    removePeer(
-      data.viewerId
-    );
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "live_started"
-  ) {
-
-    currentRoom =
-      data.room;
-
-    updateLiveRoomUI();
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "live_state"
-  ) {
-
-    currentRoom =
-      data.room;
-
-    updateLiveRoomUI();
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "gift"
-  ) {
-
-    const text =
-      data.icon +
-      " " +
-      escapeHtml(data.name) +
-      " が " +
-      escapeHtml(data.gift) +
-      " を送りました！";
-
-    document.getElementById(
-      "giftResult"
-    ).innerHTML =
-      text;
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "like"
-  ) {
-
-    if (currentRoom) {
-
-      currentRoom.likes =
-        data.likes;
-
-      document.getElementById(
-        "likeCount"
-      ).textContent =
-        data.likes;
-
-    }
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "blocked"
-  ) {
-
-    alert(
-      "この配信者をブロックしました。"
-    );
-
-    closeLive();
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "viewer_blocked"
-  ) {
-
-    alert(
-      "配信者によってブロックされました。"
-    );
-
-    closeLive();
-
-    return;
-  }
-
-
-  if (
-    data.type ===
-    "live_ended"
-  ) {
-
-    alert(
-      "配信が終了しました。"
-    );
-
-    closeLive();
-
-    return;
-  }
-
+   ホーム
+   ========================================================= */
+
+async function getHomeData() {
+  const response = await fetch("/api/home");
+  return response.json();
 }
 
+function renderHome(data) {
+  const app = document.getElementById("app");
 
-/* =========================================================
- HOME
-========================================================= */
+  app.innerHTML = \`
+    <div class="header">
+      <div class="logo">
+        Voice<span>ポタLive</span>
+      </div>
+    </div>
 
-function renderHome() {
+    <main class="page">
 
-  renderRanking();
-
-  renderNewcomers();
-
-  renderLiveRooms();
-
-}
-
-
-function renderRanking() {
-
-  const box =
-    document.getElementById(
-      "rankingHorizontal"
-    );
-
-  box.innerHTML =
-    rankingData
-      .slice(0,10)
-      .map((user,index) => `
-
-        <div
-          class="rank-card"
-          onclick="
-            openUser(
-              '${escapeHtml(user.id)}'
-            )
-          "
+      <section class="hero">
+        <img
+          class="hero-image"
+          src="\${escapeHtml(data.hero)}"
+          alt=""
         >
 
-          <div
-            class="
-              rank-number
-              ${index < 3 ? "top" : ""}
-            "
+        <div class="hero-copy">
+          <div class="hero-small">
+            声でつながる、みんなの居場所。
+          </div>
+
+          <div class="hero-title">
+            あなたの声が、<br>
+            誰かの夜を照らす。
+          </div>
+
+          <div class="hero-text">
+            月明かりの下で、話して、聞いて、笑って。<br>
+            VoiceポタLiveで、あなたの声をもっと近くに。
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+
+        <div class="section-head">
+          <div class="section-title">
+            🏆 人気トップ50
+          </div>
+
+          <button
+            class="more"
+            onclick="showPage('ranking')"
           >
-            ${index + 1}
-          </div>
-
-          <div class="avatar">
-            ${escapeHtml(user.icon)}
-          </div>
-
-          <div class="rank-info">
-
-            <div class="rank-name">
-              ${escapeHtml(user.name)}
-            </div>
-
-            <div class="rank-score">
-              応援ポイント
-              ${Number(
-                user.score
-              ).toLocaleString()}
-            </div>
-
-            <div class="rank-viewers">
-              👁
-              ${Number(
-                user.viewers
-              ).toLocaleString()}
-            </div>
-
-          </div>
-
+            TOP 50
+          </button>
         </div>
 
-      `)
-      .join("");
+        <div class="horizontal">
+          \${data.ranking.slice(0,10).map((item,index) =>
+            renderCard(item,index)
+          ).join("")}
+        </div>
 
+      </section>
+
+      <section class="section">
+
+        <div class="section-head">
+          <div class="section-title">
+            🌱 新人ライバー
+          </div>
+
+          <button
+            class="more"
+            onclick="showPage('newcomers')"
+          >
+            もっと見る
+          </button>
+        </div>
+
+        <div class="horizontal">
+          \${data.newcomers.slice(0,10).map((item,index) =>
+            renderCard(item,index)
+          ).join("")}
+        </div>
+
+      </section>
+
+    </main>
+  \`;
 }
 
+function renderCard(item,index) {
+  return \`
+    <article
+      class="card"
+      onclick="openLive('\${escapeHtml(item.id)}')"
+    >
+      <div class="card-image-wrap">
 
-function renderNewcomers() {
-
-  const box =
-    document.getElementById(
-      "newcomerHorizontal"
-    );
-
-  box.innerHTML =
-    newcomerData
-      .map(user => `
-
-        <div
-          class="new-card"
-          onclick="
-            openUser(
-              '${escapeHtml(user.id)}'
-            )
-          "
+        <img
+          class="card-image"
+          src="\${escapeHtml(item.image)}"
+          alt=""
+          loading="lazy"
         >
 
-          <div class="new-avatar">
-            ${escapeHtml(user.icon)}
-          </div>
-
-          <div class="new-name">
-            ${escapeHtml(user.name)}
-          </div>
-
-          <div class="new-title">
-            ${escapeHtml(user.title)}
-          </div>
-
-          <span class="live-badge">
-            NEW
-          </span>
-
+        <div class="live-dot">
+          LIVE
         </div>
 
-      `)
-      .join("");
-
-}
-
-
-function renderLiveRooms() {
-
-  const box =
-    document.getElementById(
-      "liveHorizontal"
-    );
-
-  if (!liveData.length) {
-
-    box.innerHTML = `
-
-      <div
-        style="
-          padding:25px;
-          color:#7883a4;
-          font-size:12px;
-        "
-      >
-        現在配信中のライバーはいません。
       </div>
 
-    `;
+      <div class="card-body">
+
+        <div class="card-name">
+          \${escapeHtml(item.name)}
+        </div>
+
+        <div class="card-meta">
+          👁 \${Number(item.viewers).toLocaleString()}
+          ・ ❤️ \${Number(item.likes).toLocaleString()}
+        </div>
+
+      </div>
+    </article>
+  \`;
+}
+
+async function goHome() {
+  try {
+    const data = await getHomeData();
+
+    state.liveId = null;
+    state.isHost = false;
+
+    document.getElementById("bottomNav")
+      .classList.remove("hidden");
+
+    renderHome(data);
+
+  } catch (error) {
+    console.error(error);
+    showToast("ホームの読み込みに失敗しました");
+  }
+}
+
+/* =========================================================
+   ランキングページ
+   ========================================================= */
+
+async function showPage(type) {
+
+  if (type === "ranking") {
+    const response = await fetch("/api/ranking");
+    const data = await response.json();
+
+    renderListPage(
+      "🏆 人気トップ50",
+      data
+    );
 
     return;
   }
 
-  box.innerHTML =
-    liveData
-      .map(room => `
+  if (type === "newcomers") {
+    const response = await fetch("/api/newcomers");
+    const data = await response.json();
 
-        <div
-          class="live-card"
-          onclick="
-            joinLive(
-              '${escapeHtml(room.id)}'
-            )
-          "
+    renderListPage(
+      "🌱 新人ライバー",
+      data
+    );
+
+    return;
+  }
+}
+
+function renderListPage(title,data) {
+
+  document.getElementById("app").innerHTML = \`
+    <div class="header">
+      <div class="logo">
+        Voice<span>ポタLive</span>
+      </div>
+    </div>
+
+    <main class="list-page">
+
+      <div class="list-title">
+        \${escapeHtml(title)}
+      </div>
+
+      <div class="list">
+
+        \${data.map((item,index) => \`
+          <div class="list-card">
+
+            <div class="list-rank">
+              \${index + 1}
+            </div>
+
+            <img
+              class="list-image"
+              src="\${escapeHtml(item.image)}"
+              alt=""
+            >
+
+            <div class="list-info">
+
+              <div class="list-name">
+                \${escapeHtml(item.name)}
+              </div>
+
+              <div class="list-meta">
+                \${escapeHtml(item.category)}
+              </div>
+
+              <div class="list-meta">
+                👁 \${Number(item.viewers).toLocaleString()}
+                ・ ❤️ \${Number(item.likes).toLocaleString()}
+              </div>
+
+            </div>
+
+            <button
+              class="open-live"
+              onclick="openLive('\${escapeHtml(item.id)}')"
+            >
+              配信を見る
+            </button>
+
+          </div>
+        \`).join("")}
+
+      </div>
+
+    </main>
+  \`;
+}
+
+/* =========================================================
+   配信を見る
+   ========================================================= */
+
+function openLive(id) {
+
+  state.liveId = id;
+  state.isHost = false;
+  state.currentImage = "";
+
+  document.getElementById("bottomNav")
+    .classList.add("hidden");
+
+  renderLivePage();
+
+  connectWS();
+
+  setTimeout(() => {
+    joinLiveSocket();
+  }, 100);
+}
+
+function joinLiveSocket() {
+
+  if (!state.liveId) return;
+
+  wsSend({
+    type: "join",
+    liveId: state.liveId,
+    role: "viewer"
+  });
+}
+
+function renderLivePage() {
+
+  const app = document.getElementById("app");
+
+  app.innerHTML = \`
+    <div class="live-page">
+
+      <div class="live-header">
+
+        <button
+          class="back-btn"
+          onclick="goHome()"
+        >
+          ←
+        </button>
+
+        <div class="live-name">
+          VoiceポタLive
+        </div>
+
+        <div class="live-status">
+          ● LIVE
+        </div>
+
+      </div>
+
+      <div class="live-visual">
+
+        <img
+          id="liveImage"
+          class="live-image"
+          src=""
+          alt=""
         >
 
-          <div class="live-label">
-            LIVE
+        <video
+          id="remoteVideo"
+          class="live-video hidden"
+          autoplay
+          playsinline
+          controls="false"
+        ></video>
+
+        <div class="live-overlay">
+
+          <div class="live-info">
+
+            <div
+              class="live-info-title"
+              id="liveTitle"
+            >
+              配信に接続中...
+            </div>
+
+            <div
+              class="live-info-sub"
+              id="viewerCount"
+            >
+              接続しています
+            </div>
+
           </div>
 
-          <div class="live-icon">
-            ${escapeHtml(room.icon)}
-          </div>
+          <div class="live-actions">
 
-          <div class="live-title">
-            ${escapeHtml(room.title)}
-          </div>
+            <button
+              id="likeCircle"
+              class="circle-action"
+              onclick="likeLive()"
+            >
+              ♥
+            </button>
 
-          <div class="live-host">
-            ${escapeHtml(room.hostName)}
-          </div>
+            <button
+              class="circle-action"
+              onclick="openGiftPanel()"
+            >
+              🎁
+            </button>
 
-          <div class="live-meta">
-            👁 ${room.viewers}
-            &nbsp;&nbsp;
-            ❤️ ${room.likes}
           </div>
 
         </div>
 
-      `)
-      .join("");
+      </div>
 
+      <div class="live-content">
+
+        <div class="live-message">
+          声でつながる、みんなの居場所。
+        </div>
+
+        <div class="live-buttons">
+
+          <button
+            class="action-button gift-button"
+            onclick="openGiftPanel()"
+          >
+            🎁 ギフト
+          </button>
+
+          <button
+            class="action-button"
+            onclick="likeLive()"
+          >
+            ❤️ いいね
+          </button>
+
+          <button
+            class="action-button block-button"
+            onclick="blockLive()"
+          >
+            🚫 ブロック
+          </button>
+
+        </div>
+
+      </div>
+
+      <div
+        id="giftPanel"
+        class="gift-panel hidden"
+      >
+
+        <div class="gift-title">
+          🎁 ギフトを送る
+        </div>
+
+        <div class="gift-grid">
+
+          <button class="gift-item" onclick="sendGift('🌹','バラ')">
+            <div class="gift-emoji">🌹</div>
+            <div class="gift-name">バラ</div>
+          </button>
+
+          <button class="gift-item" onclick="sendGift('❤️','ハート')">
+            <div class="gift-emoji">❤️</div>
+            <div class="gift-name">ハート</div>
+          </button>
+
+          <button class="gift-item" onclick="sendGift('⭐','スター')">
+            <div class="gift-emoji">⭐</div>
+            <div class="gift-name">スター</div>
+          </button>
+
+          <button class="gift-item" onclick="sendGift('💎','ダイヤ')">
+            <div class="gift-emoji">💎</div>
+            <div class="gift-name">ダイヤ</div>
+          </button>
+
+        </div>
+
+        <button
+          class="close-gift"
+          onclick="closeGiftPanel()"
+        >
+          閉じる
+        </button>
+
+      </div>
+
+    </div>
+  \`;
+
+  document.getElementById("liveImage").style.display = "none";
 }
-
 
 /* =========================================================
- PAGES
-========================================================= */
+   いいね
+   ========================================================= */
 
-function hidePages() {
+function likeLive() {
 
-  document
-    .querySelectorAll(".page")
-    .forEach(page => {
+  if (state.liked) {
+    showToast("いいね済みです");
+    return;
+  }
 
-      page.classList.remove(
-        "active"
-      );
+  state.liked = true;
 
-    });
+  const btn = document.getElementById("likeCircle");
 
-}
+  if (btn) {
+    btn.classList.add("like-active");
+  }
 
-
-function goHome() {
-
-  closeLive(false);
-
-  hidePages();
-
-  document
-    .getElementById(
-      "homePage"
-    )
-    .classList.add("active");
-
-  window.scrollTo({
-    top:0,
-    behavior:"smooth"
+  wsSend({
+    type: "like",
+    liveId: state.liveId
   });
 
+  showToast("❤️ いいね！");
 }
-
-
-function showRankingPage() {
-
-  hidePages();
-
-  document
-    .getElementById(
-      "rankingPage"
-    )
-    .classList.add("active");
-
-  renderFullRanking();
-
-  window.scrollTo(0,0);
-
-}
-
-
-function showNewcomerPage() {
-
-  hidePages();
-
-  document
-    .getElementById(
-      "newcomerPage"
-    )
-    .classList.add("active");
-
-  renderFullNewcomers();
-
-  window.scrollTo(0,0);
-
-}
-
-
-function showSearchPage() {
-
-  hidePages();
-
-  document
-    .getElementById(
-      "searchPage"
-    )
-    .classList.add("active");
-
-}
-
-
-function showNotice() {
-
-  hidePages();
-
-  document
-    .getElementById(
-      "noticePage"
-    )
-    .classList.add("active");
-
-}
-
-
-function showProfile() {
-
-  hidePages();
-
-  document
-    .getElementById(
-      "profilePage"
-    )
-    .classList.add("active");
-
-  document.getElementById(
-    "profileName"
-  ).value = myName;
-
-}
-
 
 /* =========================================================
- FULL RANKING
-========================================================= */
+   ブロック
+   ========================================================= */
 
-function renderFullRanking() {
+function blockLive() {
 
-  const box =
-    document.getElementById(
-      "rankingFull"
-    );
+  if (!state.liveId) return;
 
-  box.innerHTML =
-    rankingData
-      .map((user,index) => `
+  state.blocked[state.liveId] = true;
 
-        <div class="full-rank">
+  wsSend({
+    type: "block",
+    liveId: state.liveId
+  });
 
-          <div
-            class="
-              rank-number
-              ${index < 3 ? "top" : ""}
-            "
-          >
-            ${index + 1}
-          </div>
+  showToast("この配信をブロックしました");
 
-          <div class="avatar">
-            ${escapeHtml(user.icon)}
-          </div>
-
-          <div class="rank-info">
-
-            <div class="rank-name">
-              ${escapeHtml(user.name)}
-            </div>
-
-            <div class="rank-score">
-              応援ポイント
-              ${Number(
-                user.score
-              ).toLocaleString()}
-            </div>
-
-          </div>
-
-          <div class="rank-viewers">
-            👁 ${Number(
-              user.viewers
-            ).toLocaleString()}
-          </div>
-
-        </div>
-
-      `)
-      .join("");
-
+  setTimeout(() => {
+    goHome();
+  }, 700);
 }
 
-
 /* =========================================================
- FULL NEWCOMERS
-========================================================= */
+   ギフト
+   ========================================================= */
 
-function renderFullNewcomers() {
+function openGiftPanel() {
+  const panel = document.getElementById("giftPanel");
 
-  const box =
-    document.getElementById(
-      "newcomerFull"
-    );
-
-  box.innerHTML =
-    newcomerData
-      .map((user,index) => `
-
-        <div class="full-rank">
-
-          <div
-            class="rank-number"
-          >
-            ${index + 1}
-          </div>
-
-          <div class="avatar">
-            ${escapeHtml(user.icon)}
-          </div>
-
-          <div class="rank-info">
-
-            <div class="rank-name">
-              ${escapeHtml(user.name)}
-            </div>
-
-            <div class="rank-score">
-              ${escapeHtml(user.title)}
-            </div>
-
-          </div>
-
-          <div class="rank-viewers">
-            👁 ${user.viewers}
-          </div>
-
-        </div>
-
-      `)
-      .join("");
-
-}
-
-
-/* =========================================================
- SEARCH
-========================================================= */
-
-function searchRooms() {
-
-  const keyword =
-    document.getElementById(
-      "searchInput"
-    ).value
-      .trim()
-      .toLowerCase();
-
-  const box =
-    document.getElementById(
-      "searchResults"
-    );
-
-  const results =
-    liveData.filter(room => {
-
-      return (
-        room.hostName
-          .toLowerCase()
-          .includes(keyword)
-        ||
-        room.title
-          .toLowerCase()
-          .includes(keyword)
-      );
-
-    });
-
-  box.innerHTML =
-    results
-      .map(room => `
-
-        <div
-          class="live-card"
-          onclick="
-            joinLive(
-              '${escapeHtml(room.id)}'
-            )
-          "
-        >
-
-          <div class="live-label">
-            LIVE
-          </div>
-
-          <div class="live-icon">
-            ${escapeHtml(room.icon)}
-          </div>
-
-          <div class="live-title">
-            ${escapeHtml(room.title)}
-          </div>
-
-          <div class="live-host">
-            ${escapeHtml(room.hostName)}
-          </div>
-
-        </div>
-
-      `)
-      .join("");
-
-}
-
-
-/* =========================================================
- PROFILE
-========================================================= */
-
-function saveProfile() {
-
-  const name =
-    document.getElementById(
-      "profileName"
-    ).value.trim();
-
-  if (!name) return;
-
-  myName = name;
-
-  localStorage.setItem(
-    "voice_bota_name",
-    myName
-  );
-
-  alert(
-    "ユーザー名を保存しました。"
-  );
-
-}
-
-
-/* =========================================================
- START LIVE
-========================================================= */
-
-async function startLive() {
-
-  if (
-    !navigator.mediaDevices ||
-    !navigator.mediaDevices.getUserMedia
-  ) {
-
-    alert(
-      "この端末ではマイクを使用できません。HTTPS接続を確認してください。"
-    );
-
-    return;
-
+  if (panel) {
+    panel.classList.remove("hidden");
   }
+}
+
+function closeGiftPanel() {
+  const panel = document.getElementById("giftPanel");
+
+  if (panel) {
+    panel.classList.add("hidden");
+  }
+}
+
+function sendGift(emoji,name) {
+
+  wsSend({
+    type: "gift",
+    liveId: state.liveId,
+    gift: {
+      emoji,
+      name
+    }
+  });
+
+  closeGiftPanel();
+
+  showToast(emoji + " " + name + "を送りました！");
+}
+
+/* =========================================================
+   配信開始
+   ========================================================= */
+
+async function startBroadcast() {
+
+  document.getElementById("bottomNav")
+    .classList.add("hidden");
+
+  state.liveId =
+    "user-" +
+    Math.random()
+      .toString(36)
+      .slice(2,10);
+
+  state.isHost = true;
+
+  renderHostPage();
 
   try {
 
-    localStream =
+    state.localStream =
       await navigator.mediaDevices.getUserMedia({
-        audio:{
-          echoCancellation:true,
-          noiseSuppression:true,
-          autoGainControl:true
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
         },
-        video:false
+        video: false
       });
 
-  } catch(error) {
+    showToast("マイクを取得しました");
+
+    connectWS();
+
+    wsSend({
+      type: "host_start",
+      liveId: state.liveId,
+      name: "ぼたもち",
+      image:
+        "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
+    });
+
+  } catch (error) {
 
     console.error(error);
 
-    alert(
-      "マイクへのアクセスが許可されていません。"
+    showToast(
+      "マイクを使用できません。ブラウザのマイク許可を確認してください。"
     );
-
-    return;
-
   }
-
-
-  currentLiveIsHost = true;
-
-  currentLiveId =
-    createClientLiveId();
-
-  currentRoom = {
-    id:currentLiveId,
-    hostId:myUserId,
-    hostName:myName,
-    title:"新しい配信",
-    icon:"🌙",
-    theme:"blue",
-    background:"",
-    viewers:0,
-    likes:0,
-    gifts:0
-  };
-
-
-  sendSocket({
-
-    type:"start_live",
-
-    liveId:currentLiveId,
-
-    hostId:myUserId,
-
-    hostName:myName,
-
-    title:"新しい配信",
-
-    icon:"🌙",
-
-    theme:"blue",
-
-    background:""
-
-  });
-
-
-  openLiveScreen();
-
-  updateLiveRoomUI();
-
 }
 
+function renderHostPage() {
 
-function createClientLiveId() {
+  document.getElementById("app").innerHTML = \`
+    <div class="live-page">
 
-  return (
-    "live-" +
-    Math.random()
-      .toString(36)
-      .slice(2,10)
-  );
+      <div class="live-header">
 
+        <button
+          class="back-btn"
+          onclick="endBroadcast()"
+        >
+          ×
+        </button>
+
+        <div class="live-name">
+          あなたの配信
+        </div>
+
+        <div class="live-status">
+          ● LIVE
+        </div>
+
+      </div>
+
+      <div class="live-visual">
+
+        <img
+          id="hostImage"
+          class="live-image"
+          src="https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85"
+          alt=""
+        >
+
+        <div class="live-overlay">
+
+          <div class="live-info">
+
+            <div class="live-info-title">
+              あなたの配信
+            </div>
+
+            <div
+              id="hostViewerCount"
+              class="live-info-sub"
+            >
+              視聴者 0人
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="live-content">
+
+        <div class="live-message">
+          声でつながる、みんなの居場所。
+        </div>
+
+        <div class="live-buttons">
+
+          <button
+            class="action-button gift-button"
+            onclick="showToast('ギフトを受け取りました')"
+          >
+            🎁 ギフト
+          </button>
+
+          <button
+            class="action-button"
+            onclick="showToast('いいねを受け取りました')"
+          >
+            ❤️ いいね
+          </button>
+
+          <button
+            class="action-button"
+            onclick="showToast('ブロック管理')"
+          >
+            🚫 ブロック
+          </button>
+
+        </div>
+
+        <div class="host-panel">
+
+          <div class="host-title">
+            🎨 配信画面カスタム
+          </div>
+
+          <div class="host-controls">
+
+            <input
+              id="customImageUrl"
+              class="custom-input"
+              type="url"
+              placeholder="画像URLを入力"
+            >
+
+            <button
+              class="control-button primary"
+              onclick="changeBroadcastImage()"
+            >
+              画像を変更
+            </button>
+
+            <button
+              class="control-button"
+              onclick="resetBroadcastImage()"
+            >
+              初期画像に戻す
+            </button>
+
+            <button
+              class="control-button danger"
+              onclick="endBroadcast()"
+            >
+              配信を終了する
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  \`;
 }
-
 
 /* =========================================================
- JOIN LIVE
-========================================================= */
+   配信画像変更
+   ========================================================= */
 
-function joinLive(roomId) {
+function changeBroadcastImage() {
 
-  const room =
-    liveData.find(
-      r => r.id === roomId
-    );
+  const input =
+    document.getElementById("customImageUrl");
 
-  if (!room) {
+  if (!input) return;
 
-    alert(
-      "この配信は終了しています。"
-    );
+  const url = input.value.trim();
 
+  if (!url) {
+    showToast("画像URLを入力してください");
     return;
-
   }
 
-  currentLiveIsHost = false;
+  const image =
+    document.getElementById("hostImage");
 
-  currentLiveId = room.id;
+  if (!image) return;
 
-  currentRoom = room;
+  image.src = url;
 
-  openLiveScreen();
+  state.currentImage = url;
 
-  updateLiveRoomUI();
-
-
-  sendSocket({
-
-    type:"join_live",
-
-    liveId:room.id,
-
-    viewerId:myUserId,
-
-    viewerName:myName
-
+  wsSend({
+    type: "image",
+    liveId: state.liveId,
+    image: url
   });
 
+  showToast("配信画像を変更しました");
 }
 
+function resetBroadcastImage() {
 
-/* =========================================================
- OPEN LIVE
-========================================================= */
+  const url =
+    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=85";
 
-function openLiveScreen() {
+  const image =
+    document.getElementById("hostImage");
 
-  document
-    .querySelector(".app")
-    .style.display = "none";
-
-  document
-    .getElementById(
-      "liveScreen"
-    )
-    .style.display = "block";
-
-}
-
-
-function closeLive(sendStop = true) {
-
-  if (
-    currentLiveIsHost &&
-    sendStop &&
-    currentLiveId
-  ) {
-
-    sendSocket({
-
-      type:"stop_live",
-
-      liveId:currentLiveId
-
-    });
-
+  if (image) {
+    image.src = url;
   }
 
+  state.currentImage = url;
 
-  for (
-    const id in peerConnections
-  ) {
+  wsSend({
+    type: "image",
+    liveId: state.liveId,
+    image: url
+  });
+
+  showToast("初期画像に戻しました");
+}
+
+/* =========================================================
+   配信終了
+   ========================================================= */
+
+function endBroadcast() {
+
+  wsSend({
+    type: "host_end",
+    liveId: state.liveId
+  });
+
+  Object.keys(state.peers).forEach(id => {
 
     try {
+      state.peers[id].close();
+    } catch (_) {}
 
-      peerConnections[id].close();
+  });
 
-    } catch {}
+  state.peers = {};
 
-  }
+  if (state.localStream) {
 
-  peerConnections = {};
-
-
-  if (localStream) {
-
-    localStream
+    state.localStream
       .getTracks()
-      .forEach(track => {
+      .forEach(track => track.stop());
 
-        track.stop();
-
-      });
-
-    localStream = null;
-
+    state.localStream = null;
   }
 
+  state.liveId = null;
+  state.isHost = false;
 
-  if (
-    !currentLiveIsHost &&
-    currentLiveId
-  ) {
+  showToast("配信を終了しました");
 
-    sendSocket({
+  setTimeout(() => {
+    goHome();
+  }, 500);
+}
 
-      type:"leave_live",
+/* =========================================================
+   WebRTC
+   ========================================================= */
 
-      liveId:currentLiveId,
+const rtcConfig = {
+  iceServers: [
+    {
+      urls: "stun:stun.l.google.com:19302"
+    },
+    {
+      urls: "stun:stun1.l.google.com:19302"
+    }
+  ]
+};
 
-      viewerId:myUserId
+async function createHostPeer(viewerId) {
 
-    });
+  if (!state.localStream) return;
+
+  if (state.peers[viewerId]) {
+
+    try {
+      state.peers[viewerId].close();
+    } catch (_) {}
 
   }
-
-
-  currentLiveId = null;
-
-  currentLiveIsHost = false;
-
-  currentRoom = null;
-
-
-  document
-    .getElementById(
-      "liveScreen"
-    )
-    .style.display = "none";
-
-  document
-    .querySelector(".app")
-    .style.display = "block";
-
-  goHome();
-
-}
-
-
-/* =========================================================
- UPDATE LIVE UI
-========================================================= */
-
-function updateLiveRoomUI() {
-
-  if (!currentRoom) return;
-
-  document.getElementById(
-    "liveTopTitle"
-  ).textContent =
-    currentRoom.title ||
-    "LIVE";
-
-  document.getElementById(
-    "liveAvatarBig"
-  ).textContent =
-    currentRoom.icon ||
-    "🌙";
-
-  document.getElementById(
-    "liveNameBig"
-  ).textContent =
-    currentRoom.hostName ||
-    "配信者";
-
-  document.getElementById(
-    "liveTitleBig"
-  ).textContent =
-    currentRoom.title ||
-    "";
-
-  document.getElementById(
-    "likeCount"
-  ).textContent =
-    currentRoom.likes || 0;
-
-  document.getElementById(
-    "viewerCount"
-  ).textContent =
-    "👁 " +
-    (currentRoom.viewers || 0) +
-    "人";
-
-
-  applyTheme(
-    currentRoom.theme
-  );
-
-
-  const bg =
-    document.getElementById(
-      "liveBackground"
-    );
-
-  if (
-    currentRoom.background
-  ) {
-
-    bg.src =
-      currentRoom.background;
-
-    bg.style.display =
-      "block";
-
-  } else {
-
-    bg.removeAttribute("src");
-
-    bg.style.display =
-      "none";
-
-  }
-
-
-  document.getElementById(
-    "liveStatus"
-  ).textContent =
-    currentLiveIsHost
-      ? "🎙 配信中"
-      : "🔊 音声に接続しています...";
-
-}
-
-
-/* =========================================================
- THEME
-========================================================= */
-
-function applyTheme(theme) {
-
-  const stage =
-    document.querySelector(
-      ".live-stage"
-    );
-
-  if (!stage) return;
-
-  const themes = {
-
-    blue:
-      "radial-gradient(circle at center,#17245d,#030510 70%)",
-
-    purple:
-      "radial-gradient(circle at center,#49245d,#030510 70%)",
-
-    pink:
-      "radial-gradient(circle at center,#5d2447,#030510 70%)",
-
-    green:
-      "radial-gradient(circle at center,#174d42,#030510 70%)"
-
-  };
-
-  stage.style.background =
-    themes[theme] ||
-    themes.blue;
-
-}
-
-
-/* =========================================================
- WEBRTC HOST
-========================================================= */
-
-async function createOfferForViewer(
-  viewerId
-) {
-
-  if (!localStream) return;
 
   const pc =
-    new RTCPeerConnection({
-      iceServers:[
-        {
-          urls:
-            "stun:stun.l.google.com:19302"
-        },
-        {
-          urls:
-            "stun:stun1.l.google.com:19302"
-        }
-      ]
-    });
+    new RTCPeerConnection(rtcConfig);
 
+  state.peers[viewerId] = pc;
 
-  peerConnections[viewerId] =
-    pc;
-
-
-  localStream
+  state.localStream
     .getTracks()
     .forEach(track => {
-
       pc.addTrack(
         track,
-        localStream
+        state.localStream
       );
-
     });
 
+  pc.onicecandidate = event => {
 
-  pc.onicecandidate =
-    event => {
+    if (!event.candidate) return;
 
-      if (
-        event.candidate
-      ) {
+    wsSend({
+      type: "ice",
+      target: viewerId,
+      candidate: event.candidate
+    });
+  };
 
-        sendSocket({
+  pc.onconnectionstatechange = () => {
 
-          type:"ice_candidate",
+    const status =
+      pc.connectionState;
 
-          to:viewerId,
+    console.log(
+      "Host peer:",
+      viewerId,
+      status
+    );
 
-          from:myUserId,
+    if (
+      status === "failed" ||
+      status === "closed" ||
+      status === "disconnected"
+    ) {
 
-          candidate:
-            event.candidate
+      try {
+        pc.close();
+      } catch (_) {}
 
-        });
-
-      }
-
-    };
-
-
-  pc.onconnectionstatechange =
-    () => {
-
-      console.log(
-        "Host peer state:",
-        viewerId,
-        pc.connectionState
-      );
-
-      if (
-        pc.connectionState ===
-          "failed" ||
-        pc.connectionState ===
-          "closed" ||
-        pc.connectionState ===
-          "disconnected"
-      ) {
-
-        removePeer(
-          viewerId
-        );
-
-      }
-
-    };
-
+      delete state.peers[viewerId];
+    }
+  };
 
   const offer =
     await pc.createOffer({
-      offerToReceiveAudio:false,
-      offerToReceiveVideo:false
+      offerToReceiveAudio: false,
+      offerToReceiveVideo: false
     });
 
+  await pc.setLocalDescription(offer);
 
-  await pc.setLocalDescription(
-    offer
-  );
-
-
-  sendSocket({
-
-    type:"offer",
-
-    to:viewerId,
-
-    from:myUserId,
-
-    offer:pc.localDescription
-
+  wsSend({
+    type: "offer",
+    target: viewerId,
+    offer: pc.localDescription
   });
-
 }
 
+async function handleOffer(data) {
 
-/* =========================================================
- WEBRTC VIEWER
-========================================================= */
-
-async function receiveOffer(data) {
+  if (state.isHost) return;
 
   const pc =
-    new RTCPeerConnection({
-      iceServers:[
-        {
-          urls:
-            "stun:stun.l.google.com:19302"
-        },
-        {
-          urls:
-            "stun:stun1.l.google.com:19302"
-        }
-      ]
+    new RTCPeerConnection(rtcConfig);
+
+  state.peers[data.from] = pc;
+
+  pc.onicecandidate = event => {
+
+    if (!event.candidate) return;
+
+    wsSend({
+      type: "ice",
+      target: data.from,
+      candidate: event.candidate
     });
+  };
 
+  pc.ontrack = event => {
 
-  peerConnections[data.from] =
-    pc;
+    const video =
+      document.getElementById("remoteVideo");
 
+    if (!video) return;
 
-  pc.ontrack =
-    event => {
+    if (event.streams && event.streams[0]) {
 
-      const audio =
-        document.getElementById(
-          "remoteAudio"
-        );
+      video.srcObject =
+        event.streams[0];
 
-      if (
-        event.streams &&
-        event.streams[0]
-      ) {
+      video.classList.remove("hidden");
 
-        audio.srcObject =
-          event.streams[0];
+      video.play()
+        .catch(() => {});
 
-        audio.muted = false;
+      const image =
+        document.getElementById("liveImage");
 
-        audio.volume = 1;
-
-        audio.play()
-          .then(() => {
-
-            document.getElementById(
-              "liveStatus"
-            ).textContent =
-              "🔊 音声配信中";
-
-          })
-          .catch(error => {
-
-            console.log(
-              "Autoplay blocked",
-              error
-            );
-
-            document.getElementById(
-              "liveStatus"
-            ).textContent =
-              "🔊 画面をタップすると音声が再生されます";
-
-          });
-
+      if (image) {
+        image.style.display = "none";
       }
+    }
+  };
 
-    };
+  pc.onconnectionstatechange = () => {
 
+    console.log(
+      "Viewer peer:",
+      pc.connectionState
+    );
 
-  pc.onicecandidate =
-    event => {
+    if (
+      pc.connectionState === "failed" ||
+      pc.connectionState === "closed"
+    ) {
 
-      if (
-        event.candidate
-      ) {
+      try {
+        pc.close();
+      } catch (_) {}
 
-        sendSocket({
-
-          type:"ice_candidate",
-
-          to:data.from,
-
-          from:myUserId,
-
-          candidate:
-            event.candidate
-
-        });
-
-      }
-
-    };
-
-
-  pc.onconnectionstatechange =
-    () => {
-
-      console.log(
-        "Viewer peer state:",
-        pc.connectionState
-      );
-
-      if (
-        pc.connectionState ===
-        "connected"
-      ) {
-
-        document.getElementById(
-          "liveStatus"
-        ).textContent =
-          "🔊 音声配信中";
-
-      }
-
-    };
-
+    }
+  };
 
   await pc.setRemoteDescription(
-    new RTCSessionDescription(
-      data.offer
-    )
+    new RTCSessionDescription(data.offer)
   );
-
 
   const answer =
     await pc.createAnswer();
 
+  await pc.setLocalDescription(answer);
 
-  await pc.setLocalDescription(
-    answer
+  wsSend({
+    type: "answer",
+    target: data.from,
+    answer: pc.localDescription
+  });
+}
+
+async function handleAnswer(data) {
+
+  const pc =
+    state.peers[data.from];
+
+  if (!pc) return;
+
+  await pc.setRemoteDescription(
+    new RTCSessionDescription(data.answer)
   );
-
-
-  sendSocket({
-
-    type:"answer",
-
-    to:data.from,
-
-    from:myUserId,
-
-    answer:
-      pc.localDescription
-
-  });
-
 }
 
+async function handleIce(data) {
 
-/* =========================================================
- PEER REMOVE
-========================================================= */
+  const pc =
+    state.peers[data.from];
 
-function removePeer(id) {
+  if (!pc) return;
 
-  if (
-    peerConnections[id]
-  ) {
+  try {
 
-    try {
-
-      peerConnections[id].close();
-
-    } catch {}
-
-    delete peerConnections[id];
-
-  }
-
-}
-
-
-/* =========================================================
- LIKE
-========================================================= */
-
-function sendLike() {
-
-  if (!currentLiveId) return;
-
-  sendSocket({
-
-    type:"like",
-
-    liveId:currentLiveId,
-
-    userId:myUserId,
-
-    userName:myName
-
-  });
-
-}
-
-
-/* =========================================================
- GIFT
-========================================================= */
-
-function openGift() {
-
-  document
-    .getElementById(
-      "giftModal"
-    )
-    .classList.add("show");
-
-}
-
-
-function closeGift() {
-
-  document
-    .getElementById(
-      "giftModal"
-    )
-    .classList.remove("show");
-
-}
-
-
-function sendGift(
-  name,
-  icon
-) {
-
-  if (!currentLiveId) return;
-
-  sendSocket({
-
-    type:"gift",
-
-    liveId:currentLiveId,
-
-    userId:myUserId,
-
-    userName:myName,
-
-    gift:name,
-
-    icon
-
-  });
-
-  closeGift();
-
-}
-
-
-/* =========================================================
- BLOCK
-========================================================= */
-
-function blockCurrentLive() {
-
-  if (!currentLiveId) return;
-
-  if (
-    !confirm(
-      "この配信者をブロックしますか？"
-    )
-  ) {
-
-    return;
-
-  }
-
-  sendSocket({
-
-    type:"block",
-
-    liveId:currentLiveId,
-
-    userId:myUserId,
-
-    userName:myName
-
-  });
-
-}
-
-
-/* =========================================================
- SHARE
-========================================================= */
-
-async function shareLive() {
-
-  const url =
-    location.origin +
-    "/?live=" +
-    encodeURIComponent(
-      currentLiveId || ""
+    await pc.addIceCandidate(
+      new RTCIceCandidate(data.candidate)
     );
 
-  if (
-    navigator.share
-  ) {
+  } catch (error) {
 
-    try {
+    console.error(
+      "ICE error",
+      error
+    );
+  }
+}
 
-      await navigator.share({
-        title:"VoiceポタLive",
-        text:"配信を見てね！",
-        url
-      });
+/* =========================================================
+   WebSocket受信
+   ========================================================= */
 
-    } catch {}
+async function handleSocketMessage(data) {
 
-  } else {
+  if (data.type === "hello") {
 
-    try {
+    state.socketId =
+      data.socketId;
 
-      await navigator.clipboard.writeText(
-        url
+    return;
+  }
+
+  if (data.type === "host_viewer_joined") {
+
+    if (!state.isHost) return;
+
+    await createHostPeer(
+      data.viewerId
+    );
+
+    const count =
+      document.getElementById(
+        "hostViewerCount"
       );
 
-      alert(
-        "配信URLをコピーしました。"
-      );
-
-    } catch {
-
-      alert(url);
-
+    if (count) {
+      count.textContent =
+        "視聴者 " +
+        Number(data.viewerCount || 0) +
+        "人";
     }
 
+    return;
   }
 
-}
+  if (data.type === "offer") {
 
-
-/* =========================================================
- CUSTOM
-========================================================= */
-
-function toggleCustomPanel() {
-
-  const panel =
-    document.getElementById(
-      "customPanel"
-    );
-
-  panel.style.display =
-    panel.style.display === "none"
-      ? "block"
-      : "none";
-
-}
-
-
-function applyCustom() {
-
-  if (!currentLiveIsHost) {
-
-    alert(
-      "配信者のみ変更できます。"
-    );
+    await handleOffer(data);
 
     return;
-
   }
 
+  if (data.type === "answer") {
 
-  const title =
-    document.getElementById(
-      "customTitle"
-    ).value.trim();
-
-  const background =
-    document.getElementById(
-      "customBackground"
-    ).value.trim();
-
-  const theme =
-    document.getElementById(
-      "customTheme"
-    ).value;
-
-
-  currentRoom.title =
-    title ||
-    "新しい配信";
-
-  currentRoom.background =
-    background;
-
-  currentRoom.theme =
-    theme;
-
-
-  sendSocket({
-
-    type:"update_live",
-
-    liveId:currentLiveId,
-
-    title:
-      currentRoom.title,
-
-    background,
-
-    theme
-
-  });
-
-
-  updateLiveRoomUI();
-
-  alert(
-    "配信画面を更新しました。"
-  );
-
-}
-
-
-/* =========================================================
- OPEN USER
-========================================================= */
-
-function openUser(id) {
-
-  const room =
-    liveData.find(
-      r => r.hostId === id
-    );
-
-  if (room) {
-
-    joinLive(room.id);
+    await handleAnswer(data);
 
     return;
-
   }
 
-  alert(
-    "このライバーは現在配信していません。"
-  );
+  if (data.type === "ice") {
 
-}
+    await handleIce(data);
 
+    return;
+  }
 
-/* =========================================================
- START
-========================================================= */
+  if (data.type === "live_info") {
 
-connectSocket();
-
-
-/* =========================================================
- URL LIVE
-========================================================= */
-
-window.addEventListener(
-  "load",
-  () => {
-
-    const params =
-      new URLSearchParams(
-        location.search
+    const title =
+      document.getElementById(
+        "liveTitle"
       );
 
-    const live =
-      params.get("live");
-
-    if (live) {
-
-      setTimeout(
-        () => {
-
-          joinLive(live);
-
-        },
-        1000
-      );
-
+    if (title) {
+      title.textContent =
+        data.name || "配信中";
     }
 
+    const count =
+      document.getElementById(
+        "viewerCount"
+      );
+
+    if (count) {
+      count.textContent =
+        "👁 " +
+        Number(data.viewers || 0) +
+        "人が視聴中";
+    }
+
+    const image =
+      document.getElementById(
+        "liveImage"
+      );
+
+    if (image && data.image) {
+
+      image.src =
+        data.image;
+
+      image.style.display =
+        "block";
+
+      state.currentImage =
+        data.image;
+    }
+
+    return;
   }
-);
+
+  if (data.type === "image") {
+
+    const image =
+      document.getElementById(
+        "liveImage"
+      );
+
+    if (image && data.image) {
+
+      image.src =
+        data.image;
+
+      image.style.display =
+        "block";
+
+      state.currentImage =
+        data.image;
+    }
+
+    return;
+  }
+
+  if (data.type === "like") {
+
+    showToast(
+      "❤️ いいね！"
+    );
+
+    return;
+  }
+
+  if (data.type === "gift") {
+
+    showToast(
+      String(data.gift?.emoji || "🎁") +
+      " ギフトが届きました！"
+    );
+
+    return;
+  }
+
+  if (data.type === "live_ended") {
+
+    showToast(
+      "配信が終了しました"
+    );
+
+    setTimeout(() => {
+      goHome();
+    }, 800);
+
+    return;
+  }
+}
+
+/* =========================================================
+   初期表示
+   ========================================================= */
+
+goHome();
 
 </script>
 
@@ -3845,1090 +2172,641 @@ window.addEventListener(
 </html>
 `;
 
+/* =========================================================
+   HTTP
+   ========================================================= */
+
+server.on("request", (req,res) => {
+
+  const url =
+    new URL(
+      req.url,
+      "http://" + req.headers.host
+    );
+
+  if (url.pathname === "/api/home") {
+
+    res.writeHead(200, {
+      "Content-Type":
+        "application/json; charset=utf-8",
+      "Cache-Control":
+        "no-store"
+    });
+
+    res.end(
+      JSON.stringify({
+        hero:
+          "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=90",
+
+        ranking:
+          allRanking,
+
+        newcomers:
+          allNewcomers
+      })
+    );
+
+    return;
+  }
+
+  if (url.pathname === "/api/ranking") {
+
+    res.writeHead(200, {
+      "Content-Type":
+        "application/json; charset=utf-8",
+      "Cache-Control":
+        "no-store"
+    });
+
+    res.end(
+      JSON.stringify(allRanking)
+    );
+
+    return;
+  }
+
+  if (url.pathname === "/api/newcomers") {
+
+    res.writeHead(200, {
+      "Content-Type":
+        "application/json; charset=utf-8",
+      "Cache-Control":
+        "no-store"
+    });
+
+    res.end(
+      JSON.stringify(allNewcomers)
+    );
+
+    return;
+  }
+
+  if (url.pathname === "/health") {
+
+    res.writeHead(200, {
+      "Content-Type":
+        "text/plain; charset=utf-8"
+    });
+
+    res.end("OK");
+
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type":
+      "text/html; charset=utf-8",
+    "Cache-Control":
+      "no-store"
+  });
+
+  res.end(HTML);
+});
 
 /* =========================================================
- HTTP SERVER
-========================================================= */
+   WebSocket
+   ========================================================= */
 
-const server =
-  http.createServer(
-    (req,res) => {
+wss.on("connection", ws => {
 
-      const url =
-        req.url.split("?")[0];
+  const socketId =
+    Math.random()
+      .toString(36)
+      .slice(2,12);
 
+  sockets.set(socketId, {
+    ws,
+    liveId: null,
+    role: null
+  });
 
-      /* HOME */
+  send(ws, {
+    type: "hello",
+    socketId
+  });
 
-      if (
-        url === "/" ||
-        url === "/index.html"
-      ) {
+  ws.on("message", raw => {
 
-        res.writeHead(
-          200,
-          {
-            "Content-Type":
-              "text/html; charset=utf-8",
+    let data;
 
-            "Cache-Control":
-              "no-cache"
-          }
+    try {
+      data =
+        JSON.parse(
+          raw.toString()
         );
+    } catch (error) {
 
-        res.end(HTML);
+      return;
+    }
 
-        return;
+    handleServerMessage(
+      socketId,
+      data
+    );
+  });
 
-      }
+  ws.on("close", () => {
 
+    const client =
+      sockets.get(socketId);
 
-      /* HOME IMAGE */
+    if (client) {
 
-      if (
-        url === "/home.png"
-      ) {
+      if (client.liveId) {
 
-        const imagePath =
-          path.join(
-            PUBLIC_DIR,
-            "home.png"
+        const room =
+          liveRooms.get(
+            client.liveId
           );
 
+        if (room) {
 
-        if (
-          fs.existsSync(
-            imagePath
-          )
-        ) {
+          if (client.role === "host") {
 
-          res.writeHead(
-            200,
+            room.host =
+              null;
+
+            room.viewers.forEach(
+              viewerId => {
+
+                const viewer =
+                  sockets.get(
+                    viewerId
+                  );
+
+                if (viewer) {
+
+                  send(
+                    viewer.ws,
+                    {
+                      type:
+                        "live_ended"
+                    }
+                  );
+
+                  viewer.liveId =
+                    null;
+                }
+              }
+            );
+
+            liveRooms.delete(
+              client.liveId
+            );
+
+          } else {
+
+            room.viewers.delete(
+              socketId
+            );
+
+            if (room.host) {
+
+              const host =
+                sockets.get(
+                  room.host
+                );
+
+              if (host) {
+
+                send(
+                  host.ws,
+                  {
+                    type:
+                      "viewer_left",
+                    viewerId:
+                      socketId,
+                    viewerCount:
+                      room.viewers.size
+                  }
+                );
+              }
+            }
+          }
+        }
+      }
+
+      sockets.delete(
+        socketId
+      );
+    }
+  });
+
+  ws.on("error", () => {});
+});
+
+/* =========================================================
+   WSメッセージ処理
+   ========================================================= */
+
+function handleServerMessage(
+  socketId,
+  data
+) {
+
+  const client =
+    sockets.get(socketId);
+
+  if (!client) return;
+
+  if (data.type === "host_start") {
+
+    const liveId =
+      String(data.liveId);
+
+    let room =
+      liveRooms.get(liveId);
+
+    if (!room) {
+
+      room = {
+        host: socketId,
+        name:
+          data.name || "ライバー",
+        image:
+          data.image || "",
+        viewers:
+          new Set(),
+        likes: 0
+      };
+
+      liveRooms.set(
+        liveId,
+        room
+      );
+
+    } else {
+
+      room.host =
+        socketId;
+
+      room.name =
+        data.name ||
+        room.name;
+
+      room.image =
+        data.image ||
+        room.image;
+    }
+
+    client.liveId =
+      liveId;
+
+    client.role =
+      "host";
+
+    return;
+  }
+
+  if (data.type === "host_end") {
+
+    const liveId =
+      data.liveId;
+
+    const room =
+      liveRooms.get(liveId);
+
+    if (!room) return;
+
+    if (room.host !== socketId) {
+      return;
+    }
+
+    room.viewers.forEach(
+      viewerId => {
+
+        const viewer =
+          sockets.get(
+            viewerId
+          );
+
+        if (viewer) {
+
+          send(
+            viewer.ws,
             {
-              "Content-Type":
-                "image/png",
-
-              "Cache-Control":
-                "public, max-age=3600"
+              type:
+                "live_ended"
             }
           );
 
-          fs.createReadStream(
-            imagePath
-          ).pipe(res);
+          viewer.liveId =
+            null;
 
-          return;
-
+          viewer.role =
+            null;
         }
-
-
-        res.writeHead(
-          404,
-          {
-            "Content-Type":
-              "text/plain; charset=utf-8"
-          }
-        );
-
-        res.end(
-          "home.png がありません"
-        );
-
-        return;
-
-      }
-
-
-      res.writeHead(
-        404,
-        {
-          "Content-Type":
-            "text/plain; charset=utf-8"
-        }
-      );
-
-      res.end(
-        "Not Found"
-      );
-
-    }
-  );
-
-
-/* =========================================================
- WEBSOCKET
-========================================================= */
-
-const wss =
-  new WebSocket.Server({
-    server
-  });
-
-const clients =
-  new Set();
-
-
-wss.on(
-  "connection",
-  ws => {
-
-    clients.add(ws);
-
-    ws.userId = null;
-    ws.userName = null;
-    ws.liveId = null;
-    ws.isHost = false;
-
-
-    console.log(
-      "WebSocket connected"
-    );
-
-
-    send(
-      ws,
-      getHomeData()
-    );
-
-
-    ws.on(
-      "message",
-      raw => {
-
-        try {
-
-          const data =
-            JSON.parse(
-              raw.toString()
-            );
-
-          handleSocketServer(
-            ws,
-            data
-          );
-
-        } catch(error) {
-
-          console.error(
-            "WS message error:",
-            error
-          );
-
-        }
-
       }
     );
 
-
-    ws.on(
-      "close",
-      () => {
-
-        handleDisconnect(
-          ws
-        );
-
-        clients.delete(ws);
-
-        console.log(
-          "WebSocket disconnected"
-        );
-
-      }
+    liveRooms.delete(
+      liveId
     );
 
-
-    ws.on(
-      "error",
-      error => {
-
-        console.error(
-          "WebSocket error:",
-          error.message
-        );
-
-      }
-    );
-
+    return;
   }
-);
 
+  if (data.type === "join") {
 
-/* =========================================================
- SERVER SOCKET HANDLER
-========================================================= */
+    const liveId =
+      String(data.liveId);
 
-function handleSocketServer(
-  ws,
-  data
-) {
+    const room =
+      liveRooms.get(liveId);
 
-  switch(data.type) {
+    client.liveId =
+      liveId;
 
+    client.role =
+      "viewer";
 
-    /* -----------------------------------------------
-       HOME
-    ----------------------------------------------- */
-
-    case "request_home":
+    if (!room) {
 
       send(
-        ws,
-        getHomeData()
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       START LIVE
-    ----------------------------------------------- */
-
-    case "start_live":
-
-      startLiveRoom(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       JOIN LIVE
-    ----------------------------------------------- */
-
-    case "join_live":
-
-      joinLiveRoom(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       LEAVE LIVE
-    ----------------------------------------------- */
-
-    case "leave_live":
-
-      leaveLiveRoom(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       STOP LIVE
-    ----------------------------------------------- */
-
-    case "stop_live":
-
-      stopLiveRoom(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       OFFER
-    ----------------------------------------------- */
-
-    case "offer":
-
-      relayToUser(
-        data.to,
+        client.ws,
         {
-          type:"offer",
-          from:data.from,
-          offer:data.offer
+          type:
+            "live_info",
+          name:
+            "配信を準備中です",
+          image: "",
+          viewers: 0
         }
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       ANSWER
-    ----------------------------------------------- */
-
-    case "answer":
-
-      relayToUser(
-        data.to,
-        {
-          type:"answer",
-          from:data.from,
-          answer:data.answer
-        }
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       ICE
-    ----------------------------------------------- */
-
-    case "ice_candidate":
-
-      relayToUser(
-        data.to,
-        {
-          type:"ice_candidate",
-          from:data.from,
-          candidate:data.candidate
-        }
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       LIKE
-    ----------------------------------------------- */
-
-    case "like":
-
-      handleLike(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       GIFT
-    ----------------------------------------------- */
-
-    case "gift":
-
-      handleGift(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       BLOCK
-    ----------------------------------------------- */
-
-    case "block":
-
-      handleBlock(
-        ws,
-        data
-      );
-
-      break;
-
-
-    /* -----------------------------------------------
-       CUSTOM
-    ----------------------------------------------- */
-
-    case "update_live":
-
-      updateLiveRoom(
-        ws,
-        data
-      );
-
-      break;
-
-  }
-
-}
-
-
-/* =========================================================
- START ROOM
-========================================================= */
-
-function startLiveRoom(
-  ws,
-  data
-) {
-
-  if (
-    liveRooms.has(
-      data.liveId
-    )
-  ) {
-
-    send(
-      ws,
-      {
-        type:"error",
-        message:"この配信IDは使用中です。"
-      }
-    );
-
-    return;
-
-  }
-
-
-  ws.userId =
-    data.hostId ||
-    createId("host");
-
-  ws.userName =
-    data.hostName ||
-    "配信者";
-
-  ws.liveId =
-    data.liveId;
-
-  ws.isHost = true;
-
-
-  const room = {
-
-    id:data.liveId,
-
-    hostId:ws.userId,
-
-    hostName:ws.userName,
-
-    hostSocket:ws,
-
-    title:
-      data.title ||
-      "新しい配信",
-
-    icon:
-      data.icon ||
-      "🌙",
-
-    theme:
-      data.theme ||
-      "blue",
-
-    background:
-      data.background ||
-      "",
-
-    viewers:new Map(),
-
-    likes:0,
-
-    gifts:0,
-
-    startedAt:
-      Date.now()
-
-  };
-
-
-  liveRooms.set(
-    room.id,
-    room
-  );
-
-
-  send(
-    ws,
-    {
-      type:"live_started",
-      room:
-        publicLiveRoom(room)
-    }
-  );
-
-
-  broadcastHome();
-
-  console.log(
-    "LIVE START:",
-    room.id
-  );
-
-}
-
-
-/* =========================================================
- JOIN ROOM
-========================================================= */
-
-function joinLiveRoom(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-
-  if (!room) {
-
-    send(
-      ws,
-      {
-        type:"live_ended"
-      }
-    );
-
-    return;
-
-  }
-
-
-  ws.userId =
-    data.viewerId ||
-    createId("viewer");
-
-  ws.userName =
-    data.viewerName ||
-    "視聴者";
-
-  ws.liveId =
-    room.id;
-
-  ws.isHost = false;
-
-
-  room.viewers.set(
-    ws.userId,
-    {
-      id:ws.userId,
-      name:ws.userName,
-      socket:ws
-    }
-  );
-
-
-  send(
-    ws,
-    {
-      type:"live_state",
-      room:
-        publicLiveRoom(room)
-    }
-  );
-
-
-  send(
-    room.hostSocket,
-    {
-      type:"viewer_joined",
-      viewerId:ws.userId,
-      viewerName:ws.userName
-    }
-  );
-
-
-  broadcastRoom(
-    room,
-    {
-      type:"live_state",
-      room:
-        publicLiveRoom(room)
-    }
-  );
-
-
-  broadcastHome();
-
-  console.log(
-    "VIEWER JOIN:",
-    ws.userId,
-    room.id
-  );
-
-}
-
-
-/* =========================================================
- LEAVE ROOM
-========================================================= */
-
-function leaveLiveRoom(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-  if (!room) return;
-
-
-  room.viewers.delete(
-    data.viewerId ||
-    ws.userId
-  );
-
-
-  send(
-    room.hostSocket,
-    {
-      type:"viewer_left",
-      viewerId:
-        data.viewerId ||
-        ws.userId
-    }
-  );
-
-
-  broadcastRoom(
-    room,
-    {
-      type:"live_state",
-      room:
-        publicLiveRoom(room)
-    }
-  );
-
-
-  broadcastHome();
-
-}
-
-
-/* =========================================================
- STOP ROOM
-========================================================= */
-
-function stopLiveRoom(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-
-  if (!room) return;
-
-
-  if (
-    room.hostSocket !== ws
-  ) {
-
-    return;
-
-  }
-
-
-  for (
-    const viewer
-    of room.viewers.values()
-  ) {
-
-    send(
-      viewer.socket,
-      {
-        type:"live_ended"
-      }
-    );
-
-  }
-
-
-  liveRooms.delete(
-    room.id
-  );
-
-
-  broadcastHome();
-
-
-  console.log(
-    "LIVE END:",
-    room.id
-  );
-
-}
-
-
-/* =========================================================
- LIKE
-========================================================= */
-
-function handleLike(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-  if (!room) return;
-
-
-  room.likes++;
-
-
-  broadcastRoom(
-    room,
-    {
-      type:"like",
-      likes:room.likes
-    }
-  );
-
-
-  broadcastHome();
-
-}
-
-
-/* =========================================================
- GIFT
-========================================================= */
-
-function handleGift(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-  if (!room) return;
-
-
-  room.gifts++;
-
-
-  broadcastRoom(
-    room,
-    {
-      type:"gift",
-
-      name:
-        data.userName ||
-        "視聴者",
-
-      gift:
-        data.gift ||
-        "ギフト",
-
-      icon:
-        data.icon ||
-        "🎁",
-
-      gifts:
-        room.gifts
-    }
-  );
-
-
-  broadcastHome();
-
-}
-
-
-/* =========================================================
- BLOCK
-========================================================= */
-
-function handleBlock(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-  if (!room) return;
-
-
-  /*
-    視聴者がブロックを押した場合
-    → 自分側でその配信を閉じる
-  */
-
-  if (!ws.isHost) {
-
-    send(
-      ws,
-      {
-        type:"blocked"
-      }
-    );
-
-    return;
-
-  }
-
-
-  /*
-    配信者側からのブロック
-  */
-
-  const viewer =
-    room.viewers.get(
-      data.userId
-    );
-
-
-  if (viewer) {
-
-    send(
-      viewer.socket,
-      {
-        type:"viewer_blocked"
-      }
-    );
-
-
-    room.viewers.delete(
-      data.userId
-    );
-
-
-    send(
-      room.hostSocket,
-      {
-        type:"viewer_left",
-        viewerId:data.userId
-      }
-    );
-
-  }
-
-
-  broadcastRoom(
-    room,
-    {
-      type:"live_state",
-      room:
-        publicLiveRoom(room)
-    }
-  );
-
-}
-
-
-/* =========================================================
- UPDATE ROOM
-========================================================= */
-
-function updateLiveRoom(
-  ws,
-  data
-) {
-
-  const room =
-    liveRooms.get(
-      data.liveId
-    );
-
-  if (!room) return;
-
-
-  if (
-    room.hostSocket !== ws
-  ) {
-
-    return;
-
-  }
-
-
-  if (
-    typeof data.title ===
-    "string"
-  ) {
-
-    room.title =
-      data.title
-        .slice(0,80);
-
-  }
-
-
-  if (
-    typeof data.background ===
-    "string"
-  ) {
-
-    room.background =
-      data.background
-        .slice(0,1000);
-
-  }
-
-
-  if (
-    typeof data.theme ===
-    "string"
-  ) {
-
-    room.theme =
-      data.theme;
-
-  }
-
-
-  broadcastRoom(
-    room,
-    {
-      type:"live_state",
-      room:
-        publicLiveRoom(room)
-    }
-  );
-
-
-  broadcastHome();
-
-}
-
-
-/* =========================================================
- RELAY
-========================================================= */
-
-function relayToUser(
-  userId,
-  message
-) {
-
-  for (
-    const ws
-    of clients
-  ) {
-
-    if (
-      ws.userId === userId
-    ) {
-
-      send(
-        ws,
-        message
       );
 
       return;
-
     }
 
-  }
+    room.viewers.add(
+      socketId
+    );
 
-}
+    send(
+      client.ws,
+      {
+        type:
+          "live_info",
+        name:
+          room.name,
+        image:
+          room.image,
+        viewers:
+          room.viewers.size
+      }
+    );
 
+    if (room.host) {
 
-/* =========================================================
- DISCONNECT
-========================================================= */
-
-function handleDisconnect(
-  ws
-) {
-
-  if (
-    ws.isHost &&
-    ws.liveId
-  ) {
-
-    const room =
-      liveRooms.get(
-        ws.liveId
-      );
-
-
-    if (room) {
-
-      for (
-        const viewer
-        of room.viewers.values()
-      ) {
-
-        send(
-          viewer.socket,
-          {
-            type:"live_ended"
-          }
+      const host =
+        sockets.get(
+          room.host
         );
 
+      if (host) {
+
+        send(
+          host.ws,
+          {
+            type:
+              "host_viewer_joined",
+            viewerId:
+              socketId,
+            viewerCount:
+              room.viewers.size
+          }
+        );
       }
-
-
-      liveRooms.delete(
-        room.id
-      );
-
-      broadcastHome();
-
     }
 
     return;
-
   }
 
+  if (data.type === "offer") {
 
-  if (
-    ws.liveId &&
-    ws.userId
-  ) {
+    sendToSocket(
+      data.target,
+      {
+        type:
+          "offer",
+        from:
+          socketId,
+        offer:
+          data.offer
+      }
+    );
+
+    return;
+  }
+
+  if (data.type === "answer") {
+
+    sendToSocket(
+      data.target,
+      {
+        type:
+          "answer",
+        from:
+          socketId,
+        answer:
+          data.answer
+      }
+    );
+
+    return;
+  }
+
+  if (data.type === "ice") {
+
+    sendToSocket(
+      data.target,
+      {
+        type:
+          "ice",
+        from:
+          socketId,
+        candidate:
+          data.candidate
+      }
+    );
+
+    return;
+  }
+
+  if (data.type === "like") {
 
     const room =
       liveRooms.get(
-        ws.liveId
+        data.liveId
       );
 
+    if (!room) return;
 
-    if (room) {
+    room.likes++;
 
-      room.viewers.delete(
-        ws.userId
-      );
+    broadcastRoom(
+      data.liveId,
+      {
+        type:
+          "like"
+      },
+      socketId
+    );
 
-
-      send(
-        room.hostSocket,
-        {
-          type:"viewer_left",
-          viewerId:ws.userId
-        }
-      );
-
-
-      broadcastRoom(
-        room,
-        {
-          type:"live_state",
-          room:
-            publicLiveRoom(room)
-        }
-      );
-
-
-      broadcastHome();
-
-    }
-
+    return;
   }
 
+  if (data.type === "gift") {
+
+    broadcastRoom(
+      data.liveId,
+      {
+        type:
+          "gift",
+        gift:
+          data.gift
+      },
+      socketId
+    );
+
+    return;
+  }
+
+  if (data.type === "block") {
+
+    return;
+  }
+
+  if (data.type === "image") {
+
+    const room =
+      liveRooms.get(
+        data.liveId
+      );
+
+    if (!room) return;
+
+    if (room.host !== socketId) {
+      return;
+    }
+
+    room.image =
+      String(data.image || "");
+
+    broadcastRoom(
+      data.liveId,
+      {
+        type:
+          "image",
+        image:
+          room.image
+      }
+    );
+
+    return;
+  }
 }
 
+/* =========================================================
+   ヘルパー
+   ========================================================= */
+
+function send(ws,data) {
+
+  if (!ws) return;
+
+  if (
+    ws.readyState !==
+    WebSocket.OPEN
+  ) {
+    return;
+  }
+
+  try {
+
+    ws.send(
+      JSON.stringify(data)
+    );
+
+  } catch (_) {}
+}
+
+function sendToSocket(
+  socketId,
+  data
+) {
+
+  const client =
+    sockets.get(
+      socketId
+    );
+
+  if (!client) return;
+
+  send(
+    client.ws,
+    data
+  );
+}
+
+function broadcastRoom(
+  liveId,
+  data,
+  exceptId
+) {
+
+  const room =
+    liveRooms.get(
+      liveId
+    );
+
+  if (!room) return;
+
+  if (room.host) {
+
+    if (room.host !== exceptId) {
+
+      const host =
+        sockets.get(
+          room.host
+        );
+
+      if (host) {
+        send(
+          host.ws,
+          data
+        );
+      }
+    }
+  }
+
+  room.viewers.forEach(
+    viewerId => {
+
+      if (
+        viewerId === exceptId
+      ) {
+        return;
+      }
+
+      const viewer =
+        sockets.get(
+          viewerId
+        );
+
+      if (viewer) {
+
+        send(
+          viewer.ws,
+          data
+        );
+      }
+    }
+  );
+}
 
 /* =========================================================
- START SERVER
-========================================================= */
+   起動
+   ========================================================= */
 
 server.listen(
   PORT,
@@ -4936,25 +2814,43 @@ server.listen(
   () => {
 
     console.log(
-      "================================="
-    );
-
-    console.log(
-      "VoiceポタLive STARTED"
-    );
-
-    console.log(
-      "PORT:",
+      "VoiceポタLive server listening on " +
+      HOST +
+      ":" +
       PORT
     );
 
-    console.log(
-      "HOST:",
-      HOST
+  }
+);
+
+server.on("error", error => {
+
+  console.error(
+    "SERVER ERROR:",
+    error
+  );
+
+});
+
+process.on(
+  "uncaughtException",
+  error => {
+
+    console.error(
+      "UNCAUGHT EXCEPTION:",
+      error
     );
 
-    console.log(
-      "================================="
+  }
+);
+
+process.on(
+  "unhandledRejection",
+  error => {
+
+    console.error(
+      "UNHANDLED REJECTION:",
+      error
     );
 
   }

@@ -1146,7 +1146,7 @@ let audioStarted = false;
 
 
 /* =====================================================
-   WEBRTC LOW LATENCY
+   WEBRTC
 ===================================================== */
 
 const rtcConfig = {
@@ -1155,15 +1155,18 @@ const rtcConfig = {
 
   rtcpMuxPolicy:"require",
 
-  iceCandidatePoolSize:20,
+  iceCandidatePoolSize:10,
 
   iceServers:[
+
     {
       urls:"stun:stun.l.google.com:19302"
     },
+
     {
       urls:"stun:stun1.l.google.com:19302"
     }
+
   ]
 
 };
@@ -1268,7 +1271,7 @@ function connectSocket(){
 
     setTimeout(
       connectSocket,
-      1000
+      1500
     );
 
   };
@@ -1649,6 +1652,10 @@ async function startBroadcast(){
 
           audio:{
 
+            /*
+             * 超低遅延優先
+             */
+
             echoCancellation:false,
 
             noiseSuppression:false,
@@ -1745,7 +1752,7 @@ async function startBroadcast(){
 
     });
 
-  },50);
+  },100);
 
 }
 
@@ -1776,6 +1783,10 @@ function joinLive(){
 
   $("audioButton")
     .style.display="block";
+
+
+  $("audioButton")
+    .textContent="🔊 音声を開始";
 
 
   setAudioStatus(
@@ -1843,58 +1854,47 @@ async function createOffer(viewerId){
   );
 
 
-  const track=
-    localStream
-      .getAudioTracks()[0];
+  localStream
+    .getAudioTracks()
+    .forEach(track=>{
+
+      const sender=
+        peer.addTrack(
+          track,
+          localStream
+        );
 
 
-  if(track){
+      try{
 
-    const sender=
-      peer.addTrack(
-        track,
-        localStream
-      );
+        const params=
+          sender.getParameters();
 
+        if(
+          params.encodings &&
+          params.encodings.length
+        ){
 
-    try{
+          /*
+           * 音声ビットレート。
+           *
+           * 低すぎると音質低下。
+           * 高すぎるとテザリング環境で
+           * 遅延が増える場合がある。
+           */
 
-      const params=
-        sender.getParameters();
+          params.encodings[0]
+            .maxBitrate=48000;
 
-      if(
-        params.encodings &&
-        params.encodings.length
-      ){
+        }
 
-        /*
-          音声専用。
-          低遅延優先なので
-          ビットレートを抑える。
-        */
+        sender.setParameters(
+          params
+        ).catch(()=>{});
 
-        params.encodings[0]
-          .maxBitrate=32000;
+      }catch(e){}
 
-        params.encodings[0]
-          .priority="high";
-
-      }
-
-      await sender.setParameters(
-        params
-      );
-
-    }catch(e){
-
-      console.log(
-        "sender parameters:",
-        e
-      );
-
-    }
-
-  }
+    });
 
 
   peer.onicecandidate=
@@ -1927,17 +1927,6 @@ async function createOffer(viewerId){
         peer.connectionState
       );
 
-      if(
-        peer.connectionState==="failed" ||
-        peer.connectionState==="closed"
-      ){
-
-        viewerPeers.delete(
-          viewerId
-        );
-
-      }
-
     };
 
 
@@ -1957,8 +1946,11 @@ async function createOffer(viewerId){
 
     const offer=
       await peer.createOffer({
+
         offerToReceiveAudio:false,
+
         offerToReceiveVideo:false
+
       });
 
 
@@ -1997,7 +1989,7 @@ async function createOffer(viewerId){
 
 
 /* =====================================================
-   OPUS ULTRA LOW LATENCY
+   OPUS SUPER LOW LATENCY SDP
 ===================================================== */
 
 function optimizeOpusSDP(sdp){
@@ -2008,7 +2000,7 @@ function optimizeOpusSDP(sdp){
 
 
   const lines=
-    sdp.split("\\r\\n");
+    sdp.split("\r\n");
 
 
   let opusPayload=null;
@@ -2020,17 +2012,20 @@ function optimizeOpusSDP(sdp){
     i++
   ){
 
+    const line=lines[i];
+
+
     if(
-      lines[i].startsWith("a=rtpmap:")
+      line.startsWith("a=rtpmap:")
       &&
-      lines[i]
+      line
         .toLowerCase()
         .includes("opus/48000")
     ){
 
       const match=
-        lines[i].match(
-          /^a=rtpmap:(\\d+)/
+        line.match(
+          /^a=rtpmap:(\d+)/
         );
 
       if(match){
@@ -2053,18 +2048,19 @@ function optimizeOpusSDP(sdp){
 
 
   /*
-    最優先で5ms。
-
-    FECは今回はOFF。
-    FECはパケットロス耐性には有利だが、
-    超低遅延を狙う場合は余計な処理を
-    増やすことがある。
-  */
+   * 超低遅延設定
+   *
+   * minptime=5
+   * maxptime=10
+   * useinbandfec=0
+   * stereo=0
+   * usedtx=0
+   */
 
   const fmtp=
     "a=fmtp:" +
     opusPayload +
-    " minptime=5;maxptime=5;useinbandfec=0;stereo=0;usedtx=0";
+    " minptime=5;maxptime=10;useinbandfec=0;stereo=0;usedtx=0";
 
 
   let fmtpIndex=-1;
@@ -2120,11 +2116,70 @@ function optimizeOpusSDP(sdp){
 
 
   /*
-    ptimeも5msにする。
+   * ptime / maxptime
+   */
 
-    これが効くブラウザでは
-    音声パケット単位を短くする。
-  */
+  let audioSection=false;
+
+  let hasPtime=false;
+
+  let hasMaxptime=false;
+
+
+  for(
+    let i=0;
+    i<lines.length;
+    i++
+  ){
+
+    if(
+      lines[i].startsWith("m=audio ")
+    ){
+
+      audioSection=true;
+
+      continue;
+
+    }
+
+
+    if(
+      audioSection &&
+      lines[i].startsWith("m=")
+    ){
+
+      audioSection=false;
+
+    }
+
+
+    if(audioSection){
+
+      if(
+        lines[i].startsWith("a=ptime:")
+      ){
+
+        lines[i]="a=ptime:10";
+
+        hasPtime=true;
+
+      }
+
+
+      if(
+        lines[i].startsWith("a=maxptime:")
+      ){
+
+        lines[i]="a=maxptime:10";
+
+        hasMaxptime=true;
+
+      }
+
+    }
+
+  }
+
 
   const mediaIndex=
     lines.findIndex(
@@ -2135,36 +2190,29 @@ function optimizeOpusSDP(sdp){
 
   if(mediaIndex>=0){
 
-    let inserted=false;
+    let insertIndex=
+      mediaIndex+1;
 
-    for(
-      let i=mediaIndex+1;
-      i<lines.length &&
-      !lines[i].startsWith("m=");
-      i++
-    ){
 
-      if(
-        lines[i].startsWith("a=ptime:")
-      ){
+    if(!hasPtime){
 
-        lines[i]="a=ptime:5";
+      lines.splice(
+        insertIndex,
+        0,
+        "a=ptime:10"
+      );
 
-        inserted=true;
-
-        break;
-
-      }
+      insertIndex++;
 
     }
 
 
-    if(!inserted){
+    if(!hasMaxptime){
 
       lines.splice(
-        mediaIndex+1,
+        insertIndex,
         0,
-        "a=ptime:5"
+        "a=maxptime:10"
       );
 
     }
@@ -2172,7 +2220,7 @@ function optimizeOpusSDP(sdp){
   }
 
 
-  return lines.join("\\r\\n");
+  return lines.join("\r\n");
 
 }
 
@@ -2196,26 +2244,6 @@ async function receiveOffer(m){
     "🔊 超低遅延WebRTC接続中...",
     ""
   );
-
-
-  /*
-    受信側で可能なら
-    再生遅延を最小にする。
-
-    offerを受け取った直後に
-    transceiverへ設定する。
-  */
-
-  try{
-
-    viewerPeer.addTransceiver(
-      "audio",
-      {
-        direction:"recvonly"
-      }
-    );
-
-  }catch(e){}
 
 
   viewerPeer.onicecandidate=
@@ -2295,6 +2323,17 @@ async function receiveOffer(m){
     };
 
 
+  viewerPeer.onconnectionstatechange=
+    ()=>{
+
+      console.log(
+        "VIEWER CONNECTION:",
+        viewerPeer.connectionState
+      );
+
+    };
+
+
   viewerPeer.ontrack=
     event=>{
 
@@ -2326,18 +2365,23 @@ async function receiveOffer(m){
 
         audio.controls=false;
 
-        audio.preload="auto";
-
         /*
-          display:noneにはしない。
-        */
+         * display:noneにはしない。
+         */
 
-        audio.style.position="fixed";
+        audio.style.position=
+          "fixed";
+
         audio.style.width="1px";
+
         audio.style.height="1px";
+
         audio.style.opacity="0.01";
+
         audio.style.pointerEvents="none";
+
         audio.style.left="-10px";
+
         audio.style.top="-10px";
 
         document.body.appendChild(
@@ -2360,9 +2404,32 @@ async function receiveOffer(m){
         stream;
 
 
+      audio.autoplay=true;
+      audio.playsInline=true;
+
+
       /*
-        受信側の再生遅延を最小化。
-      */
+       * Android Chromeで
+       * 不要なピッチ補正を避ける。
+       */
+
+      try{
+
+        audio.preservesPitch=false;
+
+      }catch(e){}
+
+
+      try{
+
+        audio.playbackRate=1.0;
+
+      }catch(e){}
+
+
+      /*
+       * 受信側バッファを最小化
+       */
 
       try{
 
@@ -2378,64 +2445,57 @@ async function receiveOffer(m){
 
         if(receiver){
 
-          /*
-            Chrome系で利用可能な場合。
-          */
+          if(
+            "playoutDelayHint"
+            in receiver
+          ){
 
-          try{
+            try{
 
-            if(
-              "playoutDelayHint"
-              in receiver
-            ){
+              receiver
+                .playoutDelayHint=0;
 
-              receiver.playoutDelayHint=0;
+            }catch(e){}
 
-            }
-
-          }catch(e){}
+          }
 
 
-          try{
+          if(
+            "jitterBufferTarget"
+            in receiver
+          ){
 
-            if(
-              "jitterBufferTarget"
-              in receiver
-            ){
+            try{
 
-              receiver.jitterBufferTarget=0;
+              receiver
+                .jitterBufferTarget=0;
 
-            }
+            }catch(e){}
 
-          }catch(e){}
+          }
 
         }
 
-      }catch(e){}
+      }catch(e){
+
+        console.log(
+          "RECEIVER LOW LATENCY:",
+          e
+        );
+
+      }
 
 
       setAudioStatus(
-        "🟢 音声を受信しています",
+        "🟢 超低遅延音声を受信中",
         "ok"
       );
 
-
-      /*
-        ボタンを一度押した後なら
-        即再生。
-      */
 
       if(audioStarted){
 
         audio
           .play()
-          .then(()=>{
-
-            $("audioButton")
-              .textContent=
-              "🔊 音声再生中";
-
-          })
           .catch(error=>{
 
             console.log(
@@ -2452,10 +2512,6 @@ async function receiveOffer(m){
 
   try{
 
-    /*
-      Remote SDPを設定。
-    */
-
     await viewerPeer
       .setRemoteDescription(
         m.sdp
@@ -2463,54 +2519,140 @@ async function receiveOffer(m){
 
 
     /*
-      setRemoteDescription後に
-      receiverの低遅延設定を再適用。
-    */
+     * =========================================
+     * 超低遅延受信設定
+     * =========================================
+     */
 
     try{
 
-      const receiver=
+      const receivers =
+        viewerPeer.getReceivers();
+
+
+      receivers.forEach(
+        receiver=>{
+
+          if(
+            receiver.track &&
+            receiver.track.kind==="audio"
+          ){
+
+            try{
+
+              if(
+                "playoutDelayHint"
+                in receiver
+              ){
+
+                receiver
+                  .playoutDelayHint=0;
+
+              }
+
+            }catch(e){}
+
+
+            try{
+
+              if(
+                "jitterBufferTarget"
+                in receiver
+              ){
+
+                receiver
+                  .jitterBufferTarget=0;
+
+              }
+
+            }catch(e){}
+
+          }
+
+        }
+      );
+
+    }catch(e){
+
+      console.log(
+        "LOW LATENCY RECEIVER SETTING:",
+        e
+      );
+
+    }
+
+
+    /*
+     * Opus優先
+     */
+
+    try{
+
+      const transceivers=
         viewerPeer
-          .getReceivers()
-          .find(
-            r=>
-              r.track &&
-              r.track.kind==="audio"
-          );
+          .getTransceivers();
 
 
-      if(receiver){
-
-        try{
+      transceivers.forEach(
+        transceiver=>{
 
           if(
-            "playoutDelayHint"
-            in receiver
+            transceiver.receiver &&
+            transceiver.receiver.track &&
+            transceiver.receiver.track.kind===
+            "audio"
           ){
 
-            receiver.playoutDelayHint=0;
+            const capabilities=
+              RTCRtpReceiver
+                .getCapabilities(
+                  "audio"
+                );
+
+
+            if(
+              capabilities &&
+              capabilities.codecs
+            ){
+
+              const opus=
+                capabilities.codecs.filter(
+                  codec=>
+                    codec.mimeType &&
+                    codec.mimeType
+                      .toLowerCase()
+                      ===
+                    "audio/opus"
+                );
+
+
+              if(opus.length){
+
+                try{
+
+                  transceiver
+                    .setCodecPreferences(
+                      opus
+                    );
+
+                }catch(e){}
+
+              }
+
+            }
 
           }
 
-        }catch(e){}
+        }
+      );
 
+    }catch(e){
 
-        try{
+      console.log(
+        "Codec preference unavailable"
+      );
 
-          if(
-            "jitterBufferTarget"
-            in receiver
-          ){
-
-            receiver.jitterBufferTarget=0;
-
-          }
-
-        }catch(e){}
-
-      }
-
-    }catch(e){}
+    }
 
 
     const answer=
@@ -2588,18 +2730,91 @@ async function startAudio(){
 
     audio.controls=false;
 
-    audio.preload="auto";
-
     audio.style.position="fixed";
+
     audio.style.width="1px";
+
     audio.style.height="1px";
+
     audio.style.opacity="0.01";
+
     audio.style.pointerEvents="none";
+
     audio.style.left="-10px";
+
     audio.style.top="-10px";
 
     document.body.appendChild(
       audio
+    );
+
+  }
+
+
+  audio.autoplay=true;
+  audio.playsInline=true;
+
+
+  try{
+
+    audio.preservesPitch=false;
+
+  }catch(e){}
+
+
+  try{
+
+    audio.playbackRate=1.0;
+
+  }catch(e){}
+
+
+  /*
+   * AudioContextを必要に応じて起動。
+   *
+   * Android Chromeのユーザー操作後の
+   * オーディオ許可を確実にする。
+   */
+
+  try{
+
+    if(
+      !window.__voiceAudioContext
+    ){
+
+      const AudioContext =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if(AudioContext){
+
+        window.__voiceAudioContext =
+          new AudioContext({
+            latencyHint:"interactive"
+          });
+
+      }
+
+    }
+
+
+    if(
+      window.__voiceAudioContext &&
+      window.__voiceAudioContext.state===
+      "suspended"
+    ){
+
+      await window
+        .__voiceAudioContext
+        .resume();
+
+    }
+
+  }catch(e){
+
+    console.log(
+      "AUDIO CONTEXT:",
+      e
     );
 
   }
@@ -2613,10 +2828,6 @@ async function startAudio(){
     $("audioButton")
       .textContent=
       "🔊 音声再生中";
-
-
-    $("audioButton")
-      .style.display="none";
 
 
     setAudioStatus(
@@ -2651,8 +2862,6 @@ function closeViewerPeer(){
   if(viewerPeer){
 
     try{
-      viewerPeer.ontrack=null;
-      viewerPeer.onicecandidate=null;
       viewerPeer.close();
     }catch(e){}
 
@@ -3687,7 +3896,6 @@ wss.on(
         }
 
       }
-
     );
 
   });
@@ -3760,15 +3968,11 @@ server.listen(
     );
 
     console.log(
-      " ULTRA LOW LATENCY AUDIO v3"
+      " SUPER LOW LATENCY AUDIO"
     );
 
     console.log(
-      " OPUS 5ms"
-    );
-
-    console.log(
-      " PORT:",
+      "PORT:",
       PORT
     );
 

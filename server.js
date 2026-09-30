@@ -1,4 +1,9 @@
-<!DOCTYPE html>
+const http = require("http");
+const WebSocket = require("ws");
+
+const PORT = process.env.PORT || 3000;
+
+const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -6,9 +11,7 @@
 <title>音声ライブ配信</title>
 
 <style>
-*{
-  box-sizing:border-box;
-}
+*{box-sizing:border-box}
 
 body{
   margin:0;
@@ -17,16 +20,13 @@ body{
   color:#333;
 }
 
-button,
-input,
-textarea,
-select{
+button,input,textarea{
   font-size:16px;
 }
 
 .app{
   max-width:600px;
-  margin:0 auto;
+  margin:auto;
   min-height:100vh;
   background:#fff;
 }
@@ -64,9 +64,7 @@ label{
   font-weight:bold;
 }
 
-input,
-textarea,
-select{
+input,textarea{
   width:100%;
   padding:12px;
   border:1px solid #ddd;
@@ -86,7 +84,7 @@ textarea{
   align-items:center;
 }
 
-.color-row input[type="color"]{
+.color-row input[type=color]{
   width:70px;
   height:45px;
   padding:3px;
@@ -103,7 +101,8 @@ textarea{
   flex-direction:column;
   justify-content:space-between;
   background:#8e6ba8;
-  transition:.2s;
+  background-position:center;
+  background-size:cover;
 }
 
 .preview-overlay{
@@ -165,7 +164,6 @@ textarea{
   border:0;
   color:#fff;
   background:rgba(0,0,0,.55);
-  cursor:pointer;
 }
 
 .main-button{
@@ -177,16 +175,10 @@ textarea{
   background:#8e6ba8;
   color:#fff;
   font-weight:bold;
-  cursor:pointer;
 }
 
 .end-button{
   background:#e53935;
-}
-
-.secondary{
-  background:#eee;
-  color:#333;
 }
 
 .status{
@@ -214,6 +206,7 @@ textarea{
   background:#f5f5f5;
   font-size:13px;
   line-height:1.5;
+  margin-top:15px;
 }
 </style>
 </head>
@@ -222,662 +215,654 @@ textarea{
 
 <div class="app">
 
-  <div class="header">
-    🎤 音声ライブ
-  </div>
+<div class="header">
+🎤 音声ライブ
+</div>
 
-  <!-- カスタム設定画面 -->
-  <div class="screen" id="settingScreen">
+<div class="screen" id="settingScreen">
 
-    <div class="card">
+<div class="card">
 
-      <h2>🎨 配信画面をカスタム</h2>
+<h2>🎨 配信画面をカスタム</h2>
 
-      <label>配信者名</label>
-      <input
-        id="hostName"
-        type="text"
-        placeholder="配信者名を入力"
-        value="配信者"
-      >
+<label>配信者名</label>
+<input
+ id="hostName"
+ type="text"
+ placeholder="配信者名"
+ value="配信者"
+>
 
-      <label>配信タイトル</label>
-      <input
-        id="streamTitle"
-        type="text"
-        placeholder="例：のんびり雑談しよう"
-        maxlength="50"
-      >
+<label>配信タイトル</label>
+<input
+ id="streamTitle"
+ type="text"
+ placeholder="例：のんびり雑談しよう"
+ maxlength="50"
+>
 
-      <label>配信説明</label>
-      <textarea
-        id="streamDescription"
-        placeholder="配信内容を入力してください"
-      ></textarea>
+<label>配信説明</label>
+<textarea
+ id="streamDescription"
+ placeholder="配信内容を入力してください"
+></textarea>
 
-      <label>背景色</label>
+<label>背景色</label>
 
-      <div class="color-row">
-        <input
-          id="backgroundColor"
-          type="color"
-          value="#8e6ba8"
-        >
+<div class="color-row">
+<input
+ id="backgroundColor"
+ type="color"
+ value="#8e6ba8"
+>
+<span id="colorText">#8e6ba8</span>
+</div>
 
-        <span id="colorText">#8e6ba8</span>
-      </div>
+<label>背景画像</label>
 
-      <label>背景画像</label>
+<input
+ id="backgroundImage"
+ type="file"
+ accept="image/*"
+>
 
-      <input
-        id="backgroundImage"
-        type="file"
-        accept="image/*"
-      >
+<img
+ id="imagePreview"
+ class="image-preview hidden"
+>
 
-      <img
-        id="imagePreview"
-        class="image-preview hidden"
-      >
+<div class="notice">
+配信タイトル、説明、背景色、背景画像を設定できます。
+</div>
 
-      <div class="notice">
-        配信タイトル・説明・背景色・背景画像を設定してから
-        「配信画面を確認」を押してください。
-      </div>
+<button
+ class="main-button"
+ onclick="updatePreview()"
+>
+👀 配信画面を確認
+</button>
 
-      <button
-        class="main-button"
-        onclick="updatePreview()"
-      >
-        👀 配信画面を確認
-      </button>
+<button
+ class="main-button"
+ onclick="startStream()"
+>
+🔴 配信開始
+</button>
 
-      <button
-        class="main-button"
-        onclick="startStream()"
-      >
-        🔴 配信開始
-      </button>
-
-      <div
-        id="status"
-        class="status"
-      >
-        配信待機中
-      </div>
-
-    </div>
-
-    <!-- プレビュー -->
-    <div class="card">
-
-      <h2>配信画面プレビュー</h2>
-
-      <div
-        id="preview"
-        class="preview"
-      >
-
-        <div class="preview-overlay"></div>
-
-        <div class="preview-content">
-
-          <span class="live">
-            LIVE
-          </span>
-
-          <div
-            id="previewTitle"
-            class="title"
-          >
-            配信タイトル
-          </div>
-
-          <div
-            id="previewDescription"
-            class="description"
-          >
-            ここに配信説明が表示されます。
-          </div>
-
-          <div
-            id="previewHost"
-            class="host"
-          >
-            👤 配信者
-          </div>
-
-        </div>
-
-        <div class="bottom">
-
-          <button
-            class="control"
-            onclick="toggleMic()"
-            id="micButton"
-          >
-            🎤
-          </button>
-
-          <button
-            class="control"
-            onclick="toggleMute()"
-            id="muteButton"
-          >
-            🔊
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </div>
-
-
-  <!-- 配信中画面 -->
-  <div
-    class="screen hidden"
-    id="liveScreen"
-  >
-
-    <div class="card">
-
-      <div
-        id="livePreview"
-        class="preview"
-      >
-
-        <div class="preview-overlay"></div>
-
-        <div class="preview-content">
-
-          <span class="live">
-            🔴 LIVE配信中
-          </span>
-
-          <div
-            id="liveTitle"
-            class="title"
-          >
-          </div>
-
-          <div
-            id="liveDescription"
-            class="description"
-          >
-          </div>
-
-          <div
-            id="liveHost"
-            class="host"
-          >
-          </div>
-
-        </div>
-
-        <div class="bottom">
-
-          <button
-            class="control"
-            onclick="toggleMic()"
-            id="liveMicButton"
-          >
-            🎤
-          </button>
-
-          <button
-            class="control"
-            onclick="toggleMute()"
-            id="liveMuteButton"
-          >
-            🔊
-          </button>
-
-        </div>
-
-      </div>
-
-      <div
-        id="liveStatus"
-        class="status"
-      >
-        配信中です
-      </div>
-
-      <button
-        class="main-button end-button"
-        onclick="endStream()"
-      >
-        ⏹ 配信終了
-      </button>
-
-    </div>
-
-  </div>
+<div
+ id="status"
+ class="status"
+>
+配信待機中
+</div>
 
 </div>
 
+<div class="card">
+
+<h2>配信画面プレビュー</h2>
+
+<div
+ id="preview"
+ class="preview"
+>
+
+<div class="preview-overlay"></div>
+
+<div class="preview-content">
+
+<span class="live">LIVE</span>
+
+<div
+ id="previewTitle"
+ class="title"
+>
+配信タイトル
+</div>
+
+<div
+ id="previewDescription"
+ class="description"
+>
+ここに配信説明が表示されます。
+</div>
+
+<div
+ id="previewHost"
+ class="host"
+>
+👤 配信者
+</div>
+
+</div>
+
+<div class="bottom">
+
+<button
+ class="control"
+ onclick="toggleMic()"
+ id="micButton"
+>
+🎤
+</button>
+
+<button
+ class="control"
+ onclick="toggleMute()"
+ id="muteButton"
+>
+🔊
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<div
+ class="screen hidden"
+ id="liveScreen"
+>
+
+<div class="card">
+
+<div
+ id="livePreview"
+ class="preview"
+>
+
+<div class="preview-overlay"></div>
+
+<div class="preview-content">
+
+<span class="live">
+🔴 LIVE配信中
+</span>
+
+<div
+ id="liveTitle"
+ class="title"
+></div>
+
+<div
+ id="liveDescription"
+ class="description"
+></div>
+
+<div
+ id="liveHost"
+ class="host"
+></div>
+
+</div>
+
+<div class="bottom">
+
+<button
+ class="control"
+ onclick="toggleMic()"
+ id="liveMicButton"
+>
+🎤
+</button>
+
+<button
+ class="control"
+ onclick="toggleMute()"
+ id="liveMuteButton"
+>
+🔊
+</button>
+
+</div>
+
+</div>
+
+<div
+ id="liveStatus"
+ class="status"
+>
+配信中です
+</div>
+
+<button
+ class="main-button end-button"
+ onclick="endStream()"
+>
+⏹ 配信終了
+</button>
+
+</div>
+
+</div>
+
+</div>
 
 <script>
 
 let audioStream = null;
 let audioTrack = null;
+
 let isMicOn = true;
 let isMuted = false;
+
 let backgroundImageData = "";
 
-
-/* =========================
-   カスタム設定
-========================= */
-
 const titleInput =
-  document.getElementById("streamTitle");
+document.getElementById("streamTitle");
 
 const descriptionInput =
-  document.getElementById("streamDescription");
+document.getElementById("streamDescription");
 
 const hostInput =
-  document.getElementById("hostName");
+document.getElementById("hostName");
 
 const backgroundColor =
-  document.getElementById("backgroundColor");
+document.getElementById("backgroundColor");
 
 const backgroundImage =
-  document.getElementById("backgroundImage");
+document.getElementById("backgroundImage");
 
-
-/* =========================
-   背景画像
-========================= */
 
 backgroundImage.addEventListener(
-  "change",
-  function(event){
+"change",
+function(event){
 
-    const file =
-      event.target.files[0];
+const file =
+event.target.files[0];
 
-    if(!file){
-      return;
-    }
+if(!file){
+return;
+}
 
-    const reader =
-      new FileReader();
+const reader =
+new FileReader();
 
-    reader.onload =
-      function(e){
+reader.onload =
+function(e){
 
-        backgroundImageData =
-          e.target.result;
+backgroundImageData =
+e.target.result;
 
-        const imagePreview =
-          document.getElementById(
-            "imagePreview"
-          );
-
-        imagePreview.src =
-          backgroundImageData;
-
-        imagePreview.classList.remove(
-          "hidden"
-        );
-
-        updatePreview();
-      };
-
-    reader.readAsDataURL(file);
-  }
+const imagePreview =
+document.getElementById(
+"imagePreview"
 );
 
+imagePreview.src =
+backgroundImageData;
 
-/* =========================
-   プレビュー更新
-========================= */
+imagePreview.classList.remove(
+"hidden"
+);
+
+updatePreview();
+
+};
+
+reader.readAsDataURL(file);
+
+});
+
 
 function updatePreview(){
 
-  const title =
-    titleInput.value.trim()
-    || "配信タイトル";
+const title =
+titleInput.value.trim()
+|| "配信タイトル";
 
-  const description =
-    descriptionInput.value.trim()
-    || "ここに配信説明が表示されます。";
+const description =
+descriptionInput.value.trim()
+|| "ここに配信説明が表示されます。";
 
-  const host =
-    hostInput.value.trim()
-    || "配信者";
+const host =
+hostInput.value.trim()
+|| "配信者";
 
-  const color =
-    backgroundColor.value;
-
-
-  document.getElementById(
-    "previewTitle"
-  ).textContent = title;
-
-  document.getElementById(
-    "previewDescription"
-  ).textContent = description;
-
-  document.getElementById(
-    "previewHost"
-  ).textContent =
-    "👤 " + host;
+const color =
+backgroundColor.value;
 
 
-  const preview =
-    document.getElementById(
-      "preview"
-    );
+document.getElementById(
+"previewTitle"
+).textContent = title;
 
-  preview.style.backgroundColor =
-    color;
+document.getElementById(
+"previewDescription"
+).textContent =
+description;
 
-  if(backgroundImageData){
-
-    preview.style.backgroundImage =
-      "url('" +
-      backgroundImageData +
-      "')";
-
-    preview.style.backgroundSize =
-      "cover";
-
-    preview.style.backgroundPosition =
-      "center";
-
-  }else{
-
-    preview.style.backgroundImage =
-      "none";
-
-  }
+document.getElementById(
+"previewHost"
+).textContent =
+"👤 " + host;
 
 
-  document.getElementById(
-    "colorText"
-  ).textContent = color;
+const preview =
+document.getElementById("preview");
+
+preview.style.backgroundColor =
+color;
+
+if(backgroundImageData){
+
+preview.style.backgroundImage =
+"url('" +
+backgroundImageData +
+"')";
+
+}else{
+
+preview.style.backgroundImage =
+"none";
+
 }
 
+document.getElementById(
+"colorText"
+).textContent =
+color;
 
-/* =========================
-   マイク許可
-========================= */
+}
+
 
 async function requestMicrophone(){
 
-  try{
+try{
 
-    audioStream =
-      await navigator.mediaDevices
-        .getUserMedia({
-          audio:true
-        });
+audioStream =
+await navigator.mediaDevices.getUserMedia({
+audio:true
+});
 
-    audioTrack =
-      audioStream.getAudioTracks()[0];
+audioTrack =
+audioStream.getAudioTracks()[0];
 
-    isMicOn = true;
+isMicOn = true;
 
-    updateMicButton();
+updateMicButton();
 
-    return true;
+return true;
 
-  }catch(error){
+}catch(error){
 
-    console.error(error);
+console.error(error);
 
-    alert(
-      "マイクの使用を許可してください。"
-    );
+alert(
+"マイクの使用を許可してください。"
+);
 
-    return false;
-  }
+return false;
+
 }
 
+}
 
-/* =========================
-   配信開始
-========================= */
 
 async function startStream(){
 
-  updatePreview();
+updatePreview();
 
-  const title =
-    titleInput.value.trim();
+const title =
+titleInput.value.trim();
 
-  if(!title){
+if(!title){
 
-    alert(
-      "配信タイトルを入力してください。"
-    );
+alert(
+"配信タイトルを入力してください。"
+);
 
-    titleInput.focus();
+titleInput.focus();
 
-    return;
-  }
+return;
 
+}
 
-  const microphoneOK =
-    await requestMicrophone();
+const microphoneOK =
+await requestMicrophone();
 
-  if(!microphoneOK){
-    return;
-  }
-
-
-  document.getElementById(
-    "liveTitle"
-  ).textContent =
-    title;
-
-  document.getElementById(
-    "liveDescription"
-  ).textContent =
-    descriptionInput.value.trim();
-
-  document.getElementById(
-    "liveHost"
-  ).textContent =
-    "👤 " +
-    (
-      hostInput.value.trim()
-      || "配信者"
-    );
+if(!microphoneOK){
+return;
+}
 
 
-  const livePreview =
-    document.getElementById(
-      "livePreview"
-    );
+document.getElementById(
+"liveTitle"
+).textContent =
+title;
 
-  livePreview.style.backgroundColor =
-    backgroundColor.value;
+document.getElementById(
+"liveDescription"
+).textContent =
+descriptionInput.value.trim();
 
-
-  if(backgroundImageData){
-
-    livePreview.style.backgroundImage =
-      "url('" +
-      backgroundImageData +
-      "')";
-
-    livePreview.style.backgroundSize =
-      "cover";
-
-    livePreview.style.backgroundPosition =
-      "center";
-
-  }
+document.getElementById(
+"liveHost"
+).textContent =
+"👤 " +
+(
+hostInput.value.trim()
+|| "配信者"
+);
 
 
-  document.getElementById(
-    "settingScreen"
-  ).classList.add(
-    "hidden"
-  );
+const livePreview =
+document.getElementById(
+"livePreview"
+);
 
-  document.getElementById(
-    "liveScreen"
-  ).classList.remove(
-    "hidden"
-  );
+livePreview.style.backgroundColor =
+backgroundColor.value;
 
+if(backgroundImageData){
 
-  document.getElementById(
-    "status"
-  ).textContent =
-    "🔴 配信中";
+livePreview.style.backgroundImage =
+"url('" +
+backgroundImageData +
+"')";
 
+}else{
 
-  document.getElementById(
-    "liveStatus"
-  ).textContent =
-    "🔴 配信中です";
+livePreview.style.backgroundImage =
+"none";
 
 }
 
 
-/* =========================
-   配信終了
-========================= */
+document.getElementById(
+"settingScreen"
+).classList.add("hidden");
+
+document.getElementById(
+"liveScreen"
+).classList.remove("hidden");
+
+document.getElementById(
+"status"
+).textContent =
+"🔴 配信中";
+
+document.getElementById(
+"liveStatus"
+).textContent =
+"🔴 配信中です";
+
+}
+
 
 function endStream(){
 
-  if(audioStream){
+if(audioStream){
 
-    audioStream
-      .getTracks()
-      .forEach(
-        track => track.stop()
-      );
+audioStream
+.getTracks()
+.forEach(
+track => track.stop()
+);
 
-    audioStream = null;
-    audioTrack = null;
-  }
+audioStream = null;
+audioTrack = null;
 
+}
 
-  document.getElementById(
-    "liveScreen"
-  ).classList.add(
-    "hidden"
-  );
+document.getElementById(
+"liveScreen"
+).classList.add("hidden");
 
-  document.getElementById(
-    "settingScreen"
-  ).classList.remove(
-    "hidden"
-  );
+document.getElementById(
+"settingScreen"
+).classList.remove("hidden");
 
-
-  document.getElementById(
-    "status"
-  ).textContent =
-    "配信終了";
+document.getElementById(
+"status"
+).textContent =
+"配信終了";
 
 }
 
 
-/* =========================
-   マイクON/OFF
-========================= */
-
 function toggleMic(){
 
-  if(!audioTrack){
+if(!audioTrack){
 
-    requestMicrophone();
+requestMicrophone();
 
-    return;
-  }
+return;
 
+}
 
-  isMicOn =
-    !isMicOn;
+isMicOn =
+!isMicOn;
 
-  audioTrack.enabled =
-    isMicOn;
+audioTrack.enabled =
+isMicOn;
 
-  updateMicButton();
+updateMicButton();
+
 }
 
 
 function updateMicButton(){
 
-  const text =
-    isMicOn
-    ? "🎤"
-    : "🔇";
+const text =
+isMicOn
+? "🎤"
+: "🔇";
 
+document.getElementById(
+"micButton"
+).textContent =
+text;
 
-  document.getElementById(
-    "micButton"
-  ).textContent =
-    text;
+document.getElementById(
+"liveMicButton"
+).textContent =
+text;
 
-
-  document.getElementById(
-    "liveMicButton"
-  ).textContent =
-    text;
 }
 
-
-/* =========================
-   ミュート表示
-========================= */
 
 function toggleMute(){
 
-  isMuted =
-    !isMuted;
+isMuted =
+!isMuted;
 
+const text =
+isMuted
+? "🔇"
+: "🔊";
 
-  const text =
-    isMuted
-    ? "🔇"
-    : "🔊";
+document.getElementById(
+"muteButton"
+).textContent =
+text;
 
+document.getElementById(
+"liveMuteButton"
+).textContent =
+text;
 
-  document.getElementById(
-    "muteButton"
-  ).textContent =
-    text;
-
-
-  document.getElementById(
-    "liveMuteButton"
-  ).textContent =
-    text;
 }
 
 
-/* =========================
-   色変更
-========================= */
-
 backgroundColor.addEventListener(
-  "input",
-  function(){
+"input",
+function(){
 
-    updatePreview();
+updatePreview();
 
-  }
-);
+});
 
-
-/* =========================
-   初期表示
-========================= */
 
 updatePreview();
 
 </script>
 
 </body>
-</html>
+</html>`;
+
+
+const server = http.createServer((req, res) => {
+
+  if (req.url === "/" || req.url === "/index.html") {
+
+    res.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8"
+    });
+
+    res.end(html);
+
+    return;
+  }
+
+  res.writeHead(404, {
+    "Content-Type": "text/plain; charset=utf-8"
+  });
+
+  res.end("Not Found");
+});
+
+
+const wss = new WebSocket.Server({
+  server
+});
+
+
+wss.on("connection", (ws) => {
+
+  console.log("WebSocket connected");
+
+  ws.send(JSON.stringify({
+    type: "connected"
+  }));
+
+  ws.on("message", (message) => {
+
+    console.log(
+      "WebSocket message:",
+      message.toString()
+    );
+
+  });
+
+  ws.on("close", () => {
+
+    console.log(
+      "WebSocket disconnected"
+    );
+
+  });
+
+});
+
+
+server.listen(PORT, () => {
+
+  console.log(
+    "Server started on port " + PORT
+  );
+
+});

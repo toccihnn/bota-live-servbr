@@ -5,6 +5,7 @@ const PORT = process.env.PORT || 8080;
 const HOST = "0.0.0.0";
 
 const clients = new Set();
+
 let broadcaster = null;
 
 let liveInfo = {
@@ -18,7 +19,6 @@ let liveInfo = {
 const HTML = `
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
 
 <meta charset="UTF-8">
@@ -42,8 +42,7 @@ const HTML = `
   -webkit-tap-highlight-color:transparent;
 }
 
-html,
-body{
+html,body{
   margin:0;
   padding:0;
   width:100%;
@@ -86,7 +85,7 @@ button{
 
   padding:0 18px;
 
-  background:rgba(3,5,16,.88);
+  background:rgba(3,5,16,.9);
   backdrop-filter:blur(18px);
 
   border-bottom:
@@ -456,8 +455,7 @@ button{
 
 @keyframes wave{
 
-  0%,
-  100%{
+  0%,100%{
     height:10px;
   }
 
@@ -514,8 +512,7 @@ button{
 
 .features{
   display:grid;
-  grid-template-columns:
-    repeat(2,1fr);
+  grid-template-columns:repeat(2,1fr);
 
   gap:10px;
   margin-top:18px;
@@ -555,7 +552,7 @@ button{
   color:#8f9abb;
 }
 
-/* BOTTOM NAV */
+/* BOTTOM */
 
 .bottom-nav{
   position:fixed;
@@ -569,16 +566,12 @@ button{
   z-index:1500;
 
   display:grid;
-  grid-template-columns:
-    repeat(5,1fr);
+  grid-template-columns:repeat(5,1fr);
 
   padding:
     6px
     7px
-    calc(
-      6px +
-      env(safe-area-inset-bottom)
-    );
+    calc(6px + env(safe-area-inset-bottom));
 
   background:rgba(4,7,20,.96);
 
@@ -641,8 +634,6 @@ button{
     0 0 28px rgba(80,110,255,.7);
 }
 
-/* PC */
-
 @media(min-width:700px){
 
   .hero-image-wrap{
@@ -660,8 +651,7 @@ button{
   }
 
   .features{
-    grid-template-columns:
-      repeat(4,1fr);
+    grid-template-columns:repeat(4,1fr);
   }
 
   .section{
@@ -689,8 +679,6 @@ button{
 </header>
 
 
-<!-- HERO -->
-
 <section class="hero">
 
   <div class="hero-image-wrap">
@@ -699,6 +687,7 @@ button{
       class="hero-image"
       src="/home.png"
       alt="VoiceポタLive"
+      onerror="this.style.display='none'"
     >
 
     <div class="hero-gradient"></div>
@@ -736,8 +725,6 @@ button{
 </section>
 
 
-<!-- LIVE LIST -->
-
 <section
   class="section"
   id="liveSection"
@@ -755,6 +742,7 @@ button{
 
   </div>
 
+
   <div
     class="live-list"
     id="liveList"
@@ -768,8 +756,6 @@ button{
 
 </section>
 
-
-<!-- FEATURES -->
 
 <section class="section">
 
@@ -808,7 +794,7 @@ button{
       </div>
 
       <div class="feature-title">
-        低遅延でリアルタイム
+        リアルタイム配信
       </div>
 
       <div class="feature-text">
@@ -855,8 +841,6 @@ button{
 
 </section>
 
-
-<!-- LIVE PANEL -->
 
 <div
   class="live-panel"
@@ -945,21 +929,14 @@ button{
 </div>
 
 
-<!-- BOTTOM NAV -->
-
 <nav class="bottom-nav">
 
   <button
     class="nav-item active"
     onclick="goHome()"
   >
-
-    <div class="nav-icon">
-      ⌂
-    </div>
-
+    <div class="nav-icon">⌂</div>
     ホーム
-
   </button>
 
 
@@ -967,13 +944,8 @@ button{
     class="nav-item"
     onclick="scrollLive()"
   >
-
-    <div class="nav-icon">
-      ⌕
-    </div>
-
+    <div class="nav-icon">⌕</div>
     探す
-
   </button>
 
 
@@ -981,13 +953,8 @@ button{
     class="nav-item"
     onclick="startLive()"
   >
-
-    <div class="nav-live">
-      🎙️
-    </div>
-
+    <div class="nav-live">🎙️</div>
     配信
-
   </button>
 
 
@@ -995,13 +962,8 @@ button{
     class="nav-item"
     onclick="showNotice()"
   >
-
-    <div class="nav-icon">
-      ♧
-    </div>
-
+    <div class="nav-icon">♧</div>
     お知らせ
-
   </button>
 
 
@@ -1009,13 +971,8 @@ button{
     class="nav-item"
     onclick="showProfile()"
   >
-
-    <div class="nav-icon">
-      ♙
-    </div>
-
+    <div class="nav-icon">♙</div>
     マイページ
-
   </button>
 
 </nav>
@@ -1024,10 +981,6 @@ button{
 
 
 <script>
-
-/* ==========================================
-   VARIABLES
-========================================== */
 
 let socket = null;
 
@@ -1043,14 +996,22 @@ let localStream = null;
 
 let peerConnections = {};
 
+let pendingCandidates = {};
+
 let currentLiveId = null;
 
 let currentBroadcasterId = null;
 
 
+/*
+  WebRTC設定
+
+  STUNを使用して接続経路を探します。
+*/
+
 const rtcConfig = {
 
-  iceServers: [
+  iceServers:[
 
     {
       urls:
@@ -1068,7 +1029,7 @@ const rtcConfig = {
 
 
 /* ==========================================
-   SOCKET CONNECT
+   SOCKET
 ========================================== */
 
 function connectSocket(){
@@ -1077,6 +1038,7 @@ function connectSocket(){
     location.protocol === "https:"
       ? "wss:"
       : "ws:";
+
 
   socket =
     new WebSocket(
@@ -1092,6 +1054,7 @@ function connectSocket(){
       console.log(
         "WebSocket connected"
       );
+
 
       sendMessage({
 
@@ -1121,8 +1084,8 @@ function connectSocket(){
       }
       catch(error){
 
-        console.log(
-          "message error",
+        console.error(
+          "Message error:",
           error
         );
 
@@ -1149,8 +1112,8 @@ function connectSocket(){
   socket.onerror =
     function(error){
 
-      console.log(
-        "WebSocket error",
+      console.error(
+        "WebSocket error:",
         error
       );
 
@@ -1160,7 +1123,7 @@ function connectSocket(){
 
 
 /* ==========================================
-   SEND MESSAGE
+   SEND
 ========================================== */
 
 function sendMessage(data){
@@ -1181,7 +1144,7 @@ function sendMessage(data){
 
 
 /* ==========================================
-   MESSAGE HANDLER
+   MESSAGE
 ========================================== */
 
 function handleMessage(data){
@@ -1196,6 +1159,7 @@ function handleMessage(data){
     );
 
     return;
+
   }
 
 
@@ -1209,6 +1173,7 @@ function handleMessage(data){
     );
 
     return;
+
   }
 
 
@@ -1220,6 +1185,7 @@ function handleMessage(data){
     receiveOffer(data);
 
     return;
+
   }
 
 
@@ -1231,6 +1197,7 @@ function handleMessage(data){
     receiveAnswer(data);
 
     return;
+
   }
 
 
@@ -1242,6 +1209,7 @@ function handleMessage(data){
     receiveIceCandidate(data);
 
     return;
+
   }
 
 
@@ -1255,6 +1223,7 @@ function handleMessage(data){
     );
 
     return;
+
   }
 
 
@@ -1269,28 +1238,15 @@ function handleMessage(data){
     );
 
 
-    if(localStream){
+    stopLocalStream();
 
-      localStream
-        .getTracks()
-        .forEach(
-          function(track){
-
-            track.stop();
-
-          }
-        );
-
-      localStream = null;
-
-    }
-
-
-    isBroadcaster = false;
+    isBroadcaster =
+      false;
 
     closePanel();
 
     return;
+
   }
 
 
@@ -1301,22 +1257,28 @@ function handleMessage(data){
 
     renderLiveList([]);
 
-    if(!isBroadcaster){
+
+    if(
+      !isBroadcaster
+    ){
 
       setPanelStatus(
         "配信が終了しました"
       );
+
 
       document.getElementById(
         "audioText"
       ).textContent =
         "ライブ終了";
 
+
       closePeerConnections();
 
     }
 
     return;
+
   }
 
 
@@ -1350,7 +1312,9 @@ function handleMessage(data){
    LIVE LIST
 ========================================== */
 
-function renderLiveList(lives){
+function renderLiveList(
+  lives
+){
 
   const list =
     document.getElementById(
@@ -1380,64 +1344,44 @@ function renderLiveList(lives){
         return (
 
           "<div " +
-
           "class='live-card' " +
-
           "onclick=\"listenLive('" +
-
           escapeHtml(
             live.id
           ) +
-
           "')\">" +
 
-
           "<div class='live-avatar'>" +
-
           "🎙️" +
-
           "</div>" +
-
 
           "<div class='live-info'>" +
 
-
           "<div class='live-name'>" +
-
           escapeHtml(
             live.name ||
             "Voice配信者"
           ) +
-
           "</div>" +
 
-
           "<div class='live-title'>" +
-
           escapeHtml(
             live.title ||
             "音声ライブ配信中"
           ) +
-
           "</div>" +
-
 
           "<span class='live-badge'>" +
-
           "LIVE" +
-
           "</span>" +
 
-
           "</div>" +
-
 
           "</div>"
 
         );
 
       }
-
     ).join("");
 
 }
@@ -1449,7 +1393,9 @@ function renderLiveList(lives){
 
 async function startLive(){
 
-  if(isBroadcaster){
+  if(
+    isBroadcaster
+  ){
 
     openPanel();
 
@@ -1460,8 +1406,7 @@ async function startLive(){
 
   if(
     !navigator.mediaDevices ||
-    !navigator.mediaDevices
-      .getUserMedia
+    !navigator.mediaDevices.getUserMedia
   ){
 
     alert(
@@ -1480,7 +1425,9 @@ async function startLive(){
     );
 
 
-  if(!name){
+  if(
+    !name
+  ){
 
     return;
 
@@ -1494,7 +1441,9 @@ async function startLive(){
     );
 
 
-  if(!title){
+  if(
+    !title
+  ){
 
     return;
 
@@ -1509,19 +1458,10 @@ async function startLive(){
         .getUserMedia({
 
           audio:{
-
-            echoCancellation:
-              true,
-
-            noiseSuppression:
-              true,
-
-            autoGainControl:
-              true,
-
-            channelCount:
-              1
-
+            echoCancellation:true,
+            noiseSuppression:true,
+            autoGainControl:true,
+            channelCount:1
           },
 
           video:false
@@ -1532,7 +1472,7 @@ async function startLive(){
   catch(error){
 
     console.error(
-      "getUserMedia error:",
+      "Microphone error:",
       error
     );
 
@@ -1547,7 +1487,9 @@ async function startLive(){
   }
 
 
-  isBroadcaster = true;
+  isBroadcaster =
+    true;
+
 
   openPanel();
 
@@ -1600,12 +1542,43 @@ async function startLive(){
 
 
 /* ==========================================
+   STOP LOCAL MIC
+========================================== */
+
+function stopLocalStream(){
+
+  if(
+    localStream
+  ){
+
+    localStream
+      .getTracks()
+      .forEach(
+        function(track){
+
+          track.stop();
+
+        }
+      );
+
+  }
+
+
+  localStream =
+    null;
+
+}
+
+
+/* ==========================================
    STOP LIVE
 ========================================== */
 
 function stopLive(){
 
-  if(!isBroadcaster){
+  if(
+    !isBroadcaster
+  ){
 
     closePanel();
 
@@ -1627,25 +1600,11 @@ function stopLive(){
 
   closePeerConnections();
 
-
-  if(localStream){
-
-    localStream
-      .getTracks()
-      .forEach(
-        function(track){
-
-          track.stop();
-
-        }
-      );
-
-  }
+  stopLocalStream();
 
 
-  localStream = null;
-
-  isBroadcaster = false;
+  isBroadcaster =
+    false;
 
 
   setPanelStatus(
@@ -1668,12 +1627,16 @@ function stopLive(){
 
 
 /* ==========================================
-   LISTEN LIVE
+   LISTEN
 ========================================== */
 
-function listenLive(id){
+function listenLive(
+  id
+){
 
-  if(isBroadcaster){
+  if(
+    isBroadcaster
+  ){
 
     alert(
       "配信中は別のライブを視聴できません。"
@@ -1684,7 +1647,9 @@ function listenLive(id){
   }
 
 
-  currentLiveId = id;
+  currentLiveId =
+    id;
+
 
   openPanel();
 
@@ -1729,7 +1694,7 @@ function listenLive(id){
 
 
 /* ==========================================
-   CREATE OFFER
+   BROADCASTER OFFER
 ========================================== */
 
 async function createOfferForViewer(
@@ -1754,7 +1719,14 @@ async function createOfferForViewer(
 
   peerConnections[
     viewerId
-  ] = pc;
+  ] =
+    pc;
+
+
+  pendingCandidates[
+    viewerId
+  ] =
+    [];
 
 
   localStream
@@ -1774,7 +1746,9 @@ async function createOfferForViewer(
   pc.onicecandidate =
     function(event){
 
-      if(event.candidate){
+      if(
+        event.candidate
+      ){
 
         sendMessage({
 
@@ -1801,7 +1775,7 @@ async function createOfferForViewer(
     function(){
 
       console.log(
-        "Broadcaster:",
+        "Broadcaster connection:",
         viewerId,
         pc.connectionState
       );
@@ -1809,15 +1783,44 @@ async function createOfferForViewer(
 
       if(
         pc.connectionState ===
-          "failed" ||
-
-        pc.connectionState ===
-          "closed"
+          "connected"
       ){
 
-        delete peerConnections[
+        console.log(
+          "Viewer connected:",
           viewerId
-        ];
+        );
+
+      }
+
+
+      if(
+        pc.connectionState ===
+          "failed"
+      ){
+
+        setTimeout(
+          function(){
+
+            if(
+              peerConnections[
+                viewerId
+              ]
+            ){
+
+              peerConnections[
+                viewerId
+              ].close();
+
+              delete peerConnections[
+                viewerId
+              ];
+
+            }
+
+          },
+          1000
+        );
 
       }
 
@@ -1855,7 +1858,7 @@ async function createOfferForViewer(
   catch(error){
 
     console.error(
-      "offer error",
+      "Offer error:",
       error
     );
 
@@ -1865,12 +1868,16 @@ async function createOfferForViewer(
 
 
 /* ==========================================
-   RECEIVE OFFER
+   VIEWER OFFER
 ========================================== */
 
-async function receiveOffer(data){
+async function receiveOffer(
+  data
+){
 
-  if(isBroadcaster){
+  if(
+    isBroadcaster
+  ){
 
     return;
 
@@ -1884,6 +1891,12 @@ async function receiveOffer(data){
     data.from;
 
 
+  pendingCandidates[
+    data.from
+  ] =
+    [];
+
+
   const pc =
     new RTCPeerConnection(
       rtcConfig
@@ -1892,7 +1905,8 @@ async function receiveOffer(data){
 
   peerConnections[
     data.from
-  ] = pc;
+  ] =
+    pc;
 
 
   pc.ontrack =
@@ -1921,6 +1935,12 @@ async function receiveOffer(data){
       audio.playsInline =
         true;
 
+      audio.muted =
+        false;
+
+      audio.volume =
+        1;
+
 
       audio.play()
         .then(
@@ -1945,7 +1965,13 @@ async function receiveOffer(data){
           }
         )
         .catch(
-          function(){
+          function(error){
+
+            console.log(
+              "Autoplay blocked:",
+              error
+            );
+
 
             document.getElementById(
               "audioOnButton"
@@ -1966,7 +1992,9 @@ async function receiveOffer(data){
   pc.onicecandidate =
     function(event){
 
-      if(event.candidate){
+      if(
+        event.candidate
+      ){
 
         sendMessage({
 
@@ -1992,6 +2020,12 @@ async function receiveOffer(data){
   pc.onconnectionstatechange =
     function(){
 
+      console.log(
+        "Viewer connection:",
+        pc.connectionState
+      );
+
+
       if(
         pc.connectionState ===
           "connected"
@@ -2006,8 +2040,17 @@ async function receiveOffer(data){
 
       if(
         pc.connectionState ===
-          "failed" ||
+          "failed"
+      ){
 
+        setPanelStatus(
+          "音声接続に失敗しました"
+        );
+
+      }
+
+
+      if(
         pc.connectionState ===
           "disconnected"
       ){
@@ -2027,6 +2070,11 @@ async function receiveOffer(data){
       new RTCSessionDescription(
         data.sdp
       )
+    );
+
+
+    await addPendingCandidates(
+      data.from
     );
 
 
@@ -2059,7 +2107,7 @@ async function receiveOffer(data){
   catch(error){
 
     console.error(
-      "receive offer error",
+      "Receive offer error:",
       error
     );
 
@@ -2069,10 +2117,12 @@ async function receiveOffer(data){
 
 
 /* ==========================================
-   RECEIVE ANSWER
+   ANSWER
 ========================================== */
 
-async function receiveAnswer(data){
+async function receiveAnswer(
+  data
+){
 
   const pc =
     peerConnections[
@@ -2080,7 +2130,9 @@ async function receiveAnswer(data){
     ];
 
 
-  if(!pc){
+  if(
+    !pc
+  ){
 
     return;
 
@@ -2095,11 +2147,16 @@ async function receiveAnswer(data){
       )
     );
 
+
+    await addPendingCandidates(
+      data.from
+    );
+
   }
   catch(error){
 
     console.error(
-      "answer error",
+      "Answer error:",
       error
     );
 
@@ -2109,7 +2166,7 @@ async function receiveAnswer(data){
 
 
 /* ==========================================
-   ICE CANDIDATE
+   ICE
 ========================================== */
 
 async function receiveIceCandidate(
@@ -2122,7 +2179,9 @@ async function receiveIceCandidate(
     ];
 
 
-  if(!pc){
+  if(
+    !pc
+  ){
 
     return;
 
@@ -2131,21 +2190,113 @@ async function receiveIceCandidate(
 
   try{
 
-    await pc.addIceCandidate(
-      new RTCIceCandidate(
+    if(
+      pc.remoteDescription &&
+      pc.remoteDescription.type
+    ){
+
+      await pc.addIceCandidate(
+        new RTCIceCandidate(
+          data.candidate
+        )
+      );
+
+    }
+    else{
+
+      if(
+        !pendingCandidates[
+          data.from
+        ]
+      ){
+
+        pendingCandidates[
+          data.from
+        ] =
+          [];
+
+      }
+
+
+      pendingCandidates[
+        data.from
+      ].push(
         data.candidate
-      )
-    );
+      );
+
+    }
 
   }
   catch(error){
 
     console.error(
-      "ICE error",
+      "ICE error:",
       error
     );
 
   }
+
+}
+
+
+/* ==========================================
+   PENDING ICE
+========================================== */
+
+async function addPendingCandidates(
+  id
+){
+
+  const pc =
+    peerConnections[
+      id
+    ];
+
+
+  const list =
+    pendingCandidates[
+      id
+    ] || [];
+
+
+  if(
+    !pc
+  ){
+
+    return;
+
+  }
+
+
+  for(
+    const candidate of list
+  ){
+
+    try{
+
+      await pc.addIceCandidate(
+        new RTCIceCandidate(
+          candidate
+        )
+      );
+
+    }
+    catch(error){
+
+      console.error(
+        "Pending ICE error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  pendingCandidates[
+    id
+  ] =
+    [];
 
 }
 
@@ -2195,8 +2346,12 @@ function enableAudio(){
       function(error){
 
         console.error(
-          "audio play error",
+          "Audio error:",
           error
+        );
+
+        alert(
+          "音声を再生できませんでした。"
         );
 
       }
@@ -2206,7 +2361,7 @@ function enableAudio(){
 
 
 /* ==========================================
-   CLOSE PEERS
+   PEERS
 ========================================== */
 
 function closePeerConnections(){
@@ -2229,7 +2384,11 @@ function closePeerConnections(){
   );
 
 
-  peerConnections = {};
+  peerConnections =
+    {};
+
+  pendingCandidates =
+    {};
 
 }
 
@@ -2253,7 +2412,9 @@ function openPanel(){
 
 function closePanel(){
 
-  if(!isBroadcaster){
+  if(
+    !isBroadcaster
+  ){
 
     closePeerConnections();
 
@@ -2271,7 +2432,9 @@ function closePanel(){
 }
 
 
-function setPanelStatus(text){
+function setPanelStatus(
+  text
+){
 
   document.getElementById(
     "panelStatus"
@@ -2282,7 +2445,7 @@ function setPanelStatus(text){
 
 
 /* ==========================================
-   NAVIGATION
+   NAV
 ========================================== */
 
 function scrollLive(){
@@ -2333,10 +2496,12 @@ function showProfile(){
 
 
 /* ==========================================
-   ESCAPE HTML
+   ESCAPE
 ========================================== */
 
-function escapeHtml(value){
+function escapeHtml(
+  value
+){
 
   return String(value)
 
@@ -2377,7 +2542,6 @@ connectSocket();
 </script>
 
 </body>
-
 </html>
 `;
 
@@ -2388,13 +2552,11 @@ connectSocket();
 
 const server =
   http.createServer(
-    function(req, res){
+    function(req,res){
 
       const url =
         req.url.split("?")[0];
 
-
-      /* HOME */
 
       if(
         url === "/" ||
@@ -2402,19 +2564,14 @@ const server =
       ){
 
         res.writeHead(
-
           200,
-
           {
-
             "Content-Type":
               "text/html; charset=utf-8",
 
             "Cache-Control":
               "no-cache, no-store"
-
           }
-
         );
 
 
@@ -2422,34 +2579,25 @@ const server =
           HTML
         );
 
-
         return;
 
       }
 
-
-      /* HEALTH */
 
       if(
         url === "/health"
       ){
 
         res.writeHead(
-
           200,
-
           {
-
             "Content-Type":
               "application/json"
-
           }
-
         );
 
 
         res.end(
-
           JSON.stringify({
 
             status:
@@ -2459,28 +2607,19 @@ const server =
               liveInfo.active
 
           })
-
         );
-
 
         return;
 
       }
 
 
-      /* 404 */
-
       res.writeHead(
-
         404,
-
         {
-
           "Content-Type":
             "text/plain; charset=utf-8"
-
         }
-
       );
 
 
@@ -2493,15 +2632,13 @@ const server =
 
 
 /* ==========================================
-   WEBSOCKET SERVER
+   WEBSOCKET
 ========================================== */
 
 const wss =
   new WebSocket.Server({
-
     server:
       server
-
   });
 
 
@@ -2605,7 +2742,6 @@ wss.on(
 
             );
 
-
             return;
 
           }
@@ -2643,13 +2779,12 @@ wss.on(
 
           broadcastLiveList();
 
-
           return;
 
         }
 
 
-        /* STOP LIVE */
+        /* STOP */
 
         if(
           data.type ===
@@ -2669,7 +2804,7 @@ wss.on(
         }
 
 
-        /* JOIN LIVE */
+        /* JOIN */
 
         if(
           data.type ===
@@ -2697,7 +2832,6 @@ wss.on(
               })
 
             );
-
 
             return;
 
@@ -2751,7 +2885,6 @@ wss.on(
             data
           );
 
-
           return;
 
         }
@@ -2769,8 +2902,6 @@ wss.on(
         );
 
 
-        /* BROADCASTER CLOSED */
-
         if(
           broadcaster === ws
         ){
@@ -2779,8 +2910,6 @@ wss.on(
 
         }
 
-
-        /* VIEWER CLOSED */
 
         if(
 
@@ -2848,15 +2977,10 @@ function relaySignaling(
       ){
 
         client.send(
-
-          JSON.stringify(
-            data
-          )
-
+          JSON.stringify(data)
         );
 
       }
-
 
       return;
 
@@ -2868,7 +2992,7 @@ function relaySignaling(
 
 
 /* ==========================================
-   STOP LIVE SERVER
+   STOP SERVER LIVE
 ========================================== */
 
 function stopLiveServer(){
@@ -2911,7 +3035,7 @@ function stopLiveServer(){
 
 
 /* ==========================================
-   GET LIVE LIST
+   LIVE LIST
 ========================================== */
 
 function getLiveList(){
@@ -2948,10 +3072,6 @@ function getLiveList(){
 }
 
 
-/* ==========================================
-   SEND LIVE LIST
-========================================== */
-
 function sendLiveListTo(
   ws
 ){
@@ -2983,10 +3103,6 @@ function sendLiveListTo(
 }
 
 
-/* ==========================================
-   BROADCAST LIVE LIST
-========================================== */
-
 function broadcastLiveList(){
 
   broadcast({
@@ -3001,10 +3117,6 @@ function broadcastLiveList(){
 
 }
 
-
-/* ==========================================
-   BROADCAST
-========================================== */
 
 function broadcast(
   data
@@ -3041,11 +3153,8 @@ function broadcast(
 ========================================== */
 
 server.listen(
-
   PORT,
-
   HOST,
-
   function(){
 
     console.log(
@@ -3075,5 +3184,4 @@ server.listen(
     );
 
   }
-
 );

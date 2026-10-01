@@ -985,7 +985,20 @@ button {
   border-top:
     1px solid rgba(120,140,255,.12);
 }
-.nav-item.active {
+
+.nav-item {
+  border: 0;
+
+  background: transparent;
+
+  color: #697496;
+
+  font-size: 10px;
+
+  display: flex;
+
+  flex-direction: column;
+  .nav-item.active {
   color: #8fdcff;
 }
 
@@ -1986,20 +1999,7 @@ button {
 </nav>
 
 </div>
-
-.nav-item {
-  border: 0;
-
-  background: transparent;
-
-  color: #697496;
-
-  font-size: 10px;
-
-  display: flex;
-
-  flex-direction: column;
-            }
+          }
         }
       }
     );

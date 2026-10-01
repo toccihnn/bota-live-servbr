@@ -25,7 +25,11 @@ let liveInfo = {
   id: null,
   name: "",
   title: "",
-  startedAt: null
+  startedAt: null,
+  likes: 0,
+  comments: 0,
+  gifts: 0,
+  viewers: 0
 };
 
 /* =====================================================
@@ -487,6 +491,44 @@ button {
     );
 }
 
+.custom-field {
+  margin-top: 14px;
+}
+
+.custom-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #aebbe0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.custom-input {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(120,140,255,.25);
+  background: #080d22;
+  color: #fff;
+  outline: none;
+  font-size: 14px;
+}
+
+.custom-input:focus {
+  border-color: #72cfff;
+  box-shadow: 0 0 0 2px rgba(114,207,255,.12);
+}
+
+.custom-title-preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(20,28,70,.7);
+  color: #d7e3ff;
+  font-size: 12px;
+}
+
 .panel-status {
   margin-top: 15px;
 
@@ -627,6 +669,228 @@ button {
 
   border:
     1px solid rgba(130,150,255,.25);
+}
+
+/* =====================================================
+   LIVE SOCIAL FEATURES
+===================================================== */
+
+.live-social {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 20px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(20,28,70,.92),
+      rgba(7,10,28,.98)
+    );
+  border:
+    1px solid rgba(120,140,255,.14);
+}
+
+.social-stats {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+}
+
+.social-stat {
+  padding: 10px 5px;
+  border-radius: 13px;
+  text-align: center;
+  background: rgba(5,8,24,.65);
+}
+
+.social-stat strong {
+  display: block;
+  font-size: 18px;
+}
+
+.social-stat span {
+  color: #7e89aa;
+  font-size: 10px;
+}
+
+.social-actions {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.social-button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 900;
+  background: #161d3c;
+}
+
+.social-like {
+  background:
+    linear-gradient(
+      135deg,
+      #ff3d70,
+      #ff5b37
+    );
+}
+
+.social-gift {
+  background:
+    linear-gradient(
+      135deg,
+      #ffb300,
+      #ff6a00
+    );
+}
+
+.social-block {
+  background: #202641;
+}
+
+.comment-box {
+  margin-top: 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(5,8,24,.72);
+  border:
+    1px solid rgba(120,140,255,.10);
+}
+
+.comment-list {
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.comment-row {
+  padding: 8px 0;
+  border-bottom:
+    1px solid rgba(255,255,255,.05);
+}
+
+.comment-user {
+  color: #a9baff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.comment-text {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.comment-block {
+  margin-top: 3px;
+  border: 0;
+  background: transparent;
+  color: #687398;
+  font-size: 9px;
+  padding: 0;
+}
+
+.comment-form {
+  display: flex;
+  gap: 7px;
+  padding: 9px;
+  border-top:
+    1px solid rgba(255,255,255,.05);
+}
+
+.comment-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  border:
+    1px solid rgba(120,140,255,.18);
+  border-radius: 12px;
+  background: #090d21;
+  color: #fff;
+  padding: 0 11px;
+  outline: none;
+}
+
+.comment-send {
+  width: 64px;
+  border: 0;
+  border-radius: 12px;
+  background: #3156ff;
+  color: #fff;
+  font-weight: 900;
+}
+
+.gift-panel {
+  display: none;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: #090d21;
+  border:
+    1px solid rgba(120,140,255,.14);
+}
+
+.gift-panel.show {
+  display: block;
+}
+
+.gift-grid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 7px;
+}
+
+.gift-item {
+  border: 0;
+  border-radius: 12px;
+  background: #161d3c;
+  color: #fff;
+  padding: 8px 3px;
+}
+
+.gift-item .icon {
+  font-size: 23px;
+  display: block;
+}
+
+.gift-item .name {
+  font-size: 9px;
+  margin-top: 3px;
+}
+
+.gift-item .coins {
+  font-size: 8px;
+  color: #7e89aa;
+}
+
+.like-pop {
+  position: fixed;
+  right: 22px;
+  bottom: 115px;
+  z-index: 3000;
+  font-size: 28px;
+  pointer-events: none;
+  animation:
+    likeUp 1.8s ease-out forwards;
+}
+
+@keyframes likeUp {
+  from {
+    transform:
+      translateY(0)
+      scale(.8);
+    opacity: 1;
+  }
+
+  to {
+    transform:
+      translateY(-180px)
+      scale(1.4);
+    opacity: 0;
+  }
 }
 
 /* =====================================================
@@ -1024,7 +1288,10 @@ button {
 
   <div class="panel-header">
 
-    <div class="panel-title">
+    <div
+      class="panel-title"
+      id="panelTitleText"
+    >
       Voice繝昴ちLive
     </div>
 
@@ -1033,6 +1300,53 @@ button {
       id="panelLive"
     >
       LIVE
+    </div>
+
+  </div>
+
+  <div class="custom-field">
+
+    <label
+      class="custom-label"
+      for="liveNameInput"
+    >
+      驟堺ｿ｡閠�錐
+    </label>
+
+    <input
+      id="liveNameInput"
+      class="custom-input"
+      type="text"
+      maxlength="30"
+      value="縺ｼ縺溘ｂ縺｡"
+      placeholder="驟堺ｿ｡閠�錐繧貞�蜉�"
+    >
+
+  </div>
+
+  <div class="custom-field">
+
+    <label
+      class="custom-label"
+      for="liveTitleInput"
+    >
+      驟堺ｿ｡繧ｿ繧､繝医Ν
+    </label>
+
+    <input
+      id="liveTitleInput"
+      class="custom-input"
+      type="text"
+      maxlength="60"
+      value="Voice繝昴ちLive 驟堺ｿ｡荳ｭ"
+      placeholder="驟堺ｿ｡繧ｿ繧､繝医Ν繧貞�蜉�"
+    >
+
+    <div
+      class="custom-title-preview"
+      id="customTitlePreview"
+    >
+      驟堺ｿ｡繧ｿ繧､繝医Ν�啖oice繝昴ちLive 驟堺ｿ｡荳ｭ
     </div>
 
   </div>
@@ -1061,6 +1375,143 @@ button {
       <span></span>
       <span></span>
       <span></span>
+
+    </div>
+
+  </div>
+
+  <div class="live-social">
+
+    <div class="social-stats">
+
+      <div class="social-stat">
+        <strong id="viewerCount">0</strong>
+        <span>隕冶�閠�</span>
+      </div>
+
+      <div class="social-stat">
+        <strong id="likeCount">0</strong>
+        <span>縺�＞縺ｭ</span>
+      </div>
+
+      <div class="social-stat">
+        <strong id="giftCount">0</strong>
+        <span>繧ｮ繝輔ヨ</span>
+      </div>
+
+    </div>
+
+    <div class="social-actions">
+
+      <button
+        class="social-button social-like"
+        onclick="sendLike()"
+      >
+        笶､�� 縺�＞縺ｭ
+      </button>
+
+      <button
+        class="social-button social-gift"
+        onclick="toggleGiftPanel()"
+      >
+        氏 繧ｮ繝輔ヨ
+      </button>
+
+      <button
+        class="social-button social-block"
+        onclick="blockCurrentUser()"
+      >
+        圻 繝悶Ο繝�け
+      </button>
+
+    </div>
+
+    <div
+      id="giftPanel"
+      class="gift-panel"
+    >
+
+      <div class="gift-grid">
+
+        <button
+          class="gift-item"
+          onclick="sendGift('rose')"
+        >
+          <span class="icon">源</span>
+          <span class="name">繝舌Λ</span>
+          <span class="coins">10繧ｳ繧､繝ｳ</span>
+        </button>
+
+        <button
+          class="gift-item"
+          onclick="sendGift('heart')"
+        >
+          <span class="icon">猪</span>
+          <span class="name">繝上�繝�</span>
+          <span class="coins">50繧ｳ繧､繝ｳ</span>
+        </button>
+
+        <button
+          class="gift-item"
+          onclick="sendGift('star')"
+        >
+          <span class="icon">箝�</span>
+          <span class="name">繧ｹ繧ｿ繝ｼ</span>
+          <span class="coins">100繧ｳ繧､繝ｳ</span>
+        </button>
+
+        <button
+          class="gift-item"
+          onclick="sendGift('present')"
+        >
+          <span class="icon">氏</span>
+          <span class="name">繝励Ξ繧ｼ繝ｳ繝�</span>
+          <span class="coins">500繧ｳ繧､繝ｳ</span>
+        </button>
+
+      </div>
+
+      <div
+        style="
+          margin-top:7px;
+          text-align:center;
+          color:#697496;
+          font-size:9px;
+        "
+      >
+        窶ｻ迴ｾ蝨ｨ縺ｯ繝�せ繝育畑繧ｮ繝輔ヨ縺ｧ縺�
+      </div>
+
+    </div>
+
+    <div class="comment-box">
+
+      <div
+        id="commentList"
+        class="comment-list"
+      ></div>
+
+      <div class="comment-form">
+
+        <input
+          id="commentInput"
+          class="comment-input"
+          maxlength="120"
+          placeholder="繧ｳ繝｡繝ｳ繝医ｒ譖ｸ縺�..."
+          onkeydown="
+            if(event.key==='Enter')
+            sendComment()
+          "
+        >
+
+        <button
+          class="comment-send"
+          onclick="sendComment()"
+        >
+          騾∽ｿ｡
+        </button>
+
+      </div>
 
     </div>
 
@@ -1200,7 +1651,36 @@ let currentLiveId = null;
 
 let currentBroadcasterId = null;
 
-let pendingCandidates = [];
+
+/* =====================================================
+   驟堺ｿ｡繧ｿ繧､繝医Ν陦ｨ遉ｺ
+===================================================== */
+
+function updateTitlePreview() {
+
+  const input =
+    document.getElementById(
+      "liveTitleInput"
+    );
+
+  const preview =
+    document.getElementById(
+      "customTitlePreview"
+    );
+
+  if (!input || !preview) {
+    return;
+  }
+
+  const title =
+    input.value.trim() ||
+    "Voice繝昴ちLive 驟堺ｿ｡荳ｭ";
+
+  preview.textContent =
+    "驟堺ｿ｡繧ｿ繧､繝医Ν��" +
+    title;
+
+}
 
 
 /* =====================================================
@@ -1418,9 +1898,7 @@ function handleMessage(data) {
     "live_stopped"
   ) {
 
-    renderLiveList(
-      []
-    );
+    renderLiveList([]);
 
     if (!isBroadcaster) {
 
@@ -1461,6 +1939,115 @@ function handleMessage(data) {
 
     }
 
+    return;
+  }
+
+
+  if (
+    data.type ===
+    "like_update"
+  ) {
+
+    const e =
+      document.getElementById(
+        "likeCount"
+      );
+
+    if (e) {
+      e.textContent =
+        data.likes || 0;
+    }
+
+    showLike();
+
+    return;
+  }
+
+
+  if (
+    data.type ===
+    "gift_update"
+  ) {
+
+    const e =
+      document.getElementById(
+        "giftCount"
+      );
+
+    if (e) {
+      e.textContent =
+        data.gifts || 0;
+    }
+
+    setPanelStatus(
+      "氏 " +
+      (data.name || "繧ｲ繧ｹ繝�") +
+      "縺輔ｓ縺九ｉ" +
+      (data.giftName || "繧ｮ繝輔ヨ") +
+      "��"
+    );
+
+    return;
+  }
+
+
+  if (
+    data.type ===
+    "comment"
+  ) {
+
+    addComment(data);
+
+    return;
+  }
+
+
+  if (
+    data.type ===
+    "viewer_count"
+  ) {
+
+    const e =
+      document.getElementById(
+        "viewerCount"
+      );
+
+    if (e) {
+      e.textContent =
+        data.viewers || 0;
+    }
+
+    return;
+  }
+
+
+  if (
+    data.type ===
+    "live_start_failed"
+  ) {
+
+    isBroadcaster =
+      false;
+
+    if (localStream) {
+
+      localStream
+        .getTracks()
+        .forEach(
+          function(track) {
+            track.stop();
+          }
+        );
+
+      localStream = null;
+    }
+
+    alert(
+      data.reason ||
+      "驟堺ｿ｡繧帝幕蟋九〒縺阪∪縺帙ｓ縺ｧ縺励◆"
+    );
+
+    return;
   }
 
 }
@@ -1493,49 +2080,75 @@ function renderLiveList(lives) {
   }
 
 
+  let html = "";
+
+
+  lives.forEach(
+    function(live) {
+
+      html +=
+        "<div class='live-card' " +
+        "data-live-id='" +
+        escapeHtml(live.id) +
+        "'>";
+
+      html +=
+        "<div class='live-avatar'>児��</div>";
+
+      html +=
+        "<div class='live-info'>";
+
+      html +=
+        "<div class='live-name'>" +
+        escapeHtml(
+          live.name ||
+          "Voice驟堺ｿ｡閠�"
+        ) +
+        "</div>";
+
+      html +=
+        "<div class='live-title'>" +
+        escapeHtml(
+          live.title ||
+          "髻ｳ螢ｰ繝ｩ繧､繝夜�菫｡荳ｭ"
+        ) +
+        "</div>";
+
+      html +=
+        "<span class='live-badge'>LIVE</span>";
+
+      html +=
+        "</div></div>";
+
+    }
+  );
+
+
   list.innerHTML =
-    lives.map(
-      function(live) {
+    html;
 
-        return `
 
-          <div
-            class="live-card"
-            onclick="listenLive('${escapeHtml(live.id)}')"
-          >
+  Array.prototype.forEach.call(
+    list.querySelectorAll(
+      ".live-card"
+    ),
+    function(card) {
 
-            <div class="live-avatar">
-              児��
-            </div>
+      card.addEventListener(
+        "click",
+        function() {
 
-            <div class="live-info">
+          listenLive(
+            card.getAttribute(
+              "data-live-id"
+            )
+          );
 
-              <div class="live-name">
-                ${escapeHtml(
-                  live.name ||
-                  "Voice驟堺ｿ｡閠�"
-                )}
-              </div>
+        }
+      );
 
-              <div class="live-title">
-                ${escapeHtml(
-                  live.title ||
-                  "髻ｳ螢ｰ繝ｩ繧､繝夜�菫｡荳ｭ"
-                )}
-              </div>
-
-              <span class="live-badge">
-                LIVE
-              </span>
-
-            </div>
-
-          </div>
-
-        `;
-
-      }
-    ).join("");
+    }
+  );
 
 }
 
@@ -1569,28 +2182,44 @@ async function startLive() {
   }
 
 
-  const name =
-    prompt(
-      "驟堺ｿ｡閠�錐繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
-      "縺ｼ縺溘ｂ縺｡"
+  const nameInput =
+    document.getElementById(
+      "liveNameInput"
+    );
+
+  const titleInput =
+    document.getElementById(
+      "liveTitleInput"
     );
 
 
+  const name =
+    nameInput.value.trim();
+
+  const title =
+    titleInput.value.trim();
+
+
   if (!name) {
+
+    alert(
+      "驟堺ｿ｡閠�錐繧貞�蜉帙＠縺ｦ縺上□縺輔＞"
+    );
+
+    nameInput.focus();
 
     return;
 
   }
 
 
-  const title =
-    prompt(
-      "驟堺ｿ｡繧ｿ繧､繝医Ν繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
-      "Voice繝昴ちLive 驟堺ｿ｡荳ｭ"
+  if (!title) {
+
+    alert(
+      "驟堺ｿ｡繧ｿ繧､繝医Ν繧貞�蜉帙＠縺ｦ縺上□縺輔＞"
     );
 
-
-  if (!title) {
+    titleInput.focus();
 
     return;
 
@@ -1605,19 +2234,25 @@ async function startLive() {
 
           audio: {
 
-            echoCancellation: true,
+            echoCancellation:
+              true,
 
-            noiseSuppression: true,
+            noiseSuppression:
+              true,
 
-            autoGainControl: true,
+            autoGainControl:
+              true,
 
-            channelCount: 1,
+            channelCount:
+              1,
 
-            sampleRate: 48000
+            sampleRate:
+              48000
 
           },
 
-          video: false
+          video:
+            false
 
         });
 
@@ -1638,7 +2273,8 @@ async function startLive() {
   }
 
 
-  isBroadcaster = true;
+  isBroadcaster =
+    true;
 
 
   openPanel();
@@ -1654,6 +2290,20 @@ async function startLive() {
     "audioOnButton"
   ).style.display =
     "none";
+
+
+  const panelTitle =
+    document.getElementById(
+      "panelTitleText"
+    );
+
+
+  if (panelTitle) {
+
+    panelTitle.textContent =
+      title;
+
+  }
 
 
   setPanelStatus(
@@ -1735,18 +2385,23 @@ function stopLive() {
   }
 
 
-  localStream = null;
+  localStream =
+    null;
 
-  isBroadcaster = false;
+  isBroadcaster =
+    false;
+
 
   setPanelStatus(
     "驟堺ｿ｡繧堤ｵゆｺ�＠縺ｾ縺励◆"
   );
 
+
   document.getElementById(
     "audioText"
   ).textContent =
     "驟堺ｿ｡邨ゆｺ�";
+
 
   document.getElementById(
     "stopLiveButton"
@@ -1773,7 +2428,8 @@ function listenLive(id) {
   }
 
 
-  currentLiveId = id;
+  currentLiveId =
+    id;
 
 
   openPanel();
@@ -1944,6 +2600,7 @@ async function createOfferForViewer(
         pc.connectionState
       );
 
+
       if (
         pc.connectionState ===
           "failed" ||
@@ -2006,9 +2663,7 @@ async function createOfferForViewer(
 async function receiveOffer(data) {
 
   if (isBroadcaster) {
-
     return;
-
   }
 
 
@@ -2055,9 +2710,11 @@ async function receiveOffer(data) {
       }
 
 
-      audio.autoplay = true;
+      audio.autoplay =
+        true;
 
-      audio.playsInline = true;
+      audio.playsInline =
+        true;
 
 
       audio.play()
@@ -2069,9 +2726,11 @@ async function receiveOffer(data) {
             ).style.display =
               "none";
 
+
             setPanelStatus(
               "矧 繝ｩ繧､繝夜浹螢ｰ繧貞女菫｡荳ｭ"
             );
+
 
             document.getElementById(
               "audioText"
@@ -2088,10 +2747,12 @@ async function receiveOffer(data) {
               error
             );
 
+
             document.getElementById(
               "audioOnButton"
             ).style.display =
               "block";
+
 
             setPanelStatus(
               "髻ｳ螢ｰ繧丹N縺ｫ縺励※縺上□縺輔＞"
@@ -2227,9 +2888,7 @@ async function receiveAnswer(data) {
 
 
   if (!pc) {
-
     return;
-
   }
 
 
@@ -2268,13 +2927,28 @@ async function receiveIceCandidate(
 
 
   if (!pc) {
-
     return;
-
   }
 
 
   try {
+
+    /*
+     * remoteDescription險ｭ螳壼ｾ後↓ICE繧定ｿｽ蜉�
+     */
+
+    if (!pc.remoteDescription) {
+
+      pc._pendingIce =
+        pc._pendingIce || [];
+
+      pc._pendingIce.push(
+        data.candidate
+      );
+
+      return;
+    }
+
 
     await pc.addIceCandidate(
       new RTCIceCandidate(
@@ -2306,9 +2980,11 @@ function enableAudio() {
     );
 
 
-  audio.muted = false;
+  audio.muted =
+    false;
 
-  audio.volume = 1.0;
+  audio.volume =
+    1.0;
 
 
   audio.play()
@@ -2320,9 +2996,11 @@ function enableAudio() {
         ).style.display =
           "none";
 
+
         setPanelStatus(
           "矧 繝ｩ繧､繝夜浹螢ｰ繧貞女菫｡荳ｭ"
         );
+
 
         document.getElementById(
           "audioText"
@@ -2341,6 +3019,412 @@ function enableAudio() {
 
       }
     );
+
+}
+
+
+/* =====================================================
+   LIKE
+===================================================== */
+
+function sendLike() {
+
+  sendMessage({
+
+    type:
+      "like",
+
+    clientId:
+      myId
+
+  });
+
+}
+
+
+/* =====================================================
+   GIFT
+===================================================== */
+
+function toggleGiftPanel() {
+
+  const panel =
+    document.getElementById(
+      "giftPanel"
+    );
+
+
+  if (panel) {
+
+    panel.classList.toggle(
+      "show"
+    );
+
+  }
+
+}
+
+
+function sendGift(
+  giftId
+) {
+
+  sendMessage({
+
+    type:
+      "gift",
+
+    clientId:
+      myId,
+
+    giftId:
+      giftId,
+
+    name:
+      getMyName()
+
+  });
+
+
+  const panel =
+    document.getElementById(
+      "giftPanel"
+    );
+
+
+  if (panel) {
+
+    panel.classList.remove(
+      "show"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   COMMENT
+===================================================== */
+
+function sendComment() {
+
+  const input =
+    document.getElementById(
+      "commentInput"
+    );
+
+
+  if (!input) {
+    return;
+  }
+
+
+  const text =
+    input.value.trim();
+
+
+  if (!text) {
+    return;
+  }
+
+
+  sendMessage({
+
+    type:
+      "comment",
+
+    clientId:
+      myId,
+
+    text:
+      text,
+
+    name:
+      getMyName()
+
+  });
+
+
+  input.value =
+    "";
+
+}
+
+
+function getMyName() {
+
+  const input =
+    document.getElementById(
+      "liveNameInput"
+    );
+
+
+  return (
+    input &&
+    input.value.trim()
+  ) ||
+  "繧ｲ繧ｹ繝�";
+
+}
+
+
+/* =====================================================
+   COMMENT DISPLAY
+===================================================== */
+
+function addComment(
+  comment
+) {
+
+  const list =
+    document.getElementById(
+      "commentList"
+    );
+
+
+  if (!list) {
+    return;
+  }
+
+
+  const row =
+    document.createElement(
+      "div"
+    );
+
+
+  row.className =
+    "comment-row";
+
+
+  const user =
+    document.createElement(
+      "div"
+    );
+
+  user.className =
+    "comment-user";
+
+  user.textContent =
+    comment.name ||
+    "繧ｲ繧ｹ繝�";
+
+
+  const text =
+    document.createElement(
+      "div"
+    );
+
+  text.className =
+    "comment-text";
+
+  text.textContent =
+    comment.text ||
+    "";
+
+
+  const block =
+    document.createElement(
+      "button"
+    );
+
+  block.className =
+    "comment-block";
+
+  block.textContent =
+    "圻 繝悶Ο繝�け";
+
+
+  block.onclick =
+    function() {
+
+      blockUser(
+        comment.userId
+      );
+
+    };
+
+
+  row.appendChild(
+    user
+  );
+
+  row.appendChild(
+    text
+  );
+
+  row.appendChild(
+    block
+  );
+
+
+  list.appendChild(
+    row
+  );
+
+
+  while (
+    list.children.length >
+    100
+  ) {
+
+    list.removeChild(
+      list.firstChild
+    );
+
+  }
+
+
+  list.scrollTop =
+    list.scrollHeight;
+
+}
+
+
+/* =====================================================
+   BLOCK
+===================================================== */
+
+function blockUser(
+  userId
+) {
+
+  if (
+    !userId ||
+    userId === myId
+  ) {
+
+    return;
+
+  }
+
+
+  sendMessage({
+
+    type:
+      "block_user",
+
+    clientId:
+      myId,
+
+    targetId:
+      userId
+
+  });
+
+}
+
+
+function blockCurrentUser() {
+
+  if (isBroadcaster) {
+
+    alert(
+      "驟堺ｿ｡閠��繧ｳ繝｡繝ｳ繝域ｬ��繝ｦ繝ｼ繧ｶ繝ｼ縺九ｉ繝悶Ο繝�け縺ｧ縺阪∪縺吶�"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    !currentBroadcasterId
+  ) {
+
+    return;
+
+  }
+
+
+  blockUser(
+    currentBroadcasterId
+  );
+
+
+  closePanel();
+
+}
+
+
+/* =====================================================
+   LIKE ANIMATION
+===================================================== */
+
+function showLike() {
+
+  const el =
+    document.createElement(
+      "div"
+    );
+
+
+  el.className =
+    "like-pop";
+
+
+  el.textContent =
+    "笶､��";
+
+
+  document.body.appendChild(
+    el
+  );
+
+
+  setTimeout(
+    function() {
+
+      el.remove();
+
+    },
+    1800
+  );
+
+}
+
+
+/* =====================================================
+   RESET SOCIAL UI
+===================================================== */
+
+function resetSocialUI() {
+
+  const ids = [
+    "viewerCount",
+    "likeCount",
+    "giftCount"
+  ];
+
+
+  ids.forEach(
+    function(id) {
+
+      const e =
+        document.getElementById(
+          id
+        );
+
+      if (e) {
+        e.textContent =
+          "0";
+      }
+
+    }
+  );
+
+
+  const list =
+    document.getElementById(
+      "commentList"
+    );
+
+
+  if (list) {
+    list.innerHTML =
+      "";
+  }
 
 }
 
@@ -2386,6 +3470,9 @@ function openPanel() {
     .classList.add(
       "show"
     );
+
+
+  resetSocialUI();
 
 }
 
@@ -2450,7 +3537,8 @@ function goHome() {
 
   window.scrollTo({
 
-    top: 0,
+    top:
+      0,
 
     behavior:
       "smooth"
@@ -2482,9 +3570,13 @@ function showProfile() {
    ESCAPE
 ===================================================== */
 
-function escapeHtml(value) {
+function escapeHtml(
+  value
+) {
 
-  return String(value)
+  return String(
+    value
+  )
 
     .replace(
       /&/g,
@@ -2519,6 +3611,36 @@ function escapeHtml(value) {
 ===================================================== */
 
 connectSocket();
+
+
+/* =====================================================
+   TITLE INPUT
+===================================================== */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function() {
+
+    const titleInput =
+      document.getElementById(
+        "liveTitleInput"
+      );
+
+
+    if (titleInput) {
+
+      titleInput.addEventListener(
+        "input",
+        updateTitlePreview
+      );
+
+    }
+
+
+    updateTitlePreview();
+
+  }
+);
 
 </script>
 
@@ -2556,6 +3678,7 @@ const server =
               "no-cache, no-store"
           }
         );
+
 
         res.end(
           HTML
@@ -2598,7 +3721,9 @@ const server =
 
           fs.createReadStream(
             imagePath
-          ).pipe(res);
+          ).pipe(
+            res
+          );
 
           return;
         }
@@ -2611,6 +3736,7 @@ const server =
               "text/plain; charset=utf-8"
           }
         );
+
 
         res.end(
           "home.png 縺後≠繧翫∪縺帙ｓ"
@@ -2634,9 +3760,12 @@ const server =
           }
         );
 
+
         res.end(
           JSON.stringify({
-            status: "ok",
+            status:
+              "ok",
+
             live:
               liveInfo.active
           })
@@ -2655,6 +3784,7 @@ const server =
             "text/plain; charset=utf-8"
         }
       );
+
 
       res.end(
         "Not Found"
@@ -2678,7 +3808,9 @@ wss.on(
   "connection",
   function(ws) {
 
-    clients.add(ws);
+    clients.add(
+      ws
+    );
 
 
     ws.clientId =
@@ -2688,7 +3820,11 @@ wss.on(
         .substring(2);
 
 
-    ws.joinedLive = false;
+    ws.joinedLive =
+      false;
+
+    ws.blockedUsers =
+      new Set();
 
 
     console.log(
@@ -2697,7 +3833,9 @@ wss.on(
     );
 
 
-    sendLiveListTo(ws);
+    sendLiveListTo(
+      ws
+    );
 
 
     ws.on(
@@ -2756,10 +3894,6 @@ wss.on(
           "start_live"
         ) {
 
-          /*
-           * 迴ｾ蝨ｨ縺ｯ1莠ｺ驟堺ｿ｡譁ｹ蠑�
-           */
-
           if (
             broadcaster &&
             broadcaster !== ws &&
@@ -2797,15 +3931,37 @@ wss.on(
               ws.clientId,
 
             name:
-              data.name ||
-              "Voice驟堺ｿ｡閠�",
+              String(
+                data.name ||
+                "Voice驟堺ｿ｡閠�"
+              ).slice(
+                0,
+                30
+              ),
 
             title:
-              data.title ||
-              "髻ｳ螢ｰ繝ｩ繧､繝夜�菫｡荳ｭ",
+              String(
+                data.title ||
+                "髻ｳ螢ｰ繝ｩ繧､繝夜�菫｡荳ｭ"
+              ).slice(
+                0,
+                60
+              ),
 
             startedAt:
-              Date.now()
+              Date.now(),
+
+            likes:
+              0,
+
+            comments:
+              0,
+
+            gifts:
+              0,
+
+            viewers:
+              0
 
           };
 
@@ -2898,10 +4054,327 @@ wss.on(
           );
 
 
+          liveInfo.viewers =
+            (
+              liveInfo.viewers ||
+              0
+            ) + 1;
+
+
+          broadcast({
+            type:
+              "viewer_count",
+
+            viewers:
+              liveInfo.viewers
+          });
+
+
           console.log(
             "VIEWER JOIN:",
             ws.clientId
           );
+
+
+          return;
+        }
+
+
+        /* =============================================
+           LIKE
+        ============================================= */
+
+        if (
+          data.type ===
+          "like"
+        ) {
+
+          if (
+            !liveInfo.active
+          ) {
+            return;
+          }
+
+
+          const now =
+            Date.now();
+
+
+          if (
+            ws.lastLikeAt &&
+            now -
+              ws.lastLikeAt <
+              300
+          ) {
+
+            return;
+
+          }
+
+
+          ws.lastLikeAt =
+            now;
+
+
+          liveInfo.likes =
+            (
+              liveInfo.likes ||
+              0
+            ) + 1;
+
+
+          broadcast({
+
+            type:
+              "like_update",
+
+            likes:
+              liveInfo.likes
+
+          });
+
+
+          return;
+        }
+
+
+        /* =============================================
+           GIFT
+        ============================================= */
+
+        if (
+          data.type ===
+          "gift"
+        ) {
+
+          if (
+            !liveInfo.active
+          ) {
+            return;
+          }
+
+
+          const gifts = {
+
+            rose: {
+              name:
+                "繝舌Λ",
+
+              coins:
+                10
+            },
+
+            heart: {
+              name:
+                "繝上�繝�",
+
+              coins:
+                50
+            },
+
+            star: {
+              name:
+                "繧ｹ繧ｿ繝ｼ",
+
+              coins:
+                100
+            },
+
+            present: {
+              name:
+                "繝励Ξ繧ｼ繝ｳ繝�",
+
+              coins:
+                500
+            }
+
+          };
+
+
+          const gift =
+            gifts[
+              data.giftId
+            ];
+
+
+          if (!gift) {
+            return;
+          }
+
+
+          const now =
+            Date.now();
+
+
+          if (
+            ws.lastGiftAt &&
+            now -
+              ws.lastGiftAt <
+              700
+          ) {
+
+            return;
+
+          }
+
+
+          ws.lastGiftAt =
+            now;
+
+
+          liveInfo.gifts =
+            (
+              liveInfo.gifts ||
+              0
+            ) + 1;
+
+
+          broadcast({
+
+            type:
+              "gift_update",
+
+            gifts:
+              liveInfo.gifts,
+
+            name:
+              String(
+                data.name ||
+                "繧ｲ繧ｹ繝�"
+              ).slice(
+                0,
+                30
+              ),
+
+            giftName:
+              gift.name,
+
+            coins:
+              gift.coins
+
+          });
+
+
+          return;
+        }
+
+
+        /* =============================================
+           COMMENT
+        ============================================= */
+
+        if (
+          data.type ===
+          "comment"
+        ) {
+
+          if (
+            !liveInfo.active
+          ) {
+            return;
+          }
+
+
+          const now =
+            Date.now();
+
+
+          if (
+            ws.lastCommentAt &&
+            now -
+              ws.lastCommentAt <
+              700
+          ) {
+
+            return;
+
+          }
+
+
+          ws.lastCommentAt =
+            now;
+
+
+          const text =
+            String(
+              data.text ||
+              ""
+            )
+              .replace(
+                /[\u0000-\u001F\u007F]/g,
+                ""
+              )
+              .trim()
+              .slice(
+                0,
+                120
+              );
+
+
+          if (!text) {
+            return;
+          }
+
+
+          liveInfo.comments =
+            (
+              liveInfo.comments ||
+              0
+            ) + 1;
+
+
+          broadcast({
+
+            type:
+              "comment",
+
+            userId:
+              ws.clientId,
+
+            name:
+              String(
+                data.name ||
+                "繧ｲ繧ｹ繝�"
+              ).slice(
+                0,
+                30
+              ),
+
+            text:
+              text
+
+          });
+
+
+          return;
+        }
+
+
+        /* =============================================
+           BLOCK
+        ============================================= */
+
+        if (
+          data.type ===
+          "block_user"
+        ) {
+
+          ws.blockedUsers =
+            ws.blockedUsers ||
+            new Set();
+
+
+          if (
+            data.targetId
+          ) {
+
+            ws.blockedUsers.add(
+              String(
+                data.targetId
+              )
+            );
+
+          }
 
 
           return;
@@ -2936,7 +4409,9 @@ wss.on(
       "close",
       function() {
 
-        clients.delete(ws);
+        clients.delete(
+          ws
+        );
 
 
         /*
@@ -2976,6 +4451,27 @@ wss.on(
             })
           );
 
+
+          liveInfo.viewers =
+            Math.max(
+              0,
+              (
+                liveInfo.viewers ||
+                0
+              ) - 1
+            );
+
+
+          broadcast({
+
+            type:
+              "viewer_count",
+
+            viewers:
+              liveInfo.viewers
+
+          });
+
         }
 
 
@@ -2995,12 +4491,12 @@ wss.on(
    SIGNALING
 ===================================================== */
 
-function relaySignaling(data) {
+function relaySignaling(
+  data
+) {
 
   if (!data.to) {
-
     return;
-
   }
 
 
@@ -3059,7 +4555,19 @@ function stopLiveServer() {
       "",
 
     startedAt:
-      null
+      null,
+
+    likes:
+      0,
+
+    comments:
+      0,
+
+    gifts:
+      0,
+
+    viewers:
+      0
 
   };
 
@@ -3111,7 +4619,23 @@ function getLiveList() {
         liveInfo.title,
 
       startedAt:
-        liveInfo.startedAt
+        liveInfo.startedAt,
+
+      likes:
+        liveInfo.likes ||
+        0,
+
+      comments:
+        liveInfo.comments ||
+        0,
+
+      gifts:
+        liveInfo.gifts ||
+        0,
+
+      viewers:
+        liveInfo.viewers ||
+        0
 
     }
 
@@ -3124,7 +4648,9 @@ function getLiveList() {
    SEND LIVE LIST
 ===================================================== */
 
-function sendLiveListTo(ws) {
+function sendLiveListTo(
+  ws
+) {
 
   if (
     ws.readyState !==
@@ -3174,7 +4700,9 @@ function broadcastLiveList() {
    BROADCAST
 ===================================================== */
 
-function broadcast(data) {
+function broadcast(
+  data
+) {
 
   const message =
     JSON.stringify(

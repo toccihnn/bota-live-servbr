@@ -34,7 +34,7 @@ const HTML = String.raw`
 
 <meta name="theme-color" content="#050510">
 
-<title>voice繝懊ちLive</title>
+<title>Voice繝昴ちLive</title>
 
 <style>
 
@@ -779,7 +779,7 @@ button {
 <header class="header">
 
   <div class="logo">
-    voice繝懊ちLive
+    Voice繝昴ちLive
   </div>
 
 </header>
@@ -792,7 +792,7 @@ button {
     <img
       class="hero-image"
       src="/home.png"
-      alt="voice繝懊ちLive"
+      alt="Voice繝昴ちLive"
       onerror="this.style.display='none'"
     >
 
@@ -822,7 +822,7 @@ button {
     <div class="hero-description">
 
       譛域�縺九ｊ縺ｮ荳九〒縲∬ｩｱ縺励※縲∬�縺�※縲∫ｬ代▲縺ｦ縲�<br>
-      voice繝懊ちLive縺ｧ縲√≠縺ｪ縺溘�螢ｰ繧偵ｂ縺｣縺ｨ霑代￥縺ｫ縲�
+      Voice繝昴ちLive縺ｧ縲√≠縺ｪ縺溘�螢ｰ繧偵ｂ縺｣縺ｨ霑代￥縺ｫ縲�
 
     </div>
 
@@ -866,7 +866,7 @@ button {
 <section class="section">
 
   <div class="section-title">
-    voice繝懊ちLive
+    Voice繝昴ちLive
   </div>
 
 
@@ -958,7 +958,7 @@ button {
       class="panel-title"
       id="panelTitle"
     >
-      voice繝懊ちLive
+      Voice繝昴ちLive
     </div>
 
     <div class="panel-live">
@@ -1692,7 +1692,7 @@ async function startLive() {
   const title =
     prompt(
       "驟堺ｿ｡繧ｿ繧､繝医Ν繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
-      "voice繝懊ちLive 驟堺ｿ｡荳ｭ"
+      "Voice繝昴ちLive 驟堺ｿ｡荳ｭ"
     );
 
 
@@ -2618,7 +2618,7 @@ window.addEventListener(
   function() {
 
     console.log(
-      "voice繝懊ちLive loaded"
+      "Voice繝昴ちLive loaded"
     );
 
     connectSocket();
@@ -3392,7 +3392,7 @@ server.listen(
     );
 
     console.log(
-      "voice繝懊ちLive START"
+      "Voice繝昴ちLive START"
     );
 
     console.log(

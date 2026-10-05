@@ -34,7 +34,7 @@ const HTML = String.raw`
 
 <meta name="theme-color" content="#050510">
 
-<title>VoiceポタLive</title>
+<title>voice繝懊ちLive</title>
 
 <style>
 
@@ -779,7 +779,7 @@ button {
 <header class="header">
 
   <div class="logo">
-    VoiceポタLive
+    voice繝懊ちLive
   </div>
 
 </header>
@@ -792,7 +792,7 @@ button {
     <img
       class="hero-image"
       src="/home.png"
-      alt="VoiceポタLive"
+      alt="voice繝懊ちLive"
       onerror="this.style.display='none'"
     >
 
@@ -804,25 +804,25 @@ button {
   <div class="hero-content">
 
     <div class="hero-small">
-      声でつながる、みんなの居場所。
+      螢ｰ縺ｧ縺､縺ｪ縺後ｋ縲√∩繧薙↑縺ｮ螻��ｴ謇縲�
     </div>
 
     <h1 class="hero-title">
 
       <span>
-        あなたの声が、
+        縺ゅ↑縺溘�螢ｰ縺後�
       </span>
 
       <br>
 
-      誰かの夜を照らす。
+      隱ｰ縺九�螟懊ｒ辣ｧ繧峨☆縲�
 
     </h1>
 
     <div class="hero-description">
 
-      月明かりの下で、話して、聴いて、笑って。<br>
-      VoiceポタLiveで、あなたの声をもっと近くに。
+      譛域�縺九ｊ縺ｮ荳九〒縲∬ｩｱ縺励※縲∬�縺�※縲∫ｬ代▲縺ｦ縲�<br>
+      voice繝懊ちLive縺ｧ縲√≠縺ｪ縺溘�螢ｰ繧偵ｂ縺｣縺ｨ霑代￥縺ｫ縲�
 
     </div>
 
@@ -839,7 +839,7 @@ button {
   <div class="section-head">
 
     <div class="section-title">
-      🔴 ライブ中
+      閥 繝ｩ繧､繝紋ｸｭ
     </div>
 
     <div class="section-sub">
@@ -855,7 +855,7 @@ button {
   >
 
     <div class="empty">
-      現在配信中のライブはありません
+      迴ｾ蝨ｨ驟堺ｿ｡荳ｭ縺ｮ繝ｩ繧､繝悶�縺ゅｊ縺ｾ縺帙ｓ
     </div>
 
   </div>
@@ -866,7 +866,7 @@ button {
 <section class="section">
 
   <div class="section-title">
-    VoiceポタLive
+    voice繝懊ちLive
   </div>
 
 
@@ -876,15 +876,15 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        🎙️
+        児��
       </div>
 
       <div class="feature-title">
-        音声配信
+        髻ｳ螢ｰ驟堺ｿ｡
       </div>
 
       <div class="feature-text">
-        声でリアルタイムにつながる。
+        螢ｰ縺ｧ繝ｪ繧｢繝ｫ繧ｿ繧､繝�縺ｫ縺､縺ｪ縺後ｋ縲�
       </div>
 
     </div>
@@ -893,15 +893,15 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        💬
+        町
       </div>
 
       <div class="feature-title">
-        コメント
+        繧ｳ繝｡繝ｳ繝�
       </div>
 
       <div class="feature-text">
-        配信者と会話できます。
+        驟堺ｿ｡閠�→莨夊ｩｱ縺ｧ縺阪∪縺吶�
       </div>
 
     </div>
@@ -910,15 +910,15 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        ❤️
+        笶､��
       </div>
 
       <div class="feature-title">
-        いいね
+        縺�＞縺ｭ
       </div>
 
       <div class="feature-text">
-        配信を応援できます。
+        驟堺ｿ｡繧貞ｿ懈抄縺ｧ縺阪∪縺吶�
       </div>
 
     </div>
@@ -927,15 +927,15 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        🚫
+        圻
       </div>
 
       <div class="feature-title">
-        ブロック
+        繝悶Ο繝�け
       </div>
 
       <div class="feature-text">
-        見たくない相手をブロック。
+        隕九◆縺上↑縺�嶌謇九ｒ繝悶Ο繝�け縲�
       </div>
 
     </div>
@@ -958,7 +958,7 @@ button {
       class="panel-title"
       id="panelTitle"
     >
-      VoiceポタLive
+      voice繝懊ちLive
     </div>
 
     <div class="panel-live">
@@ -972,18 +972,18 @@ button {
     class="panel-status"
     id="panelStatus"
   >
-    配信準備中
+    驟堺ｿ｡貅門ｙ荳ｭ
   </div>
 
 
   <div class="audio-status">
 
     <div class="audio-icon">
-      🎙️
+      児��
     </div>
 
     <div id="audioText">
-      音声接続
+      髻ｳ螢ｰ謗･邯�
     </div>
 
   </div>
@@ -1003,7 +1003,7 @@ button {
     onclick="enableAudio()"
     style="display:none"
   >
-    🔊 音声をONにする
+    矧 髻ｳ螢ｰ繧丹N縺ｫ縺吶ｋ
   </button>
 
 
@@ -1013,7 +1013,7 @@ button {
     type="button"
     onclick="sendLike()"
   >
-    ❤️ いいね
+    笶､�� 縺�＞縺ｭ
   </button>
 
 
@@ -1030,14 +1030,14 @@ button {
       <input
         id="commentInput"
         maxlength="200"
-        placeholder="コメントを入力"
+        placeholder="繧ｳ繝｡繝ｳ繝医ｒ蜈･蜉�"
       >
 
       <button
         type="button"
         onclick="sendComment()"
       >
-        送信
+        騾∽ｿ｡
       </button>
 
     </div>
@@ -1052,7 +1052,7 @@ button {
     onclick="stopLive()"
     style="display:none"
   >
-    ⛔ 配信を終了
+    笵� 驟堺ｿ｡繧堤ｵゆｺ�
   </button>
 
 
@@ -1061,7 +1061,7 @@ button {
     type="button"
     onclick="closePanel()"
   >
-    閉じる
+    髢峨§繧�
   </button>
 
 </div>
@@ -1077,10 +1077,10 @@ button {
   >
 
     <div class="nav-icon">
-      🏠
+      匠
     </div>
 
-    ホーム
+    繝帙�繝�
 
   </button>
 
@@ -1092,10 +1092,10 @@ button {
   >
 
     <div class="nav-icon">
-      🔍
+      剥
     </div>
 
-    探す
+    謗｢縺�
 
   </button>
 
@@ -1107,10 +1107,10 @@ button {
   >
 
     <div class="nav-live">
-      🎙️
+      児��
     </div>
 
-    配信
+    驟堺ｿ｡
 
   </button>
 
@@ -1122,10 +1122,10 @@ button {
   >
 
     <div class="nav-icon">
-      🔔
+      粕
     </div>
 
-    お知らせ
+    縺顔衍繧峨○
 
   </button>
 
@@ -1137,10 +1137,10 @@ button {
   >
 
     <div class="nav-icon">
-      👤
+      側
     </div>
 
-    マイページ
+    繝槭う繝壹�繧ｸ
 
   </button>
 
@@ -1174,7 +1174,7 @@ let localStream = null;
 
 let peerConnections = {};
 
-let currentUserName = "ユーザー";
+let currentUserName = "繝ｦ繝ｼ繧ｶ繝ｼ";
 
 let currentLiveId = null;
 
@@ -1361,7 +1361,7 @@ function handleMessage(data) {
   ) {
 
     setPanelStatus(
-      "🔴 配信中です"
+      "閥 驟堺ｿ｡荳ｭ縺ｧ縺�"
     );
 
     return;
@@ -1376,7 +1376,7 @@ function handleMessage(data) {
 
     alert(
       data.reason ||
-      "配信を開始できませんでした"
+      "驟堺ｿ｡繧帝幕蟋九〒縺阪∪縺帙ｓ縺ｧ縺励◆"
     );
 
     return;
@@ -1461,10 +1461,10 @@ function handleMessage(data) {
   ) {
 
     addComment(
-      "システム",
-      "❤️ " +
+      "繧ｷ繧ｹ繝�Β",
+      "笶､�� " +
       data.name +
-      " さんがいいねしました"
+      " 縺輔ｓ縺後＞縺��縺励∪縺励◆"
     );
 
     return;
@@ -1478,13 +1478,13 @@ function handleMessage(data) {
   ) {
 
     setPanelStatus(
-      "配信が終了しました"
+      "驟堺ｿ｡縺檎ｵゆｺ�＠縺ｾ縺励◆"
     );
 
     document.getElementById(
       "audioText"
     ).textContent =
-      "ライブ終了";
+      "繝ｩ繧､繝也ｵゆｺ�";
 
     closePeers();
 
@@ -1501,7 +1501,7 @@ function handleMessage(data) {
   ) {
 
     alert(
-      "このライブは終了しています"
+      "縺薙�繝ｩ繧､繝悶�邨ゆｺ�＠縺ｦ縺�∪縺�"
     );
 
     return;
@@ -1532,7 +1532,7 @@ function renderLiveList(
 
     list.innerHTML =
       '<div class="empty">' +
-      '現在配信中のライブはありません' +
+      '迴ｾ蝨ｨ驟堺ｿ｡荳ｭ縺ｮ繝ｩ繧､繝悶�縺ゅｊ縺ｾ縺帙ｓ' +
       '</div>';
 
     return;
@@ -1555,7 +1555,7 @@ function renderLiveList(
         '\')">' +
 
         '<div class="live-avatar">' +
-        '🎙️' +
+        '児��' +
         '</div>' +
 
         '<div class="live-info">' +
@@ -1633,15 +1633,15 @@ async function startLive() {
 
 
   alert(
-    "配信ボタンを押しました"
+    "驟堺ｿ｡繝懊ち繝ｳ繧呈款縺励∪縺励◆"
   );
 
 
   if (!connected) {
 
     alert(
-      "サーバーに接続中です。\n" +
-      "少し待ってからもう一度押してください。"
+      "繧ｵ繝ｼ繝舌�縺ｫ謗･邯壻ｸｭ縺ｧ縺吶�\n" +
+      "蟆代＠蠕�▲縺ｦ縺九ｉ繧ゅ≧荳蠎ｦ謚ｼ縺励※縺上□縺輔＞縲�"
     );
 
     return;
@@ -1664,7 +1664,7 @@ async function startLive() {
   ) {
 
     alert(
-      "このブラウザではマイクを使用できません。"
+      "縺薙�繝悶Λ繧ｦ繧ｶ縺ｧ縺ｯ繝槭う繧ｯ繧剃ｽｿ逕ｨ縺ｧ縺阪∪縺帙ｓ縲�"
     );
 
     return;
@@ -1674,8 +1674,8 @@ async function startLive() {
 
   const name =
     prompt(
-      "配信者名を入力してください",
-      "ぼたもち"
+      "驟堺ｿ｡閠�錐繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
+      "縺ｼ縺溘ｂ縺｡"
     );
 
 
@@ -1691,8 +1691,8 @@ async function startLive() {
 
   const title =
     prompt(
-      "配信タイトルを入力してください",
-      "VoiceポタLive 配信中"
+      "驟堺ｿ｡繧ｿ繧､繝医Ν繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
+      "voice繝懊ちLive 驟堺ｿ｡荳ｭ"
     );
 
 
@@ -1711,7 +1711,7 @@ async function startLive() {
 
 
   setPanelStatus(
-    "🎤 マイクを確認しています..."
+    "痔 繝槭う繧ｯ繧堤｢ｺ隱阪＠縺ｦ縺�∪縺�..."
   );
 
 
@@ -1757,13 +1757,13 @@ async function startLive() {
 
 
     setPanelStatus(
-      "マイク許可が必要です"
+      "繝槭う繧ｯ險ｱ蜿ｯ縺悟ｿ�ｦ√〒縺�"
     );
 
 
     alert(
-      "マイクを使用できませんでした。\n\n" +
-      "ブラウザのマイク許可を確認してください。"
+      "繝槭う繧ｯ繧剃ｽｿ逕ｨ縺ｧ縺阪∪縺帙ｓ縺ｧ縺励◆縲�\n\n" +
+      "繝悶Λ繧ｦ繧ｶ縺ｮ繝槭う繧ｯ險ｱ蜿ｯ繧堤｢ｺ隱阪＠縺ｦ縺上□縺輔＞縲�"
     );
 
 
@@ -1797,11 +1797,11 @@ async function startLive() {
   document.getElementById(
     "audioText"
   ).textContent =
-    "🎙️ マイク配信中";
+    "児�� 繝槭う繧ｯ驟堺ｿ｡荳ｭ";
 
 
   setPanelStatus(
-    "🔴 配信を開始しています..."
+    "閥 驟堺ｿ｡繧帝幕蟋九＠縺ｦ縺�∪縺�..."
   );
 
 
@@ -1826,7 +1826,7 @@ async function startLive() {
   if (!sent) {
 
     alert(
-      "サーバーとの接続が切れました。"
+      "繧ｵ繝ｼ繝舌�縺ｨ縺ｮ謗･邯壹′蛻�ｌ縺ｾ縺励◆縲�"
     );
 
     return;
@@ -1835,7 +1835,7 @@ async function startLive() {
 
 
   setPanelStatus(
-    "🔴 配信中です"
+    "閥 驟堺ｿ｡荳ｭ縺ｧ縺�"
   );
 
 }
@@ -1899,11 +1899,11 @@ function stopLive() {
   document.getElementById(
     "audioText"
   ).textContent =
-    "配信終了";
+    "驟堺ｿ｡邨ゆｺ�";
 
 
   setPanelStatus(
-    "配信を終了しました"
+    "驟堺ｿ｡繧堤ｵゆｺ�＠縺ｾ縺励◆"
   );
 
 
@@ -1929,7 +1929,7 @@ function listenLive(
   if (isBroadcaster) {
 
     alert(
-      "配信中は視聴できません。"
+      "驟堺ｿ｡荳ｭ縺ｯ隕冶�縺ｧ縺阪∪縺帙ｓ縲�"
     );
 
     return;
@@ -1951,14 +1951,14 @@ function listenLive(
 
 
   setPanelStatus(
-    "🎧 配信者に接続しています..."
+    "而 驟堺ｿ｡閠�↓謗･邯壹＠縺ｦ縺�∪縺�..."
   );
 
 
   document.getElementById(
     "audioText"
   ).textContent =
-    "接続中...";
+    "謗･邯壻ｸｭ...";
 
 
   send({
@@ -2154,11 +2154,11 @@ async function receiveOffer(
             document.getElementById(
               "audioText"
             ).textContent =
-              "🔊 LIVE 音声";
+              "矧 LIVE 髻ｳ螢ｰ";
 
 
             setPanelStatus(
-              "🎧 接続しました"
+              "而 謗･邯壹＠縺ｾ縺励◆"
             );
 
           }
@@ -2181,7 +2181,7 @@ async function receiveOffer(
             document.getElementById(
               "audioText"
             ).textContent =
-              "🔊 音声ボタンを押してください";
+              "矧 髻ｳ螢ｰ繝懊ち繝ｳ繧呈款縺励※縺上□縺輔＞";
 
           }
         );
@@ -2369,7 +2369,7 @@ function enableAudio() {
         document.getElementById(
           "audioText"
         ).textContent =
-          "🔊 LIVE 音声";
+          "矧 LIVE 髻ｳ螢ｰ";
 
       }
     )
@@ -2594,7 +2594,7 @@ function scrollLive() {
 function showNotice() {
 
   alert(
-    "お知らせ機能はこれから追加できます。"
+    "縺顔衍繧峨○讖溯�縺ｯ縺薙ｌ縺九ｉ霑ｽ蜉�縺ｧ縺阪∪縺吶�"
   );
 
 }
@@ -2603,7 +2603,7 @@ function showNotice() {
 function showProfile() {
 
   alert(
-    "マイページ機能はこれから追加できます。"
+    "繝槭う繝壹�繧ｸ讖溯�縺ｯ縺薙ｌ縺九ｉ霑ｽ蜉�縺ｧ縺阪∪縺吶�"
   );
 
 }
@@ -2618,7 +2618,7 @@ window.addEventListener(
   function() {
 
     console.log(
-      "VoiceポタLive loaded"
+      "voice繝懊ちLive loaded"
     );
 
     connectSocket();
@@ -2979,7 +2979,7 @@ wss.on(
                   "live_start_failed",
 
                 reason:
-                  "現在ほかの配信者が配信中です"
+                  "迴ｾ蝨ｨ縺ｻ縺九�驟堺ｿ｡閠�′驟堺ｿ｡荳ｭ縺ｧ縺�"
 
               }
             );
@@ -3007,11 +3007,11 @@ wss.on(
 
             name:
               data.name ||
-              "Voice配信者",
+              "Voice驟堺ｿ｡閠�",
 
             title:
               data.title ||
-              "音声ライブ配信中"
+              "髻ｳ螢ｰ繝ｩ繧､繝夜�菫｡荳ｭ"
 
           };
 
@@ -3228,7 +3228,7 @@ wss.on(
             name:
               String(
                 data.name ||
-                "ユーザー"
+                "繝ｦ繝ｼ繧ｶ繝ｼ"
               ).substring(
                 0,
                 30
@@ -3268,7 +3268,7 @@ wss.on(
             name:
               String(
                 data.name ||
-                "ユーザー"
+                "繝ｦ繝ｼ繧ｶ繝ｼ"
               ).substring(
                 0,
                 30
@@ -3392,7 +3392,7 @@ server.listen(
     );
 
     console.log(
-      "VoiceポタLive START"
+      "voice繝懊ちLive START"
     );
 
     console.log(

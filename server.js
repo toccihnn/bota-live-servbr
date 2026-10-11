@@ -435,7 +435,7 @@ button {
   z-index: 2000;
 
   background-color: rgba(4,5,17,.98);
-  background-image: linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82));
+  background-image: linear-gradient(rgba(4,5,17,.30), rgba(4,5,17,.58));
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -1416,6 +1416,11 @@ function handleMessage(data) {
   }
 
 
+  if (data.type === "background_update") {
+    if (data.background) applyLiveBackground(data.background);
+    return;
+  }
+
   if (
     data.type ===
     "live_started"
@@ -1879,7 +1884,13 @@ async function startLive() {
         currentUserName,
 
       title:
-        title
+        title,
+
+      background:
+        (function() {
+          try { return localStorage.getItem("voiceBotaLiveBackground") || ""; }
+          catch (e) { return ""; }
+        })()
 
     });
 
@@ -2471,16 +2482,33 @@ function sendLike() {
    BACKGROUND CUSTOM
 ========================================================= */
 
-function setLiveBackground(kind) {
-  const backgrounds = {
-    blue: 'linear-gradient(145deg, rgba(36,79,199,.88), rgba(11,15,42,.92))',
-    purple: 'linear-gradient(145deg, rgba(141,62,209,.86), rgba(37,16,68,.93))',
-    pink: 'linear-gradient(145deg, rgba(240,92,170,.82), rgba(108,32,91,.93))'
-  };
+function applyLiveBackground(background) {
   const panel = document.getElementById('livePanel');
+  if (!panel || !background) return;
+  panel.style.backgroundImage = background;
+  panel.style.backgroundSize = 'cover';
+  panel.style.backgroundPosition = 'center center';
+  panel.style.backgroundRepeat = 'no-repeat';
+}
+
+function publishLiveBackground(background) {
+  applyLiveBackground(background);
+  try { localStorage.setItem('voiceBotaLiveBackground', background); } catch (e) {}
+  // 配信者が背景を変えたら、配信中の視聴者にも反映する
+  if (isBroadcaster && connected) {
+    send({ type: 'background_update', background: background });
+  }
+}
+
+function setLiveBackground(kind) {
+  const overlay = 'linear-gradient(rgba(4,5,17,.28), rgba(4,5,17,.58)), ';
+  const backgrounds = {
+    blue: overlay + 'linear-gradient(145deg, #244fc7, #111735)',
+    purple: overlay + 'linear-gradient(145deg, #8d3ed1, #251044)',
+    pink: overlay + 'linear-gradient(145deg, #f05caa, #6c205b)'
+  };
   if (!backgrounds[kind]) return;
-  panel.style.backgroundImage = backgrounds[kind];
-  try { localStorage.setItem('voiceBotaLiveBackground', backgrounds[kind]); } catch (e) {}
+  publishLiveBackground(backgrounds[kind]);
 }
 
 function loadCustomBackground(event) {
@@ -2488,13 +2516,23 @@ function loadCustomBackground(event) {
   if (!file) return;
   if (!file.type.startsWith('image/')) {
     alert('画像ファイルを選択してください');
+    event.target.value = '';
+    return;
+  }
+  // 大きすぎる画像の送信・保存を避ける
+  if (file.size > 5 * 1024 * 1024) {
+    alert('画像は5MB以下のものを選んでください');
+    event.target.value = '';
     return;
   }
   const reader = new FileReader();
   reader.onload = function() {
-    const value = 'url("' + reader.result + '")';
-    document.getElementById('livePanel').style.backgroundImage = value;
-    try { localStorage.setItem('voiceBotaLiveBackground', value); } catch (e) {}
+    const imageData = String(reader.result || '');
+    const value = 'linear-gradient(rgba(4,5,17,.28), rgba(4,5,17,.58)), url("' + imageData + '")';
+    publishLiveBackground(value);
+  };
+  reader.onerror = function() {
+    alert('画像を読み込めませんでした。別の画像を選んでください。');
   };
   reader.readAsDataURL(file);
   event.target.value = '';
@@ -2502,14 +2540,22 @@ function loadCustomBackground(event) {
 
 function resetLiveBackground() {
   const panel = document.getElementById('livePanel');
-  panel.style.backgroundImage = 'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))';
+  const value = 'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))';
+  if (panel) {
+    panel.style.backgroundImage = value;
+    panel.style.backgroundSize = 'cover';
+    panel.style.backgroundPosition = 'center center';
+  }
   try { localStorage.removeItem('voiceBotaLiveBackground'); } catch (e) {}
+  if (isBroadcaster && connected) {
+    send({ type: 'background_update', background: value });
+  }
 }
 
 function restoreLiveBackground() {
   try {
     const saved = localStorage.getItem('voiceBotaLiveBackground');
-    if (saved) document.getElementById('livePanel').style.backgroundImage = saved;
+    if (saved) applyLiveBackground(saved);
   } catch (e) {}
 }
 
@@ -2954,7 +3000,10 @@ function getLiveList() {
         liveInfo.name,
 
       title:
-        liveInfo.title
+        liveInfo.title,
+
+      background:
+        liveInfo.background || ""
 
     }
 
@@ -3122,7 +3171,11 @@ wss.on(
 
             title:
               data.title ||
-              "音声ライブ配信中"
+              "音声ライブ配信中",
+
+            background:
+              data.background ||
+              'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))'
 
           };
 
@@ -3247,6 +3300,14 @@ wss.on(
 
 
           sendTo(
+            ws,
+            {
+              type: "background_update",
+              background: liveInfo.background || 'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))'
+            }
+          );
+
+          sendTo(
             broadcaster,
             {
 
@@ -3319,6 +3380,21 @@ wss.on(
 
           return;
 
+        }
+
+
+        /* =====================
+           BACKGROUND UPDATE
+        ===================== */
+
+        if (data.type === "background_update") {
+          if (ws === broadcaster && typeof data.background === "string") {
+            // 背景設定は長さを制限して保存・配信
+            const background = data.background.substring(0, 7500000);
+            liveInfo.background = background;
+            broadcast({ type: "background_update", background: background });
+          }
+          return;
         }
 
 

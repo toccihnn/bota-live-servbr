@@ -468,6 +468,17 @@ button {
   margin-top: 15px;
 }
 
+/* 蟾ｦ荳翫�驟堺ｿ｡繧ｿ繧､繝医Ν縺ｨ縲√◎縺ｮ荳九�驟堺ｿ｡繧ｹ繝��繧ｿ繧ｹ縺�縺代ｒ髱櫁｡ｨ遉ｺ */
+#panelTitleText,
+#panelStatus {
+  display: none !important;
+}
+
+/* LIVE繝舌ャ繧ｸ縺ｯ蜿ｳ蛛ｴ縺ｫ谿九☆ */
+.panel-header {
+  justify-content: flex-end;
+}
+
 .panel-title {
   font-size: 22px;
 
@@ -1089,14 +1100,6 @@ button {
     margin-top: -20px;
   }
 
-}
-
-/* 驟堺ｿ｡逕ｻ髱｢�壼ｷｦ荳翫ち繧､繝医Ν縺ｨ縲√◎縺ｮ荳九�驟堺ｿ｡迥ｶ諷玖｡ｨ遉ｺ繧帝撼陦ｨ遉ｺ */
-.live-panel .panel-header .panel-title {
-  visibility: hidden !important;
-}
-.live-panel .panel-status {
-  display: none !important;
 }
 
 </style>

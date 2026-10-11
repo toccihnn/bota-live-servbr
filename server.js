@@ -819,6 +819,57 @@ button {
 
 }
 
+
+
+/* ===== 画像のようなフルスクリーン配信レイアウト ===== */
+.live-panel {
+  display:none; position:fixed; inset:0; z-index:2000;
+  padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  overflow:hidden; background-color:#050510;
+  background-image:linear-gradient(180deg,rgba(3,5,16,.22) 0%,rgba(3,5,16,.04) 42%,rgba(3,5,16,.58) 100%);
+  background-size:cover; background-position:center; background-repeat:no-repeat;
+}
+.live-panel.show {display:block}
+.panel-header {position:absolute;top:max(18px,env(safe-area-inset-top));left:18px;right:72px;margin:0;display:flex;align-items:center;gap:10px;z-index:5;min-height:58px}
+.panel-title {max-width:calc(100% - 72px);font-size:20px;text-shadow:0 2px 8px #000;}
+.panel-live {font-size:12px;padding:7px 13px;flex-shrink:0}
+.panel-status {position:absolute;top:88px;left:18px;max-width:72%;margin:0;padding:7px 11px;border-radius:20px;background:rgba(5,8,22,.58);backdrop-filter:blur(8px);font-size:12px;z-index:4}
+.audio-status {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;padding:0;background:transparent;border:0;pointer-events:none;max-width:70%;}
+#audioText {margin:0;font-size:12px;text-shadow:0 1px 6px #000;color:rgba(255,255,255,.82);}
+.audio-icon {display:none!important}
+#remoteAudio {display:none}
+#likeButton {position:absolute;right:14px;top:44%;width:66px;height:66px;margin:0;border-radius:50%;padding:0;background:rgba(12,12,25,.72);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:12px;z-index:6;box-shadow:0 4px 18px #0004}
+#likeButton::first-line {font-size:25px}
+.action-rail {position:absolute;right:14px;top:54%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:6}
+.live-action {width:66px;height:66px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(10,10,24,.72);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;backdrop-filter:blur(8px)}
+.live-action .action-emoji {font-size:25px;line-height:1.1}
+.panel-close {position:absolute;right:14px;top:max(18px,env(safe-area-inset-top));width:54px;height:54px;border-radius:50%;border:1px solid #ffffff30;background:#0505109c;color:#fff;font-size:28px;z-index:7}
+.background-custom {display:none;position:absolute;right:88px;top:48%;width:min(270px,calc(100vw - 120px));margin:0;padding:12px;background:rgba(7,10,27,.94);backdrop-filter:blur(12px);z-index:10;box-shadow:0 8px 30px #0008}
+.background-custom.open {display:block}
+.background-custom-title {font-size:13px}
+.background-options {grid-template-columns:repeat(2,minmax(0,1fr))}
+.background-option {min-height:42px}
+.comments {position:absolute;left:14px;right:88px;bottom:calc(94px + env(safe-area-inset-bottom));margin:0;z-index:5;display:flex;flex-direction:column;gap:8px}
+.comment-list {height:min(34vh,280px);min-height:100px;overflow-y:auto;overscroll-behavior:contain;padding:0;background:transparent;border-radius:0;scrollbar-width:thin;scrollbar-color:#ffffff66 transparent;mask-image:linear-gradient(to bottom,transparent 0%,#000 8%,#000 100%)}
+.comment-item {display:table;max-width:100%;margin:5px 0;padding:9px 12px;border:0;border-radius:18px;background:rgba(3,5,15,.76);color:#fff;font-size:14px;line-height:1.45;overflow-wrap:anywhere;text-shadow:0 1px 2px #000}
+.comment-input {position:fixed;left:14px;right:86px;bottom:calc(18px + env(safe-area-inset-bottom));margin:0;gap:8px;z-index:8}
+.comment-input input {height:52px;border-radius:28px;padding:0 18px;background:rgba(7,10,25,.88);border:1px solid #ffffff35;font-size:15px}
+.comment-input button {width:56px;flex-shrink:0;border-radius:50%;font-size:18px}
+#stopButton {position:fixed;left:14px;right:14px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;height:56px;margin:0;z-index:9;border-radius:28px;display:none}
+#livePanel.is-broadcaster .comments {bottom:calc(150px + env(safe-area-inset-bottom))}
+#livePanel.is-broadcaster .comment-input {bottom:calc(80px + env(safe-area-inset-bottom));right:14px}
+#livePanel.is-broadcaster #stopButton {display:block}
+#livePanel.is-broadcaster #likeButton {top:40%}
+.close-button {display:none}
+#audioButton {position:absolute;left:18px;top:130px;width:auto;height:auto;margin:0;padding:8px 12px;border-radius:20px;z-index:7}
+@media (max-height:650px) {
+ .comments {bottom:calc(78px + env(safe-area-inset-bottom))}
+ .comment-list {height:25vh;min-height:72px}
+ #livePanel.is-broadcaster .comments {bottom:calc(132px + env(safe-area-inset-bottom))}
+ .action-rail {gap:7px;top:56%}
+ .live-action,#likeButton {width:56px;height:56px}
+}
+
 </style>
 
 </head>
@@ -999,38 +1050,16 @@ button {
 </section>
 
 
-<div
-  class="live-panel"
-  id="livePanel"
->
-
-
+<div class="live-panel" id="livePanel">
   <div class="panel-header">
-
-    <div
-      class="panel-title"
-      id="panelTitle"
-    >
-      voiceボタLive
-    </div>
-
-    <div class="panel-live">
-      LIVE
-    </div>
-
+    <div class="panel-title" id="panelTitle">voiceボタLive</div>
+    <div class="panel-live">🔴 LIVE</div>
   </div>
+  <button class="panel-close" type="button" onclick="closePanel()" aria-label="閉じる">×</button>
+  <div class="panel-status" id="panelStatus">配信準備中</div>
 
-
-  <div
-    class="panel-status"
-    id="panelStatus"
-  >
-    配信準備中
-  </div>
-
-
-  <div class="background-custom">
-    <div class="background-custom-title">🎨 配信画面の背景をカスタム</div>
+  <div class="background-custom" id="backgroundCustom">
+    <div class="background-custom-title">🎨 配信画面の背景</div>
     <div class="background-options">
       <button class="background-option background-blue" type="button" onclick="setLiveBackground('blue')">💙 ブルー</button>
       <button class="background-option background-purple" type="button" onclick="setLiveBackground('purple')">💜 パープル</button>
@@ -1041,92 +1070,27 @@ button {
     <button class="background-reset" type="button" onclick="resetLiveBackground()">背景をリセット</button>
   </div>
 
-  <div class="audio-status">
-
-    <div id="audioText">
-      音声接続
-    </div>
-
+  <div class="audio-status"><div id="audioText">音声接続</div></div>
+  <audio id="remoteAudio" autoplay playsinline></audio>
+  <button id="audioButton" class="panel-button start-button" type="button" onclick="enableAudio()" style="display:none">🔊 音声をONにする</button>
+  <button id="likeButton" class="panel-button like-button" type="button" onclick="sendLike()">❤️<br>いいね</button>
+  <div class="action-rail">
+    <button class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
+    <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
+    <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>
+    <button class="live-action" type="button" onclick="toggleBackgroundPanel()"><span class="action-emoji">🎨</span><span>背景</span></button>
   </div>
-
-
-  <audio
-    id="remoteAudio"
-    autoplay
-    playsinline
-  ></audio>
-
-
-  <button
-    id="audioButton"
-    class="panel-button start-button"
-    type="button"
-    onclick="enableAudio()"
-    style="display:none"
-  >
-    🔊 音声をONにする
-  </button>
-
-
-  <button
-    id="likeButton"
-    class="panel-button like-button"
-    type="button"
-    onclick="sendLike()"
-  >
-    ❤️ いいね
-  </button>
-
 
   <div class="comments">
-
-    <div
-      class="comment-list"
-      id="commentList"
-    ></div>
-
-
-    <div class="comment-input">
-
-      <input
-        id="commentInput"
-        maxlength="200"
-        placeholder="コメントを入力"
-      >
-
-      <button
-        type="button"
-        onclick="sendComment()"
-      >
-        送信
-      </button>
-
-    </div>
-
+    <div class="comment-list" id="commentList" aria-label="コメント一覧"></div>
   </div>
-
-
-  <button
-    id="stopButton"
-    class="panel-button stop-button"
-    type="button"
-    onclick="stopLive()"
-    style="display:none"
-  >
-    ⛔ 配信を終了
-  </button>
-
-
-  <button
-    class="panel-button close-button"
-    type="button"
-    onclick="closePanel()"
-  >
-    閉じる
-  </button>
-
+  <div class="comment-input">
+    <input id="commentInput" maxlength="200" placeholder="コメントを入力...">
+    <button type="button" onclick="sendComment()" aria-label="コメント送信">➤</button>
+  </div>
+  <button id="stopButton" class="panel-button stop-button" type="button" onclick="stopLive()" style="display:none">⛔ 配信を終了する</button>
+  <button class="panel-button close-button" type="button" onclick="closePanel()">閉じる</button>
 </div>
-
 
 <nav class="bottom-nav">
 
@@ -1840,6 +1804,7 @@ async function startLive() {
 
   isBroadcaster =
     true;
+  document.getElementById("livePanel").classList.add("is-broadcaster");
 
 
   document.getElementById(
@@ -1960,6 +1925,7 @@ function stopLive() {
 
   isBroadcaster =
     false;
+  document.getElementById("livePanel").classList.remove("is-broadcaster");
 
 
   document.getElementById(
@@ -2477,6 +2443,38 @@ function sendLike() {
 
 }
 
+
+function toggleBackgroundPanel() {
+  const panel = document.getElementById("backgroundCustom");
+  if (panel) panel.classList.toggle("open");
+}
+
+function showGiftNotice() {
+  alert("ギフト機能はこれから追加できます。");
+}
+
+async function shareLive() {
+  const shareData = { title: "voiceボタLive", text: "voiceボタLiveの配信を見てね！", url: location.href };
+  try {
+    if (navigator.share) await navigator.share(shareData);
+    else if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(location.href);
+      alert("配信ページのURLをコピーしました。");
+    } else {
+      prompt("このURLをコピーしてください", location.href);
+    }
+  } catch (e) { if (e && e.name !== "AbortError") console.error("Share failed", e); }
+}
+
+function toggleRemoteAudio() {
+  const audio = document.getElementById("remoteAudio");
+  audio.muted = !audio.muted;
+  const button = document.getElementById("muteAction");
+  if (button) {
+    button.querySelector(".action-emoji").textContent = audio.muted ? "🔇" : "🔊";
+    button.querySelector("span:last-child").textContent = audio.muted ? "ミュート中" : "音声";
+  }
+}
 
 /* =========================================================
    BACKGROUND CUSTOM

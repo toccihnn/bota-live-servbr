@@ -1,32 +1,17 @@
 const http = require("http");
-const fs = require("fs");
-const path = require("path");
 const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 10000;
 const HOST = "0.0.0.0";
 
-const PUBLIC_DIR = path.join(__dirname, "public");
-
-if (!fs.existsSync(PUBLIC_DIR)) {
-  fs.mkdirSync(PUBLIC_DIR, { recursive: true });
-}
-
-/* =========================================================
-   CLIENT / LIVE DATA
-========================================================= */
-
-const clients = new Set();
-
+let clients = new Set();
 let broadcaster = null;
 
 let liveInfo = {
   active: false,
   id: null,
   name: "",
-  title: "",
-  background: "",
-  startedAt: null
+  title: ""
 };
 
 
@@ -34,7 +19,8 @@ let liveInfo = {
    HTML
 ========================================================= */
 
-const HTML = String.raw`<!DOCTYPE html>
+const HTML = String.raw`
+<!DOCTYPE html>
 <html lang="ja">
 
 <head>
@@ -43,12 +29,12 @@ const HTML = String.raw`<!DOCTYPE html>
 
 <meta
   name="viewport"
-  content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover"
+  content="width=device-width,initial-scale=1.0,user-scalable=no"
 >
 
-<meta name="theme-color" content="#030510">
+<meta name="theme-color" content="#050510">
 
-<title>VoiceボタLive</title>
+<title>voice繝懊ちLive</title>
 
 <style>
 
@@ -59,66 +45,44 @@ const HTML = String.raw`<!DOCTYPE html>
 
 html,
 body {
-
   margin: 0;
   padding: 0;
-
   width: 100%;
   min-height: 100%;
-
-  background: #030510;
+  background: #050510;
   color: white;
-
   font-family:
     -apple-system,
     BlinkMacSystemFont,
     "Noto Sans JP",
-    "Yu Gothic",
     sans-serif;
-
 }
 
 body {
-
   overflow-x: hidden;
-
 }
 
 button,
 input {
-
   font-family: inherit;
-
 }
 
 button {
-
-  border: 0;
   cursor: pointer;
-
 }
 
 .app {
-
   min-height: 100vh;
-
-  padding-bottom:
-    calc(
-      90px +
-      env(safe-area-inset-bottom)
-    );
-
+  padding-bottom: 90px;
 }
 
 
-/* =========================================================
+/* =========================
    HEADER
-========================================================= */
+========================= */
 
 .header {
-
   position: fixed;
-
   top: 0;
   left: 0;
   right: 0;
@@ -128,299 +92,193 @@ button {
   z-index: 1000;
 
   display: flex;
-
   align-items: center;
 
-  justify-content: space-between;
+  padding: 0 18px;
 
-  padding:
-    0 17px;
+  background: rgba(5,5,16,.92);
 
-  background:
-    rgba(3,5,16,.92);
-
-  backdrop-filter:
-    blur(18px);
+  backdrop-filter: blur(15px);
 
   border-bottom:
-    1px solid
-    rgba(120,140,255,.14);
-
+    1px solid rgba(130,140,255,.15);
 }
 
 .logo {
-
   font-size: 18px;
-
   font-weight: 900;
 
   background:
     linear-gradient(
       90deg,
-      #fff,
-      #8edaff,
-      #d18cff
+      #ffffff,
+      #8fd9ff,
+      #d38cff
     );
 
   -webkit-background-clip: text;
   background-clip: text;
 
   color: transparent;
-
-}
-
-.online {
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 6px;
-
-  color: #9eabc9;
-
-  font-size: 10px;
-
-}
-
-.online-dot {
-
-  width: 7px;
-  height: 7px;
-
-  border-radius: 50%;
-
-  background: #45ffab;
-
-  box-shadow:
-    0 0 12px
-    #45ffab;
-
 }
 
 
-/* =========================================================
-   HERO
-========================================================= */
+/* =========================
+   HOME
+========================= */
 
 .hero {
-
   margin-top: 58px;
-
   width: 100%;
-
   overflow: hidden;
-
 }
 
 .hero-image-wrap {
-
-  position: relative;
-
   width: 100%;
-
   max-width: 1000px;
-
   margin: auto;
-
+  position: relative;
   overflow: hidden;
-
-  background: #030510;
-
+  background: #050510;
 }
 
 .hero-image {
-
   display: block;
-
   width: 100%;
-
   height: auto;
-
 }
 
 .hero-gradient {
-
   position: absolute;
-
   left: 0;
   right: 0;
   bottom: 0;
 
-  height: 60%;
+  height: 55%;
 
   background:
     linear-gradient(
       0deg,
-      #030510,
-      rgba(3,5,16,.8),
+      #050510,
+      rgba(5,5,16,.7),
       transparent
     );
-
 }
 
 .hero-content {
-
-  position: relative;
-
   max-width: 1000px;
 
   margin:
-    -35px auto 0;
+    -30px auto 0;
 
   padding:
-    0 18px 25px;
+    0 18px 28px;
 
+  position: relative;
 }
 
 .hero-small {
-
   font-size: 12px;
-
-  color: #aebdff;
-
-  font-weight: 900;
-
+  color: #b8c7ff;
+  font-weight: 800;
 }
 
 .hero-title {
-
-  margin:
-    8px 0 0;
+  margin: 8px 0 0;
 
   font-size:
-    clamp(
-      29px,
-      8vw,
-      48px
-    );
+    clamp(28px,8vw,48px);
 
   line-height: 1.2;
 
   font-weight: 900;
-
 }
 
 .hero-title span {
-
   background:
     linear-gradient(
       90deg,
       #fff,
-      #8edbff,
-      #d28cff
+      #9edcff,
+      #d38cff
     );
 
   -webkit-background-clip: text;
   background-clip: text;
 
   color: transparent;
-
 }
 
 .hero-description {
-
   margin-top: 12px;
-
-  color: #c8d1ea;
 
   font-size: 13px;
 
   line-height: 1.8;
 
+  color: #d2d9ef;
 }
 
 
-/* =========================================================
-   SECTIONS
-========================================================= */
+/* =========================
+   SECTION
+========================= */
 
 .section {
-
   max-width: 1000px;
-
   margin: auto;
-
-  padding:
-    20px 15px 0;
-
+  padding: 20px 15px 0;
 }
 
 .section-head {
-
   display: flex;
-
   align-items: center;
-
   justify-content: space-between;
 
   margin-bottom: 12px;
-
 }
 
 .section-title {
-
   font-size: 20px;
-
   font-weight: 900;
-
 }
 
 .section-sub {
-
   font-size: 10px;
-
-  color: #687391;
-
+  color: #7780a0;
 }
 
 
-/* =========================================================
+/* =========================
    LIVE LIST
-========================================================= */
+========================= */
 
 .live-list {
-
-  display:
-    flex;
-
-  flex-direction:
-    column;
-
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-
 }
 
 .empty {
-
-  padding:
-    35px 20px;
+  padding: 35px 20px;
 
   text-align: center;
 
-  color: #77819e;
+  color: #78819e;
 
-  background:
-    #0b1027;
+  background: #0b0f25;
 
   border:
-    1px solid
-    rgba(100,120,200,.14);
+    1px solid rgba(100,120,200,.12);
 
-  border-radius:
-    20px;
-
+  border-radius: 20px;
 }
 
 .live-card {
-
   min-height: 90px;
 
-  display:
-    flex;
-
-  align-items:
-    center;
+  display: flex;
+  align-items: center;
 
   padding: 14px;
 
@@ -434,39 +292,20 @@ button {
     );
 
   border:
-    1px solid
-    rgba(120,140,255,.16);
-
-  transition:
-    transform .15s;
-
-}
-
-.live-card:active {
-
-  transform:
-    scale(.98);
-
+    1px solid rgba(120,140,255,.15);
 }
 
 .live-avatar {
-
   width: 58px;
   height: 58px;
 
   flex-shrink: 0;
 
-  display:
-    flex;
+  border-radius: 50%;
 
-  align-items:
-    center;
-
-  justify-content:
-    center;
-
-  border-radius:
-    50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   font-size: 27px;
 
@@ -477,68 +316,45 @@ button {
       #4259e8 55%,
       #24104b
     );
-
 }
 
 .live-info {
-
   min-width: 0;
-
   flex: 1;
-
   padding-left: 12px;
-
 }
 
 .live-name {
-
   font-size: 14px;
-
   font-weight: 900;
 
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .live-title {
-
   margin-top: 5px;
 
   font-size: 12px;
 
-  color: #aab4d1;
+  color: #aab3d1;
 
   overflow: hidden;
-
   white-space: nowrap;
-
   text-overflow: ellipsis;
-
-}
-
-.live-meta {
-
-  margin-top: 5px;
-
-  color: #818dab;
-
-  font-size: 10px;
-
 }
 
 .live-badge {
-
-  display:
-    inline-block;
+  display: inline-block;
 
   margin-top: 6px;
 
-  padding:
-    3px 9px;
+  padding: 3px 9px;
 
-  border-radius:
-    999px;
+  border-radius: 999px;
 
   font-size: 9px;
-
   font-weight: 900;
 
   background:
@@ -547,18 +363,15 @@ button {
       #ff3d70,
       #a82cff
     );
-
 }
 
 
-/* =========================================================
+/* =========================
    FEATURES
-========================================================= */
+========================= */
 
 .features {
-
-  display:
-    grid;
+  display: grid;
 
   grid-template-columns:
     repeat(2,1fr);
@@ -566,18 +379,14 @@ button {
   gap: 10px;
 
   margin-top: 15px;
-
 }
 
 .feature {
-
   min-height: 110px;
 
-  padding:
-    17px 14px;
+  padding: 17px 14px;
 
-  border-radius:
-    18px;
+  border-radius: 18px;
 
   background:
     linear-gradient(
@@ -587,1095 +396,278 @@ button {
     );
 
   border:
-    1px solid
-    rgba(120,140,255,.12);
-
+    1px solid rgba(120,140,255,.12);
 }
 
 .feature-icon {
-
   font-size: 25px;
-
 }
 
 .feature-title {
-
   margin-top: 7px;
 
   font-size: 13px;
-
   font-weight: 900;
-
 }
 
 .feature-text {
-
   margin-top: 5px;
-
-  color: #8f99ba;
 
   font-size: 10px;
 
   line-height: 1.6;
 
+  color: #8f99ba;
 }
 
 
-/* =========================================================
-   FULLSCREEN LIVE
-========================================================= */
+/* =========================
+   LIVE PANEL
+========================= */
 
 .live-panel {
+  display: none;
 
   position: fixed;
 
   inset: 0;
 
-  z-index: 3000;
-
-  display: none;
-
-  overflow: hidden;
+  z-index: 2000;
 
   background:
-    #030510;
+    rgba(4,5,17,.98);
 
+  overflow-y: auto;
+
+  padding:
+    20px 16px 110px;
 }
 
 .live-panel.show {
-
   display: block;
-
 }
 
-.live-background {
+.panel-header {
+  display: flex;
 
-  position: absolute;
+  align-items: center;
 
-  inset: 0;
+  justify-content: space-between;
 
-  z-index: 0;
-
-  background:
-    linear-gradient(
-      135deg,
-      #101846,
-      #07091b
-    );
-
-  background-position:
-    center;
-
-  background-size:
-    cover;
-
-  background-repeat:
-    no-repeat;
-
+  margin-top: 20px;
 }
 
-.live-dark {
+.panel-title {
+  max-width: 75%;
 
-  position: absolute;
-
-  inset: 0;
-
-  z-index: 1;
-
-  background:
-    linear-gradient(
-      180deg,
-      rgba(0,0,0,.58),
-      transparent 30%,
-      transparent 55%,
-      rgba(0,0,0,.88)
-    );
-
-  pointer-events: none;
-
-}
-
-.live-content {
-
-  position: relative;
-
-  z-index: 5;
-
-  width: 100%;
-  height: 100%;
-
-  display:
-    flex;
-
-  flex-direction:
-    column;
-
-}
-
-
-/* =========================================================
-   LIVE TOP
-========================================================= */
-
-.live-top {
-
-  display:
-    flex;
-
-  align-items:
-    flex-start;
-
-  justify-content:
-    space-between;
-
-  padding:
-    calc(
-      16px +
-      env(safe-area-inset-top)
-    )
-    14px
-    0;
-
-}
-
-.live-user {
-
-  display:
-    flex;
-
-  align-items:
-    center;
-
-  min-width: 0;
-
-}
-
-.live-user-avatar {
-
-  width: 46px;
-  height: 46px;
-
-  border-radius:
-    50%;
-
-  display:
-    flex;
-
-  align-items:
-    center;
-
-  justify-content:
-    center;
-
-  flex-shrink: 0;
-
-  font-size: 22px;
-
-  background:
-    linear-gradient(
-      145deg,
-      #5de1ff,
-      #5364ff,
-      #b943e8
-    );
-
-  border:
-    2px solid
-    rgba(255,255,255,.75);
-
-  box-shadow:
-    0 5px 25px
-    rgba(0,0,0,.35);
-
-}
-
-.live-user-info {
-
-  min-width: 0;
-
-  padding-left: 10px;
-
-}
-
-.live-user-name {
-
-  max-width: 190px;
-
-  overflow: hidden;
-
-  white-space: nowrap;
-
-  text-overflow: ellipsis;
-
-  font-size: 14px;
+  font-size: 21px;
 
   font-weight: 900;
 
-}
-
-.live-user-title {
-
-  max-width: 210px;
-
-  margin-top: 3px;
-
   overflow: hidden;
 
   white-space: nowrap;
 
   text-overflow: ellipsis;
-
-  color: #d5dbed;
-
-  font-size: 10px;
-
 }
 
-.live-top-right {
+.panel-live {
+  padding: 5px 10px;
 
-  display:
-    flex;
+  border-radius: 999px;
 
-  align-items:
-    center;
-
-  gap: 7px;
-
-}
-
-.live-badge-big {
-
-  padding:
-    6px 10px;
-
-  border-radius:
-    999px;
-
-  font-size: 10px;
+  font-size: 9px;
 
   font-weight: 900;
 
   background:
     linear-gradient(
       90deg,
-      #ff3869,
-      #a92cff
+      #ff3d6b,
+      #a82cff
     );
-
-  box-shadow:
-    0 5px 20px
-    rgba(255,50,130,.25);
-
 }
 
-.close-live {
+.panel-status {
+  margin-top: 14px;
 
-  width: 38px;
-  height: 38px;
+  padding: 14px;
 
-  border-radius:
-    50%;
+  border-radius: 15px;
 
-  background:
-    rgba(0,0,0,.42);
+  background: #101638;
 
-  color: white;
+  color: #bed0ff;
 
-  font-size: 20px;
-
-  border:
-    1px solid
-    rgba(255,255,255,.18);
-
+  font-size: 13px;
 }
 
+.audio-status {
+  margin-top: 14px;
 
-/* =========================================================
-   LIVE CENTER
-========================================================= */
+  padding: 30px 20px;
 
-.live-center {
+  text-align: center;
 
-  flex: 1;
-
-  display:
-    flex;
-
-  align-items:
-    center;
-
-  justify-content:
-    center;
-
-  pointer-events: none;
-
-}
-
-.voice-orb {
-
-  width: 135px;
-  height: 135px;
-
-  border-radius:
-    50%;
-
-  display:
-    flex;
-
-  align-items:
-    center;
-
-  justify-content:
-    center;
-
-  font-size: 62px;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(100,220,255,.95),
-      rgba(65,85,230,.75) 45%,
-      rgba(90,30,150,.28) 70%,
-      transparent 72%
-    );
-
-  box-shadow:
-    0 0 80px
-    rgba(65,170,255,.38);
-
-  animation:
-    voicePulse 2s
-    ease-in-out
-    infinite;
-
-}
-
-@keyframes voicePulse {
-
-  0% {
-    transform: scale(.94);
-  }
-
-  50% {
-    transform: scale(1.06);
-  }
-
-  100% {
-    transform: scale(.94);
-  }
-
-}
-
-.live-center-text {
-
-  position: absolute;
-
-  margin-top: 180px;
-
-  padding:
-    7px 12px;
-
-  border-radius:
-    999px;
-
-  background:
-    rgba(0,0,0,.35);
-
-  backdrop-filter:
-    blur(10px);
-
-  color: #e8edff;
-
-  font-size: 11px;
-
-}
-
-
-/* =========================================================
-   LIVE COMMENTS
-========================================================= */
-
-.live-comments {
-
-  position: absolute;
-
-  left: 12px;
-  right: 85px;
-  bottom: 175px;
-
-  z-index: 10;
-
-  max-height: 210px;
-
-  overflow: hidden;
-
-  pointer-events: none;
-
-}
-
-.live-comment {
-
-  display:
-    table;
-
-  max-width: 100%;
-
-  margin-top: 6px;
-
-  padding:
-    7px 11px;
-
-  border-radius:
-    14px;
-
-  background:
-    rgba(0,0,0,.48);
-
-  backdrop-filter:
-    blur(10px);
-
-  color: white;
-
-  font-size: 12px;
-
-  animation:
-    commentIn .2s
-    ease-out;
-
-}
-
-.live-comment-name {
-
-  color: #a9dcff;
-
-  font-weight: 900;
-
-}
-
-@keyframes commentIn {
-
-  from {
-
-    opacity: 0;
-
-    transform:
-      translateY(10px);
-
-  }
-
-  to {
-
-    opacity: 1;
-
-    transform:
-      translateY(0);
-
-  }
-
-}
-
-
-/* =========================================================
-   RIGHT ACTIONS
-========================================================= */
-
-.live-actions {
-
-  position: absolute;
-
-  right: 10px;
-
-  bottom: 190px;
-
-  z-index: 20;
-
-  display:
-    flex;
-
-  flex-direction:
-    column;
-
-  align-items:
-    center;
-
-  gap: 13px;
-
-}
-
-.live-action {
-
-  display:
-    flex;
-
-  flex-direction:
-    column;
-
-  align-items:
-    center;
-
-  justify-content:
-    center;
-
-  width: 53px;
-
-  min-height: 53px;
-
-  border-radius:
-    50%;
-
-  background:
-    rgba(0,0,0,.43);
-
-  backdrop-filter:
-    blur(12px);
-
-  color: white;
-
-  border:
-    1px solid
-    rgba(255,255,255,.16);
-
-}
-
-.live-action-icon {
-
-  font-size: 23px;
-
-  line-height: 1;
-
-}
-
-.live-action-label {
-
-  margin-top: 3px;
-
-  font-size: 8px;
-
-  font-weight: 800;
-
-}
-
-.like-pop {
-
-  position: absolute;
-
-  right: 16px;
-
-  bottom: 225px;
-
-  z-index: 30;
-
-  font-size: 28px;
-
-  pointer-events: none;
-
-  animation:
-    likeFloat 1s
-    ease-out
-    forwards;
-
-}
-
-@keyframes likeFloat {
-
-  0% {
-
-    opacity: 0;
-
-    transform:
-      translateY(30px)
-      scale(.6);
-
-  }
-
-  20% {
-
-    opacity: 1;
-
-  }
-
-  100% {
-
-    opacity: 0;
-
-    transform:
-      translateY(-120px)
-      scale(1.5);
-
-  }
-
-}
-
-
-/* =========================================================
-   LIVE BOTTOM
-========================================================= */
-
-.live-bottom {
-
-  padding:
-    10px 12px
-    calc(
-      12px +
-      env(safe-area-inset-bottom)
-    );
+  border-radius: 22px;
 
   background:
     linear-gradient(
-      0deg,
-      rgba(0,0,0,.94),
-      rgba(0,0,0,.72),
-      transparent
+      145deg,
+      #232d69,
+      #0b0f2a
     );
-
 }
 
-.viewer-count {
+.audio-icon {
+  display: none;
+}
 
-  display:
-    inline-flex;
+#audioText {
+  margin-top: 8px;
 
-  align-items:
-    center;
+  font-size: 14px;
 
-  gap: 5px;
+  font-weight: 800;
+}
 
-  padding:
-    5px 9px;
+#remoteAudio {
+  display: none;
+}
 
-  border-radius:
-    999px;
+.panel-button {
+  width: 100%;
 
+  height: 52px;
+
+  margin-top: 11px;
+
+  border: 0;
+
+  border-radius: 16px;
+
+  color: white;
+
+  font-size: 14px;
+
+  font-weight: 900;
+}
+
+.start-button {
   background:
-    rgba(0,0,0,.42);
-
-  color: #d9e0f4;
-
-  font-size: 10px;
-
-  margin-bottom: 8px;
-
+    linear-gradient(
+      100deg,
+      #24cfff,
+      #5265ff
+    );
 }
 
-.comment-box {
+.stop-button {
+  background:
+    linear-gradient(
+      100deg,
+      #ff3c62,
+      #a52dff
+    );
+}
 
-  display:
-    flex;
+.close-button {
+  background: #1b203c;
+
+  border:
+    1px solid rgba(140,150,255,.2);
+}
+
+.like-button {
+  background:
+    rgba(255,60,130,.16);
+
+  color: #ff8bb5;
+}
+
+
+/* =========================
+   COMMENTS
+========================= */
+
+.comments {
+  margin-top: 14px;
+}
+
+.comment-list {
+  height: 180px;
+  max-height: 35vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  padding: 10px;
+
+  border-radius: 15px;
+
+  background: #080c20;
+}
+
+.comment-item {
+  padding: 8px 4px;
+
+  border-bottom:
+    1px solid rgba(255,255,255,.06);
+
+  font-size: 13px;
+}
+
+.comment-input {
+  display: flex;
 
   gap: 8px;
 
+  margin-top: 8px;
 }
 
-.comment-box input {
-
+.comment-input input {
   min-width: 0;
 
   flex: 1;
 
   height: 46px;
 
-  padding:
-    0 14px;
+  padding: 0 12px;
 
-  border-radius:
-    24px;
+  border-radius: 13px;
+
+  border:
+    1px solid rgba(120,140,255,.2);
+
+  background: #0d1230;
+
+  color: white;
 
   outline: none;
-
-  border:
-    1px solid
-    rgba(255,255,255,.18);
-
-  background:
-    rgba(10,12,28,.74);
-
-  backdrop-filter:
-    blur(12px);
-
-  color: white;
-
-  font-size: 13px;
-
 }
 
-.comment-box input::placeholder {
+.comment-input button {
+  width: 70px;
 
-  color:
-    #8b94ad;
+  border: 0;
 
-}
+  border-radius: 13px;
 
-.comment-send {
-
-  width: 48px;
-  height: 46px;
-
-  border-radius:
-    50%;
-
-  background:
-    linear-gradient(
-      135deg,
-      #42d9ff,
-      #5668ff
-    );
-
-  color: white;
-
-  font-size: 18px;
-
-}
-
-
-/* =========================================================
-   BROADCASTER CONTROLS
-========================================================= */
-
-.broadcaster-controls {
-
-  display: none;
-
-  margin-top: 8px;
-
-}
-
-.broadcaster-controls.show {
-
-  display: block;
-
-}
-
-.end-live-button {
-
-  width: 100%;
-
-  height: 48px;
-
-  border-radius:
-    16px;
-
-  color: white;
-
-  font-size: 13px;
-
-  font-weight: 900;
-
-  background:
-    linear-gradient(
-      100deg,
-      #ff365f,
-      #a62cff
-    );
-
-}
-
-
-/* =========================================================
-   BACKGROUND SETTINGS
-========================================================= */
-
-.background-settings {
-
-  position: absolute;
-
-  left: 12px;
-  right: 12px;
-
-  bottom: 112px;
-
-  z-index: 100;
-
-  display: none;
-
-  padding: 13px;
-
-  border-radius:
-    18px;
-
-  background:
-    rgba(5,7,20,.91);
-
-  backdrop-filter:
-    blur(18px);
-
-  border:
-    1px solid
-    rgba(140,155,255,.2);
-
-}
-
-.background-settings.show {
-
-  display: block;
-
-}
-
-.background-title {
-
-  margin-bottom: 9px;
-
-  font-size: 12px;
-
-  font-weight: 900;
-
-}
-
-.background-grid {
-
-  display:
-    grid;
-
-  grid-template-columns:
-    repeat(4,1fr);
-
-  gap: 7px;
-
-}
-
-.background-grid button {
-
-  min-height: 38px;
-
-  border-radius:
-    10px;
-
-  color: white;
-
-  font-size: 10px;
-
-  font-weight: 900;
-
-}
-
-.bg-blue {
-
-  background:
-    linear-gradient(
-      135deg,
-      #111a4b,
-      #263d96
-    );
-
-}
-
-.bg-purple {
-
-  background:
-    linear-gradient(
-      135deg,
-      #25103e,
-      #8d2f9d
-    );
-
-}
-
-.bg-pink {
-
-  background:
-    linear-gradient(
-      135deg,
-      #42102e,
-      #c82f76
-    );
-
-}
-
-.bg-image {
-
-  background:
-    linear-gradient(
-      135deg,
-      #1a203c,
-      #4d60e8
-    );
-
-}
-
-.bg-reset {
-
-  width: 100%;
-
-  margin-top: 7px;
-
-  min-height: 36px;
-
-  border-radius:
-    10px;
-
-  background:
-    #202640;
-
-  color: white;
-
-  font-size: 10px;
-
-}
-
-#backgroundFile {
-
-  display: none;
-
-}
-
-
-/* =========================================================
-   AUDIO BUTTON
-========================================================= */
-
-.audio-enable {
-
-  position: absolute;
-
-  left: 50%;
-
-  bottom: 100px;
-
-  z-index: 200;
-
-  transform:
-    translateX(-50%);
-
-  display: none;
-
-  min-width: 210px;
-
-  height: 48px;
-
-  padding:
-    0 18px;
-
-  border-radius:
-    999px;
-
-  background:
-    linear-gradient(
-      100deg,
-      #00cfff,
-      #5368ff
-    );
+  background: #526cff;
 
   color: white;
 
   font-weight: 900;
-
-  box-shadow:
-    0 8px 30px
-    rgba(40,130,255,.35);
-
 }
 
 
-/* =========================================================
-   GIFT PANEL
-========================================================= */
-
-.gift-menu {
-
-  position: absolute;
-
-  right: 10px;
-
-  bottom: 250px;
-
-  z-index: 100;
-
-  display: none;
-
-  width: 230px;
-
-  padding: 10px;
-
-  border-radius:
-    18px;
-
-  background:
-    rgba(7,9,25,.94);
-
-  backdrop-filter:
-    blur(18px);
-
-  border:
-    1px solid
-    rgba(140,155,255,.2);
-
-}
-
-.gift-menu.show {
-
-  display: block;
-
-}
-
-.gift-grid {
-
-  display:
-    grid;
-
-  grid-template-columns:
-    repeat(4,1fr);
-
-  gap: 7px;
-
-}
-
-.gift-btn {
-
-  min-height: 65px;
-
-  border-radius:
-    13px;
-
-  background:
-    #171d3e;
-
-  color: white;
-
-  display:
-    flex;
-
-  flex-direction:
-    column;
-
-  align-items:
-    center;
-
-  justify-content:
-    center;
-
-}
-
-.gift-btn b {
-
-  font-size: 25px;
-
-}
-
-.gift-btn span {
-
-  margin-top: 3px;
-
-  font-size: 9px;
-
-}
-
-
-/* =========================================================
-   OLD PANEL HIDDEN
-========================================================= */
-
-#remoteAudio {
-
-  display: none;
-
-}
-
-
-/* =========================================================
+/* =========================
    BOTTOM NAV
-========================================================= */
+========================= */
 
 .bottom-nav {
-
   position: fixed;
 
   left: 0;
@@ -1686,8 +678,7 @@ button {
 
   height: 78px;
 
-  display:
-    grid;
+  display: grid;
 
   grid-template-columns:
     repeat(5,1fr);
@@ -1706,63 +697,46 @@ button {
     blur(18px);
 
   border-top:
-    1px solid
-    rgba(120,140,255,.12);
-
+    1px solid rgba(120,140,255,.12);
 }
 
 .nav-item {
-
   border: 0;
 
-  background:
-    transparent;
+  background: transparent;
 
   color: #727c9c;
 
   font-size: 10px;
 
-  display:
-    flex;
+  display: flex;
 
-  flex-direction:
-    column;
+  flex-direction: column;
 
-  align-items:
-    center;
+  align-items: center;
 
-  justify-content:
-    center;
+  justify-content: center;
 
   gap: 4px;
-
 }
 
 .nav-icon {
-
   font-size: 20px;
-
 }
 
 .nav-live {
-
   width: 52px;
   height: 52px;
 
-  margin-top:
-    -20px;
+  margin-top: -20px;
 
-  border-radius:
-    50%;
+  border-radius: 50%;
 
-  display:
-    flex;
+  display: flex;
 
-  align-items:
-    center;
+  align-items: center;
 
-  justify-content:
-    center;
+  justify-content: center;
 
   font-size: 24px;
 
@@ -1775,27 +749,23 @@ button {
     );
 
   border:
-    3px solid
-    #070a20;
+    3px solid #070a20;
 
   box-shadow:
     0 0 25px
     rgba(80,110,255,.65);
-
 }
 
 
-/* =========================================================
-   RESPONSIVE
-========================================================= */
+/* =========================
+   DESKTOP
+========================= */
 
 @media (min-width:700px) {
 
   .features {
-
     grid-template-columns:
       repeat(4,1fr);
-
   }
 
 }
@@ -1813,22 +783,11 @@ button {
 <header class="header">
 
   <div class="logo">
-    VoiceボタLive
-  </div>
-
-  <div class="online">
-    <span class="online-dot"></span>
-    <span id="onlineText">
-      オンライン
-    </span>
+    voice繝懊ちLive
   </div>
 
 </header>
 
-
-<!-- =======================================================
-     HOME
-======================================================= -->
 
 <section class="hero">
 
@@ -1837,7 +796,7 @@ button {
     <img
       class="hero-image"
       src="/home.png"
-      alt="VoiceボタLive"
+      alt="voice繝懊ちLive"
       onerror="this.style.display='none'"
     >
 
@@ -1849,27 +808,25 @@ button {
   <div class="hero-content">
 
     <div class="hero-small">
-      声でつながる、みんなの居場所。
+      螢ｰ縺ｧ縺､縺ｪ縺後ｋ縲√∩繧薙↑縺ｮ螻��ｴ謇縲�
     </div>
 
     <h1 class="hero-title">
 
       <span>
-        あなたの声が、
+        縺ゅ↑縺溘�螢ｰ縺後�
       </span>
 
       <br>
 
-      誰かの夜を照らす。
+      隱ｰ縺九�螟懊ｒ辣ｧ繧峨☆縲�
 
     </h1>
 
     <div class="hero-description">
 
-      気軽に話して、聞いて、つながって。<br>
-
-      VoiceボタLiveで、
-      あなたの声をもっと近くに。
+      譛域�縺九ｊ縺ｮ荳九〒縲∬ｩｱ縺励※縲∬�縺�※縲∫ｬ代▲縺ｦ縲�<br>
+      voice繝懊ちLive縺ｧ縲√≠縺ｪ縺溘�螢ｰ繧偵ｂ縺｣縺ｨ霑代￥縺ｫ縲�
 
     </div>
 
@@ -1877,10 +834,6 @@ button {
 
 </section>
 
-
-<!-- =======================================================
-     LIVE LIST
-======================================================= -->
 
 <section
   class="section"
@@ -1890,7 +843,7 @@ button {
   <div class="section-head">
 
     <div class="section-title">
-      🔴 ライブ中
+      閥 繝ｩ繧､繝紋ｸｭ
     </div>
 
     <div class="section-sub">
@@ -1906,7 +859,7 @@ button {
   >
 
     <div class="empty">
-      現在ライブ中の配信はありません
+      迴ｾ蝨ｨ驟堺ｿ｡荳ｭ縺ｮ繝ｩ繧､繝悶�縺ゅｊ縺ｾ縺帙ｓ
     </div>
 
   </div>
@@ -1914,31 +867,28 @@ button {
 </section>
 
 
-<!-- =======================================================
-     FEATURES
-======================================================= -->
-
 <section class="section">
 
   <div class="section-title">
-    VoiceボタLive
+    voice繝懊ちLive
   </div>
 
 
   <div class="features">
 
+
     <div class="feature">
 
       <div class="feature-icon">
-        🎙️
+        児��
       </div>
 
       <div class="feature-title">
-        音声配信
+        髻ｳ螢ｰ驟堺ｿ｡
       </div>
 
       <div class="feature-text">
-        声でリアルタイムにつながる。
+        螢ｰ縺ｧ繝ｪ繧｢繝ｫ繧ｿ繧､繝�縺ｫ縺､縺ｪ縺後ｋ縲�
       </div>
 
     </div>
@@ -1947,15 +897,15 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        💬
+        町
       </div>
 
       <div class="feature-title">
-        コメント
+        繧ｳ繝｡繝ｳ繝�
       </div>
 
       <div class="feature-text">
-        配信者と会話できます。
+        驟堺ｿ｡閠�→莨夊ｩｱ縺ｧ縺阪∪縺吶�
       </div>
 
     </div>
@@ -1964,15 +914,15 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        ❤️
+        笶､��
       </div>
 
       <div class="feature-title">
-        いいね
+        縺�＞縺ｭ
       </div>
 
       <div class="feature-text">
-        配信を応援できます。
+        驟堺ｿ｡繧貞ｿ懈抄縺ｧ縺阪∪縺吶�
       </div>
 
     </div>
@@ -1981,404 +931,64 @@ button {
     <div class="feature">
 
       <div class="feature-icon">
-        🎁
+        圻
       </div>
 
       <div class="feature-title">
-        ギフト
+        繝悶Ο繝�け
       </div>
 
       <div class="feature-text">
-        配信者にギフトを送れます。
+        隕九◆縺上↑縺�嶌謇九ｒ繝悶Ο繝�け縲�
       </div>
 
     </div>
+
 
   </div>
 
 </section>
 
 
-</div>
-
-
-<!-- =======================================================
-     FULLSCREEN LIVE PANEL
-======================================================= -->
-
 <div
-  id="livePanel"
   class="live-panel"
+  id="livePanel"
 >
 
+
+  <div class="panel-header">
+
+    <div
+      class="panel-title"
+      id="panelTitle"
+    >
+      voice繝懊ちLive
+    </div>
+
+    <div class="panel-live">
+      LIVE
+    </div>
+
+  </div>
+
+
   <div
-    id="liveBackground"
-    class="live-background"
-  ></div>
+    class="panel-status"
+    id="panelStatus"
+  >
+    驟堺ｿ｡貅門ｙ荳ｭ
+  </div>
 
 
-  <div class="live-dark"></div>
+  <div class="audio-status">
 
-
-  <div class="live-content">
-
-
-    <!-- TOP -->
-
-    <div class="live-top">
-
-      <div class="live-user">
-
-        <div class="live-user-avatar">
-          🎙️
-        </div>
-
-        <div class="live-user-info">
-
-          <div
-            class="live-user-name"
-            id="liveUserName"
-          >
-            VoiceボタLive
-          </div>
-
-          <div
-            class="live-user-title"
-            id="liveUserTitle"
-          >
-            音声ライブ配信中
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="live-top-right">
-
-        <div class="live-badge-big">
-          🔴 LIVE
-        </div>
-
-        <button
-          class="close-live"
-          onclick="closeLivePanel()"
-        >
-          ×
-        </button>
-
-      </div>
-
+    <div class="audio-icon">
+      児��
     </div>
 
-
-    <!-- CENTER -->
-
-    <div class="live-center">
-
-      <div class="voice-orb">
-        🎙️
-      </div>
-
-      <div
-        class="live-center-text"
-        id="liveCenterText"
-      >
-        音声ライブ配信中
-      </div>
-
+    <div id="audioText">
+      髻ｳ螢ｰ謗･邯�
     </div>
-
-
-    <!-- COMMENTS -->
-
-    <div
-      class="live-comments"
-      id="liveComments"
-    ></div>
-
-
-    <!-- RIGHT ACTIONS -->
-
-    <div class="live-actions">
-
-      <button
-        class="live-action"
-        onclick="sendLike()"
-      >
-
-        <div class="live-action-icon">
-          ❤️
-        </div>
-
-        <div class="live-action-label">
-          いいね
-        </div>
-
-      </button>
-
-
-      <button
-        class="live-action"
-        onclick="toggleGiftMenu()"
-      >
-
-        <div class="live-action-icon">
-          🎁
-        </div>
-
-        <div class="live-action-label">
-          ギフト
-        </div>
-
-      </button>
-
-
-      <button
-        class="live-action"
-        onclick="shareLive()"
-      >
-
-        <div class="live-action-icon">
-          📤
-        </div>
-
-        <div class="live-action-label">
-          シェア
-        </div>
-
-      </button>
-
-
-      <button
-        class="live-action"
-        id="muteButton"
-        onclick="toggleMute()"
-      >
-
-        <div
-          class="live-action-icon"
-          id="muteIcon"
-        >
-          🔊
-        </div>
-
-        <div class="live-action-label">
-          音声
-        </div>
-
-      </button>
-
-
-      <button
-        class="live-action"
-        id="backgroundButton"
-        onclick="toggleBackgroundSettings()"
-        style="display:none"
-      >
-
-        <div class="live-action-icon">
-          🎨
-        </div>
-
-        <div class="live-action-label">
-          背景
-        </div>
-
-      </button>
-
-    </div>
-
-
-    <!-- GIFT MENU -->
-
-    <div
-      class="gift-menu"
-      id="giftMenu"
-    >
-
-      <div class="gift-grid">
-
-        <button
-          class="gift-btn"
-          onclick="sendGift('🌸','花')"
-        >
-
-          <b>🌸</b>
-
-          <span>
-            花
-          </span>
-
-        </button>
-
-
-        <button
-          class="gift-btn"
-          onclick="sendGift('⭐','星')"
-        >
-
-          <b>⭐</b>
-
-          <span>
-            星
-          </span>
-
-        </button>
-
-
-        <button
-          class="gift-btn"
-          onclick="sendGift('💎','ダイヤ')"
-        >
-
-          <b>💎</b>
-
-          <span>
-            ダイヤ
-          </span>
-
-        </button>
-
-
-        <button
-          class="gift-btn"
-          onclick="sendGift('🌙','月')"
-        >
-
-          <b>🌙</b>
-
-          <span>
-            月
-          </span>
-
-        </button>
-
-      </div>
-
-    </div>
-
-
-    <!-- BACKGROUND SETTINGS -->
-
-    <div
-      class="background-settings"
-      id="backgroundSettings"
-    >
-
-      <div class="background-title">
-        🎨 配信画面の背景
-      </div>
-
-      <div class="background-grid">
-
-        <button
-          class="bg-blue"
-          onclick="setLiveBackgroundPreset('blue')"
-        >
-          青
-        </button>
-
-        <button
-          class="bg-purple"
-          onclick="setLiveBackgroundPreset('purple')"
-        >
-          紫
-        </button>
-
-        <button
-          class="bg-pink"
-          onclick="setLiveBackgroundPreset('pink')"
-        >
-          ピンク
-        </button>
-
-        <button
-          class="bg-image"
-          onclick="document.getElementById('backgroundFile').click()"
-        >
-          画像
-        </button>
-
-      </div>
-
-
-      <input
-        id="backgroundFile"
-        type="file"
-        accept="image/*"
-        onchange="handleBackgroundFile(event)"
-      >
-
-
-      <button
-        class="bg-reset"
-        onclick="resetLiveBackground()"
-      >
-        背景をリセット
-      </button>
-
-    </div>
-
-
-    <!-- AUDIO -->
-
-    <button
-      id="audioEnableButton"
-      class="audio-enable"
-      onclick="enableAudio()"
-    >
-      🔊 音声をONにする
-    </button>
-
-
-    <!-- BOTTOM -->
-
-    <div class="live-bottom">
-
-      <div
-        class="viewer-count"
-        id="viewerCount"
-      >
-        👀 1人が視聴中
-      </div>
-
-
-      <div class="comment-box">
-
-        <input
-          id="commentInput"
-          maxlength="200"
-          placeholder="コメントを入力..."
-          onkeydown="handleCommentKey(event)"
-        >
-
-        <button
-          class="comment-send"
-          onclick="sendComment()"
-        >
-          ➤
-        </button>
-
-      </div>
-
-
-      <div
-        class="broadcaster-controls"
-        id="broadcasterControls"
-      >
-
-        <button
-          class="end-live-button"
-          onclick="stopLive()"
-        >
-          ⛔ 配信を終了する
-        </button>
-
-      </div>
-
-    </div>
-
 
   </div>
 
@@ -2389,88 +999,164 @@ button {
     playsinline
   ></audio>
 
+
+  <button
+    id="audioButton"
+    class="panel-button start-button"
+    type="button"
+    onclick="enableAudio()"
+    style="display:none"
+  >
+    矧 髻ｳ螢ｰ繧丹N縺ｫ縺吶ｋ
+  </button>
+
+
+  <button
+    id="likeButton"
+    class="panel-button like-button"
+    type="button"
+    onclick="sendLike()"
+  >
+    笶､�� 縺�＞縺ｭ
+  </button>
+
+
+  <div class="comments">
+
+    <div
+      class="comment-list"
+      id="commentList"
+    ></div>
+
+
+    <div class="comment-input">
+
+      <input
+        id="commentInput"
+        maxlength="200"
+        placeholder="繧ｳ繝｡繝ｳ繝医ｒ蜈･蜉�"
+      >
+
+      <button
+        type="button"
+        onclick="sendComment()"
+      >
+        騾∽ｿ｡
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <button
+    id="stopButton"
+    class="panel-button stop-button"
+    type="button"
+    onclick="stopLive()"
+    style="display:none"
+  >
+    笵� 驟堺ｿ｡繧堤ｵゆｺ�
+  </button>
+
+
+  <button
+    class="panel-button close-button"
+    type="button"
+    onclick="closePanel()"
+  >
+    髢峨§繧�
+  </button>
+
 </div>
 
 
-<!-- =======================================================
-     BOTTOM NAV
-======================================================= -->
-
 <nav class="bottom-nav">
+
 
   <button
     class="nav-item"
+    type="button"
     onclick="goHome()"
   >
 
     <div class="nav-icon">
-      🏠
+      匠
     </div>
 
-    ホーム
+    繝帙�繝�
 
   </button>
 
 
   <button
     class="nav-item"
+    type="button"
     onclick="scrollLive()"
   >
 
     <div class="nav-icon">
-      🔎
+      剥
     </div>
 
-    探す
+    謗｢縺�
 
   </button>
 
 
   <button
     class="nav-item"
+    type="button"
     onclick="startLive()"
   >
 
     <div class="nav-live">
-      🎙️
+      児��
     </div>
 
-    配信
+    驟堺ｿ｡
 
   </button>
 
 
   <button
     class="nav-item"
+    type="button"
     onclick="showNotice()"
   >
 
     <div class="nav-icon">
-      🔔
+      粕
     </div>
 
-    お知らせ
+    縺顔衍繧峨○
 
   </button>
 
 
   <button
     class="nav-item"
+    type="button"
     onclick="showProfile()"
   >
 
     <div class="nav-icon">
-      👤
+      側
     </div>
 
-    マイページ
+    繝槭う繝壹�繧ｸ
 
   </button>
+
 
 </nav>
 
 
+</div>
+
+
 <script>
+
 
 /* =========================================================
    VARIABLES
@@ -2492,28 +1178,38 @@ let localStream = null;
 
 let peerConnections = {};
 
-let pendingIceCandidates = {};
-
-let currentUserName = "ユーザー";
+let currentUserName = "繝ｦ繝ｼ繧ｶ繝ｼ";
 
 let currentLiveId = null;
 
 let currentBroadcasterId = null;
 
-let currentLiveTitle = "";
 
-let viewerCount = 1;
+/* =========================================================
+   WEBRTC
+========================================================= */
 
-let isMuted = false;
+const rtcConfig = {
 
-let liveBackgroundData =
-  localStorage.getItem(
-    "voiceBotaLiveBackground"
-  ) || "";
+  iceServers: [
+
+    {
+      urls:
+        "stun:stun.l.google.com:19302"
+    },
+
+    {
+      urls:
+        "stun:stun1.l.google.com:19302"
+    }
+
+  ]
+
+};
 
 
 /* =========================================================
-   SOCKET
+   CONNECT
 ========================================================= */
 
 function connectSocket() {
@@ -2528,18 +1224,13 @@ function connectSocket() {
     "//" +
     location.host;
 
-  try {
+  console.log(
+    "WebSocket connecting:",
+    url
+  );
 
-    socket =
-      new WebSocket(url);
-
-  } catch(error) {
-
-    console.error(error);
-
-    return;
-
-  }
+  socket =
+    new WebSocket(url);
 
 
   socket.onopen =
@@ -2547,25 +1238,15 @@ function connectSocket() {
 
       connected = true;
 
-      const online =
-        document.getElementById(
-          "onlineText"
-        );
-
-      if (online) {
-
-        online.textContent =
-          "オンライン";
-
-      }
+      console.log(
+        "WebSocket connected"
+      );
 
       send({
 
-        type:
-          "hello",
+        type: "hello",
 
-        clientId:
-          myId
+        clientId: myId
 
       });
 
@@ -2577,17 +1258,9 @@ function connectSocket() {
 
       connected = false;
 
-      const online =
-        document.getElementById(
-          "onlineText"
-        );
-
-      if (online) {
-
-        online.textContent =
-          "再接続中...";
-
-      }
+      console.log(
+        "WebSocket disconnected"
+      );
 
       setTimeout(
         connectSocket,
@@ -2621,6 +1294,11 @@ function connectSocket() {
           );
 
       } catch(error) {
+
+        console.error(
+          "JSON error",
+          error
+        );
 
         return;
 
@@ -2661,6 +1339,12 @@ function send(data) {
 function handleMessage(data) {
 
 
+  console.log(
+    "SERVER:",
+    data
+  );
+
+
   if (
     data.type ===
     "live_list"
@@ -2680,8 +1364,8 @@ function handleMessage(data) {
     "live_started"
   ) {
 
-    setLiveCenterText(
-      "🔴 配信中"
+    setPanelStatus(
+      "閥 驟堺ｿ｡荳ｭ縺ｧ縺�"
     );
 
     return;
@@ -2696,7 +1380,7 @@ function handleMessage(data) {
 
     alert(
       data.reason ||
-      "配信を開始できませんでした。"
+      "驟堺ｿ｡繧帝幕蟋九〒縺阪∪縺帙ｓ縺ｧ縺励◆"
     );
 
     return;
@@ -2709,30 +1393,9 @@ function handleMessage(data) {
     "viewer_joined"
   ) {
 
-    viewerCount++;
-
-    updateViewerCount();
-
     createOffer(
       data.viewerId
     );
-
-    return;
-
-  }
-
-
-  if (
-    data.type ===
-    "viewer_count"
-  ) {
-
-    viewerCount =
-      Number(
-        data.count || 1
-      );
-
-    updateViewerCount();
 
     return;
 
@@ -2786,7 +1449,7 @@ function handleMessage(data) {
     "comment"
   ) {
 
-    addLiveComment(
+    addComment(
       data.name,
       data.text
     );
@@ -2801,37 +1464,11 @@ function handleMessage(data) {
     "like"
   ) {
 
-    addLiveComment(
-      "システム",
-      "❤️ " +
+    addComment(
+      "繧ｷ繧ｹ繝�Β",
+      "笶､�� " +
       data.name +
-      " さんがいいねしました"
-    );
-
-    showLikeAnimation();
-
-    return;
-
-  }
-
-
-  if (
-    data.type ===
-    "gift"
-  ) {
-
-    addLiveComment(
-      "🎁 ギフト",
-      data.name +
-      " さんが " +
-      data.gift +
-      " " +
-      data.giftName +
-      " を送りました"
-    );
-
-    showGiftAnimation(
-      data.gift || "🎁"
+      " 縺輔ｓ縺後＞縺��縺励∪縺励◆"
     );
 
     return;
@@ -2844,35 +1481,16 @@ function handleMessage(data) {
     "live_stopped"
   ) {
 
-    setLiveCenterText(
-      "配信終了"
+    setPanelStatus(
+      "驟堺ｿ｡縺檎ｵゆｺ�＠縺ｾ縺励◆"
     );
 
-    const audio =
-      document.getElementById(
-        "remoteAudio"
-      );
-
-    try {
-
-      audio.pause();
-
-    } catch(error) {}
+    document.getElementById(
+      "audioText"
+    ).textContent =
+      "繝ｩ繧､繝也ｵゆｺ�";
 
     closePeers();
-
-    if (!isBroadcaster) {
-
-      setTimeout(
-        function() {
-
-          closeLivePanel();
-
-        },
-        1200
-      );
-
-    }
 
     renderLiveList([]);
 
@@ -2887,10 +1505,8 @@ function handleMessage(data) {
   ) {
 
     alert(
-      "このライブは終了しています。"
+      "縺薙�繝ｩ繧､繝悶�邨ゆｺ�＠縺ｦ縺�∪縺�"
     );
-
-    closeLivePanel();
 
     return;
 
@@ -2903,17 +1519,15 @@ function handleMessage(data) {
    LIVE LIST
 ========================================================= */
 
-let liveBackgrounds = {};
-
-
-function renderLiveList(lives) {
-
-  liveBackgrounds = {};
+function renderLiveList(
+  lives
+) {
 
   const list =
     document.getElementById(
       "liveList"
     );
+
 
   if (
     !lives ||
@@ -2922,7 +1536,7 @@ function renderLiveList(lives) {
 
     list.innerHTML =
       '<div class="empty">' +
-      '現在ライブ中の配信はありません' +
+      '迴ｾ蝨ｨ驟堺ｿ｡荳ｭ縺ｮ繝ｩ繧､繝悶�縺ゅｊ縺ｾ縺帙ｓ' +
       '</div>';
 
     return;
@@ -2936,23 +1550,16 @@ function renderLiveList(lives) {
   lives.forEach(
     function(live) {
 
-      liveBackgrounds[
-        live.id
-      ] =
-        live.background || "";
-
-
       html +=
 
         '<div class="live-card" ' +
+
         'onclick="listenLive(\'' +
-        escapeJsString(
-          live.id
-        ) +
+        escapeHtml(live.id) +
         '\')">' +
 
         '<div class="live-avatar">' +
-        '🎙️' +
+        '児��' +
         '</div>' +
 
         '<div class="live-info">' +
@@ -2967,10 +1574,6 @@ function renderLiveList(lives) {
         escapeHtml(
           live.title
         ) +
-        '</div>' +
-
-        '<div class="live-meta">' +
-        '👀 LIVE NOW' +
         '</div>' +
 
         '<span class="live-badge">' +
@@ -2991,7 +1594,9 @@ function renderLiveList(lives) {
 }
 
 
-function escapeHtml(value) {
+function escapeHtml(
+  value
+) {
 
   return String(
     value || ""
@@ -3020,54 +1625,37 @@ function escapeHtml(value) {
 }
 
 
-function escapeJsString(value) {
-
-  return String(
-    value || ""
-  )
-  .replace(
-    /\\/g,
-    "\\\\"
-  )
-  .replace(
-    /'/g,
-    "\\'"
-  )
-  .replace(
-    /\n/g,
-    "\\n"
-  )
-  .replace(
-    /\r/g,
-    "\\r"
-  );
-
-}
-
-
 /* =========================================================
    START LIVE
 ========================================================= */
 
 async function startLive() {
 
-  if (
-    isBroadcaster
-  ) {
+  console.log(
+    "START LIVE CLICK"
+  );
 
-    openLivePanel();
+
+  alert(
+    "驟堺ｿ｡繝懊ち繝ｳ繧呈款縺励∪縺励◆"
+  );
+
+
+  if (!connected) {
+
+    alert(
+      "繧ｵ繝ｼ繝舌�縺ｫ謗･邯壻ｸｭ縺ｧ縺吶�\n" +
+      "蟆代＠蠕�▲縺ｦ縺九ｉ繧ゅ≧荳蠎ｦ謚ｼ縺励※縺上□縺輔＞縲�"
+    );
 
     return;
 
   }
 
 
-  if (!connected) {
+  if (isBroadcaster) {
 
-    alert(
-      "サーバーに接続中です。\\n" +
-      "少し待ってからもう一度押してください。"
-    );
+    openPanel();
 
     return;
 
@@ -3080,7 +1668,7 @@ async function startLive() {
   ) {
 
     alert(
-      "このブラウザではマイクを使用できません。"
+      "縺薙�繝悶Λ繧ｦ繧ｶ縺ｧ縺ｯ繝槭う繧ｯ繧剃ｽｿ逕ｨ縺ｧ縺阪∪縺帙ｓ縲�"
     );
 
     return;
@@ -3090,8 +1678,8 @@ async function startLive() {
 
   const name =
     prompt(
-      "配信者名を入力してください",
-      "まめコロ"
+      "驟堺ｿ｡閠�錐繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
+      "縺ｼ縺溘ｂ縺｡"
     );
 
 
@@ -3107,8 +1695,8 @@ async function startLive() {
 
   const title =
     prompt(
-      "配信タイトルを入力してください",
-      "VoiceボタLive 配信中"
+      "驟堺ｿ｡繧ｿ繧､繝医Ν繧貞�蜉帙＠縺ｦ縺上□縺輔＞",
+      "voice繝懊ちLive 驟堺ｿ｡荳ｭ"
     );
 
 
@@ -3125,15 +1713,19 @@ async function startLive() {
   currentUserName =
     name.trim();
 
-  currentLiveTitle =
-    title.trim();
+
+  setPanelStatus(
+    "痔 繝槭う繧ｯ繧堤｢ｺ隱阪＠縺ｦ縺�∪縺�..."
+  );
+
+
+  openPanel();
 
 
   try {
 
     localStream =
-      await navigator
-        .mediaDevices
+      await navigator.mediaDevices
         .getUserMedia({
 
           audio: {
@@ -3145,13 +1737,7 @@ async function startLive() {
               true,
 
             autoGainControl:
-              true,
-
-            channelCount:
-              1,
-
-            sampleRate:
-              48000
+              true
 
           },
 
@@ -3161,6 +1747,11 @@ async function startLive() {
         });
 
 
+    console.log(
+      "MIC OK"
+    );
+
+
   } catch(error) {
 
     console.error(
@@ -3168,10 +1759,17 @@ async function startLive() {
       error
     );
 
-    alert(
-      "マイクを使用できませんでした。\\n\\n" +
-      "ブラウザのマイク許可を確認してください。"
+
+    setPanelStatus(
+      "繝槭う繧ｯ險ｱ蜿ｯ縺悟ｿ�ｦ√〒縺�"
     );
+
+
+    alert(
+      "繝槭う繧ｯ繧剃ｽｿ逕ｨ縺ｧ縺阪∪縺帙ｓ縺ｧ縺励◆縲�\n\n" +
+      "繝悶Λ繧ｦ繧ｶ縺ｮ繝槭う繧ｯ險ｱ蜿ｯ繧堤｢ｺ隱阪＠縺ｦ縺上□縺輔＞縲�"
+    );
+
 
     return;
 
@@ -3183,35 +1781,31 @@ async function startLive() {
 
 
   document.getElementById(
-    "liveUserName"
+    "panelTitle"
   ).textContent =
-    currentUserName;
+    title;
 
 
   document.getElementById(
-    "liveUserTitle"
-  ).textContent =
-    currentLiveTitle;
-
-
-  document.getElementById(
-    "backgroundButton"
+    "stopButton"
   ).style.display =
-    "flex";
+    "block";
 
 
   document.getElementById(
-    "broadcasterControls"
-  ).classList.add(
-    "show"
-  );
+    "likeButton"
+  ).style.display =
+    "block";
 
 
-  openLivePanel();
+  document.getElementById(
+    "audioText"
+  ).textContent =
+    "児�� 繝槭う繧ｯ驟堺ｿ｡荳ｭ";
 
 
-  setLiveCenterText(
-    "🎙️ マイク配信中"
+  setPanelStatus(
+    "閥 驟堺ｿ｡繧帝幕蟋九＠縺ｦ縺�∪縺�..."
   );
 
 
@@ -3228,10 +1822,7 @@ async function startLive() {
         currentUserName,
 
       title:
-        currentLiveTitle,
-
-      background:
-        liveBackgroundData || ""
+        title
 
     });
 
@@ -3239,20 +1830,17 @@ async function startLive() {
   if (!sent) {
 
     alert(
-      "サーバーとの接続が切れました。"
+      "繧ｵ繝ｼ繝舌�縺ｨ縺ｮ謗･邯壹′蛻�ｌ縺ｾ縺励◆縲�"
     );
-
-    stopLocalMicrophone();
 
     return;
 
   }
 
 
-  viewerCount =
-    1;
-
-  updateViewerCount();
+  setPanelStatus(
+    "閥 驟堺ｿ｡荳ｭ縺ｧ縺�"
+  );
 
 }
 
@@ -3265,7 +1853,7 @@ function stopLive() {
 
   if (!isBroadcaster) {
 
-    closeLivePanel();
+    closePanel();
 
     return;
 
@@ -3280,7 +1868,24 @@ function stopLive() {
   });
 
 
-  stopLocalMicrophone();
+  if (localStream) {
+
+    localStream
+      .getTracks()
+      .forEach(
+        function(track) {
+
+          track.stop();
+
+        }
+      );
+
+  }
+
+
+  localStream =
+    null;
+
 
   closePeers();
 
@@ -3290,60 +1895,29 @@ function stopLive() {
 
 
   document.getElementById(
-    "backgroundButton"
+    "stopButton"
   ).style.display =
     "none";
 
 
   document.getElementById(
-    "broadcasterControls"
-  ).classList.remove(
-    "show"
+    "audioText"
+  ).textContent =
+    "驟堺ｿ｡邨ゆｺ�";
+
+
+  setPanelStatus(
+    "驟堺ｿ｡繧堤ｵゆｺ�＠縺ｾ縺励◆"
   );
 
 
-  viewerCount =
-    1;
-
-  updateViewerCount();
+  renderLiveList([]);
 
 
   setTimeout(
-    function() {
-
-      closeLivePanel();
-
-    },
-    300
+    closePanel,
+    800
   );
-
-}
-
-
-function stopLocalMicrophone() {
-
-  if (
-    localStream
-  ) {
-
-    localStream
-      .getTracks()
-      .forEach(
-        function(track) {
-
-          try {
-
-            track.stop();
-
-          } catch(error) {}
-
-        }
-      );
-
-  }
-
-  localStream =
-    null;
 
 }
 
@@ -3352,14 +1926,14 @@ function stopLocalMicrophone() {
    LISTEN LIVE
 ========================================================= */
 
-function listenLive(liveId) {
+function listenLive(
+  liveId
+) {
 
-  if (
-    isBroadcaster
-  ) {
+  if (isBroadcaster) {
 
     alert(
-      "配信中は他のライブを視聴できません。"
+      "驟堺ｿ｡荳ｭ縺ｯ隕冶�縺ｧ縺阪∪縺帙ｓ縲�"
     );
 
     return;
@@ -3371,47 +1945,24 @@ function listenLive(liveId) {
     liveId;
 
 
-  const bg =
-    liveBackgrounds[
-      liveId
-    ] || "";
-
-
-  if (bg) {
-
-    applyLiveBackground(
-      bg
-    );
-
-  } else {
-
-    setLiveBackgroundPreset(
-      "blue"
-    );
-
-  }
-
-
-  openLivePanel();
+  openPanel();
 
 
   document.getElementById(
-    "backgroundButton"
-  ).style.display =
-    "none";
+    "panelTitle"
+  ).textContent =
+    "LIVE";
 
 
-  document.getElementById(
-    "broadcasterControls"
-  ).classList.remove(
-    "show"
+  setPanelStatus(
+    "而 驟堺ｿ｡閠�↓謗･邯壹＠縺ｦ縺�∪縺�..."
   );
 
 
   document.getElementById(
-    "liveCenterText"
+    "audioText"
   ).textContent =
-    "🎧 配信者に接続中";
+    "謗･邯壻ｸｭ...";
 
 
   send({
@@ -3431,10 +1982,12 @@ function listenLive(liveId) {
 
 
 /* =========================================================
-   WEBRTC OFFER
+   BROADCASTER OFFER
 ========================================================= */
 
-async function createOffer(viewerId) {
+async function createOffer(
+  viewerId
+) {
 
   if (
     !isBroadcaster ||
@@ -3454,13 +2007,7 @@ async function createOffer(viewerId) {
 
   peerConnections[
     viewerId
-  ] =
-    pc;
-
-
-  pendingIceCandidates[
-    viewerId
-  ] = [];
+  ] = pc;
 
 
   localStream
@@ -3468,37 +2015,10 @@ async function createOffer(viewerId) {
     .forEach(
       function(track) {
 
-        const sender =
-          pc.addTrack(
-            track,
-            localStream
-          );
-
-
-        try {
-
-          const params =
-            sender.getParameters();
-
-          if (
-            !params.encodings ||
-            !params.encodings.length
-          ) {
-
-            params.encodings =
-              [{}];
-
-          }
-
-          params.encodings[0]
-            .maxBitrate =
-              64000;
-
-          sender.setParameters(
-            params
-          );
-
-        } catch(error) {}
+        pc.addTrack(
+          track,
+          localStream
+        );
 
       }
     );
@@ -3535,31 +2055,10 @@ async function createOffer(viewerId) {
   pc.onconnectionstatechange =
     function() {
 
-      if (
-        pc.connectionState ===
-          "connected"
-      ) {
-
-        console.log(
-          "Viewer connected:",
-          viewerId
-        );
-
-      }
-
-      if (
-        pc.connectionState ===
-          "failed" ||
-        pc.connectionState ===
-          "closed"
-      ) {
-
-        delete
-          peerConnections[
-            viewerId
-          ];
-
-      }
+      console.log(
+        "Broadcaster connection:",
+        pc.connectionState
+      );
 
     };
 
@@ -3567,15 +2066,7 @@ async function createOffer(viewerId) {
   try {
 
     const offer =
-      await pc.createOffer({
-
-        offerToReceiveAudio:
-          false,
-
-        offerToReceiveVideo:
-          false
-
-      });
+      await pc.createOffer();
 
 
     await pc.setLocalDescription(
@@ -3603,7 +2094,7 @@ async function createOffer(viewerId) {
   } catch(error) {
 
     console.error(
-      "OFFER ERROR",
+      "CREATE OFFER ERROR",
       error
     );
 
@@ -3613,16 +2104,15 @@ async function createOffer(viewerId) {
 
 
 /* =========================================================
-   RECEIVE OFFER
+   VIEWER OFFER
 ========================================================= */
 
-async function receiveOffer(data) {
+async function receiveOffer(
+  data
+) {
 
   currentBroadcasterId =
     data.from;
-
-
-  closeViewerPeer();
 
 
   const pc =
@@ -3633,17 +2123,16 @@ async function receiveOffer(data) {
 
   peerConnections[
     data.from
-  ] =
-    pc;
-
-
-  pendingIceCandidates[
-    data.from
-  ] = [];
+  ] = pc;
 
 
   pc.ontrack =
     function(event) {
+
+      console.log(
+        "REMOTE AUDIO"
+      );
+
 
       const audio =
         document.getElementById(
@@ -3662,44 +2151,41 @@ async function receiveOffer(data) {
       }
 
 
-      audio.volume =
-        1;
-
-
       audio.play()
         .then(
           function() {
 
             document.getElementById(
-              "audioEnableButton"
-            ).style.display =
-              "none";
-
-
-            document.getElementById(
-              "muteIcon"
+              "audioText"
             ).textContent =
-              "🔊";
+              "矧 LIVE 髻ｳ螢ｰ";
 
 
-            setLiveCenterText(
-              "🔊 LIVE 音声"
+            setPanelStatus(
+              "而 謗･邯壹＠縺ｾ縺励◆"
             );
 
           }
         )
         .catch(
-          function() {
+          function(error) {
+
+            console.log(
+              "AUTOPLAY BLOCKED",
+              error
+            );
+
 
             document.getElementById(
-              "audioEnableButton"
+              "audioButton"
             ).style.display =
               "block";
 
 
-            setLiveCenterText(
-              "🔊 音声をONにしてください"
-            );
+            document.getElementById(
+              "audioText"
+            ).textContent =
+              "矧 髻ｳ螢ｰ繝懊ち繝ｳ繧呈款縺励※縺上□縺輔＞";
 
           }
         );
@@ -3735,23 +2221,6 @@ async function receiveOffer(data) {
     };
 
 
-  pc.onconnectionstatechange =
-    function() {
-
-      if (
-        pc.connectionState ===
-        "connected"
-      ) {
-
-        setLiveCenterText(
-          "🔊 LIVE 音声"
-        );
-
-      }
-
-    };
-
-
   try {
 
     await pc.setRemoteDescription(
@@ -3759,33 +2228,6 @@ async function receiveOffer(data) {
         data.sdp
       )
     );
-
-
-    const candidates =
-      pendingIceCandidates[
-        data.from
-      ] || [];
-
-
-    for (
-      const candidate
-      of candidates
-    ) {
-
-      try {
-
-        await pc.addIceCandidate(
-          candidate
-        );
-
-      } catch(error) {}
-
-    }
-
-
-    pendingIceCandidates[
-      data.from
-    ] = [];
 
 
     const answer =
@@ -3830,7 +2272,9 @@ async function receiveOffer(data) {
    ANSWER
 ========================================================= */
 
-async function receiveAnswer(data) {
+async function receiveAnswer(
+  data
+) {
 
   const pc =
     peerConnections[
@@ -3853,7 +2297,6 @@ async function receiveAnswer(data) {
       )
     );
 
-
   } catch(error) {
 
     console.error(
@@ -3870,7 +2313,9 @@ async function receiveAnswer(data) {
    ICE
 ========================================================= */
 
-async function receiveIce(data) {
+async function receiveIce(
+  data
+) {
 
   const pc =
     peerConnections[
@@ -3887,36 +2332,9 @@ async function receiveIce(data) {
 
   try {
 
-    if (
-      pc.remoteDescription &&
-      pc.remoteDescription.type
-    ) {
-
-      await pc.addIceCandidate(
-        data.candidate
-      );
-
-    } else {
-
-      if (
-        !pendingIceCandidates[
-          data.from
-        ]
-      ) {
-
-        pendingIceCandidates[
-          data.from
-        ] = [];
-
-      }
-
-      pendingIceCandidates[
-        data.from
-      ].push(
-        data.candidate
-      );
-
-    }
+    await pc.addIceCandidate(
+      data.candidate
+    );
 
   } catch(error) {
 
@@ -3942,36 +2360,20 @@ function enableAudio() {
     );
 
 
-  audio.muted =
-    false;
-
-  audio.volume =
-    1;
-
-
   audio.play()
     .then(
       function() {
 
         document.getElementById(
-          "audioEnableButton"
+          "audioButton"
         ).style.display =
           "none";
 
 
         document.getElementById(
-          "muteIcon"
+          "audioText"
         ).textContent =
-          "🔊";
-
-
-        isMuted =
-          false;
-
-
-        setLiveCenterText(
-          "🔊 LIVE 音声"
-        );
+          "矧 LIVE 髻ｳ螢ｰ";
 
       }
     )
@@ -3990,93 +2392,27 @@ function enableAudio() {
 
 
 /* =========================================================
-   MUTE
+   LIKE
 ========================================================= */
 
-function toggleMute() {
+function sendLike() {
 
-  const audio =
-    document.getElementById(
-      "remoteAudio"
-    );
+  send({
 
+    type:
+      "like",
 
-  if (
-    isBroadcaster
-  ) {
+    name:
+      currentUserName
 
-    if (!localStream) {
-
-      return;
-
-    }
-
-
-    const tracks =
-      localStream.getAudioTracks();
-
-
-    tracks.forEach(
-      function(track) {
-
-        track.enabled =
-          !track.enabled;
-
-        isMuted =
-          !track.enabled;
-
-      }
-    );
-
-
-    document.getElementById(
-      "muteIcon"
-    ).textContent =
-      isMuted
-        ? "🔇"
-        : "🎙️";
-
-
-    return;
-
-  }
-
-
-  isMuted =
-    !isMuted;
-
-
-  audio.muted =
-    isMuted;
-
-
-  document.getElementById(
-    "muteIcon"
-  ).textContent =
-    isMuted
-      ? "🔇"
-      : "🔊";
+  });
 
 }
 
 
 /* =========================================================
-   COMMENTS
+   COMMENT
 ========================================================= */
-
-function handleCommentKey(event) {
-
-  if (
-    event.key ===
-    "Enter"
-  ) {
-
-    sendComment();
-
-  }
-
-}
-
 
 function sendComment() {
 
@@ -4117,14 +2453,14 @@ function sendComment() {
 }
 
 
-function addLiveComment(
+function addComment(
   name,
   text
 ) {
 
   const list =
     document.getElementById(
-      "liveComments"
+      "commentList"
     );
 
 
@@ -4135,751 +2471,35 @@ function addLiveComment(
 
 
   item.className =
-    "live-comment";
+    "comment-item";
 
 
-  const safeName =
-    escapeHtml(
-      name
-    );
+  item.textContent =
+    name +
+    ": " +
+    text;
 
 
-  const safeText =
-    escapeHtml(
-      text
-    );
-
-
-  item.innerHTML =
-    '<span class="live-comment-name">' +
-    safeName +
-    '</span> ' +
-    safeText;
-
+  // 繧ｳ繝｡繝ｳ繝郁ｿｽ蜉�蜑阪↓荳逡ｪ荳倶ｻ倩ｿ代ｒ隕九※縺�◆縺狗｢ｺ隱阪☆繧九�
+  // 驕主悉繧ｳ繝｡繝ｳ繝医ｒ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ縺励※隱ｭ繧薙〒縺�ｋ蝣ｴ蜷医�菴咲ｽｮ繧堤ｶｭ謖√☆繧九�
+  const wasNearBottom =
+    list.scrollHeight - list.scrollTop - list.clientHeight < 40;
 
   list.appendChild(
     item
   );
 
-
-  while (
-    list.children.length >
-    8
-  ) {
-
-    list.removeChild(
-      list.firstChild
-    );
-
-  }
-
-
-  setTimeout(
-    function() {
-
-      if (
-        item.parentNode
-      ) {
-
-        item.remove();
-
-      }
-
-    },
-    10000
-  );
-
-}
-
-
-/* =========================================================
-   LIKE
-========================================================= */
-
-function sendLike() {
-
-  send({
-
-    type:
-      "like",
-
-    name:
-      currentUserName
-
-  });
-
-
-  showLikeAnimation();
-
-}
-
-
-function showLikeAnimation() {
-
-  const panel =
-    document.getElementById(
-      "livePanel"
-    );
-
-
-  const like =
-    document.createElement(
-      "div"
-    );
-
-
-  like.className =
-    "like-pop";
-
-
-  like.textContent =
-    Math.random() > .5
-      ? "❤️"
-      : "💗";
-
-
-  panel.appendChild(
-    like
-  );
-
-
-  setTimeout(
-    function() {
-
-      like.remove();
-
-    },
-    1100
-  );
-
-}
-
-
-/* =========================================================
-   GIFTS
-========================================================= */
-
-function toggleGiftMenu() {
-
-  const menu =
-    document.getElementById(
-      "giftMenu"
-    );
-
-
-  menu.classList.toggle(
-    "show"
-  );
-
-}
-
-
-function sendGift(
-  emoji,
-  name
-) {
-
-  send({
-
-    type:
-      "gift",
-
-    name:
-      currentUserName,
-
-    gift:
-      emoji,
-
-    giftName:
-      name
-
-  });
-
-
-  document.getElementById(
-    "giftMenu"
-  ).classList.remove(
-    "show"
-  );
-
-
-  showGiftAnimation(
-    emoji
-  );
-
-}
-
-
-function showGiftAnimation(
-  emoji
-) {
-
-  const panel =
-    document.getElementById(
-      "livePanel"
-    );
-
-
-  const gift =
-    document.createElement(
-      "div"
-    );
-
-
-  gift.className =
-    "like-pop";
-
-
-  gift.textContent =
-    emoji;
-
-
-  panel.appendChild(
-    gift
-  );
-
-
-  setTimeout(
-    function() {
-
-      gift.remove();
-
-    },
-    1100
-  );
-
-}
-
-
-/* =========================================================
-   SHARE
-========================================================= */
-
-async function shareLive() {
-
-  const title =
-    document.getElementById(
-      "liveUserTitle"
-    ).textContent;
-
-
-  const shareData = {
-
-    title:
-      "VoiceボタLive",
-
-    text:
-      title +
-      " - VoiceボタLive",
-
-    url:
-      location.href
-
-  };
-
-
-  if (
-    navigator.share
-  ) {
-
-    try {
-
-      await navigator.share(
-        shareData
-      );
-
-    } catch(error) {}
-
-    return;
-
-  }
-
-
-  try {
-
-    await navigator.clipboard.writeText(
-      location.href
-    );
-
-    alert(
-      "配信ページのURLをコピーしました。"
-    );
-
-  } catch(error) {
-
-    alert(
-      location.href
-    );
-
+  // 荳逡ｪ荳九ｒ隕九※縺�◆縺ｨ縺阪□縺代∵眠縺励＞繧ｳ繝｡繝ｳ繝医∈閾ｪ蜍輔せ繧ｯ繝ｭ繝ｼ繝ｫ縲�
+  if (wasNearBottom) {
+    list.scrollTop = list.scrollHeight;
   }
 
 }
 
 
 /* =========================================================
-   BACKGROUND
+   CLOSE PEERS
 ========================================================= */
-
-function applyLiveBackground(
-  background
-) {
-
-  const bg =
-    document.getElementById(
-      "liveBackground"
-    );
-
-
-  if (!bg) {
-
-    return;
-
-  }
-
-
-  if (
-    background &&
-    background.startsWith(
-      "data:image"
-    )
-  ) {
-
-    bg.style.backgroundImage =
-      "linear-gradient(rgba(3,5,16,.32),rgba(3,5,16,.70)),url('" +
-      background +
-      "')";
-
-  } else if (
-    background
-  ) {
-
-    bg.style.backgroundImage =
-      background;
-
-  } else {
-
-    bg.style.backgroundImage =
-      "linear-gradient(135deg,#101846,#07091b)";
-
-  }
-
-
-  bg.style.backgroundSize =
-    "cover";
-
-  bg.style.backgroundPosition =
-    "center";
-
-  bg.style.backgroundRepeat =
-    "no-repeat";
-
-}
-
-
-function setLiveBackgroundPreset(
-  type
-) {
-
-  const backgrounds = {
-
-    blue:
-      "linear-gradient(135deg,#111a4b,#243b8f 55%,#080b1e)",
-
-    purple:
-      "linear-gradient(135deg,#24103e,#8d2f9d 55%,#090719)",
-
-    pink:
-      "linear-gradient(135deg,#3d102b,#c82f76 55%,#100617)"
-
-  };
-
-
-  const bg =
-    document.getElementById(
-      "liveBackground"
-    );
-
-
-  bg.style.backgroundImage =
-    backgrounds[type] ||
-    backgrounds.blue;
-
-
-  bg.style.backgroundSize =
-    "cover";
-
-  bg.style.backgroundPosition =
-    "center";
-
-}
-
-
-function handleBackgroundFile(
-  event
-) {
-
-  const file =
-    event.target.files &&
-    event.target.files[0];
-
-
-  if (!file) {
-
-    return;
-
-  }
-
-
-  if (
-    !file.type.startsWith(
-      "image/"
-    )
-  ) {
-
-    alert(
-      "画像ファイルを選択してください。"
-    );
-
-    return;
-
-  }
-
-
-  const reader =
-    new FileReader();
-
-
-  reader.onload =
-    function(e) {
-
-      const img =
-        new Image();
-
-
-      img.onload =
-        function() {
-
-          const maxSize =
-            1400;
-
-
-          const scale =
-            Math.min(
-              1,
-              maxSize /
-              Math.max(
-                img.width,
-                img.height
-              )
-            );
-
-
-          const canvas =
-            document.createElement(
-              "canvas"
-            );
-
-
-          canvas.width =
-            Math.max(
-              1,
-              Math.round(
-                img.width *
-                scale
-              )
-            );
-
-
-          canvas.height =
-            Math.max(
-              1,
-              Math.round(
-                img.height *
-                scale
-              )
-            );
-
-
-          const ctx =
-            canvas.getContext(
-              "2d"
-            );
-
-
-          ctx.drawImage(
-            img,
-            0,
-            0,
-            canvas.width,
-            canvas.height
-          );
-
-
-          liveBackgroundData =
-            canvas.toDataURL(
-              "image/jpeg",
-              0.68
-            );
-
-
-          try {
-
-            localStorage.setItem(
-              "voiceBotaLiveBackground",
-              liveBackgroundData
-            );
-
-          } catch(error) {
-
-            console.error(
-              "BACKGROUND SAVE ERROR",
-              error
-            );
-
-          }
-
-
-          applyLiveBackground(
-            liveBackgroundData
-          );
-
-
-          if (
-            isBroadcaster
-          ) {
-
-            send({
-
-              type:
-                "update_background",
-
-              background:
-                liveBackgroundData
-
-            });
-
-          }
-
-
-          alert(
-            "背景画像を設定しました。"
-          );
-
-        };
-
-
-      img.src =
-        e.target.result;
-
-    };
-
-
-  reader.readAsDataURL(
-    file
-  );
-
-}
-
-
-function resetLiveBackground() {
-
-  liveBackgroundData =
-    "";
-
-
-  localStorage.removeItem(
-    "voiceBotaLiveBackground"
-  );
-
-
-  setLiveBackgroundPreset(
-    "blue"
-  );
-
-
-  if (
-    isBroadcaster
-  ) {
-
-    send({
-
-      type:
-        "update_background",
-
-      background:
-        ""
-
-    });
-
-  }
-
-}
-
-
-function toggleBackgroundSettings() {
-
-  const settings =
-    document.getElementById(
-      "backgroundSettings"
-    );
-
-
-  settings.classList.toggle(
-    "show"
-  );
-
-}
-
-
-/* =========================================================
-   PANEL
-========================================================= */
-
-function openLivePanel() {
-
-  document.getElementById(
-    "livePanel"
-  ).classList.add(
-    "show"
-  );
-
-
-  if (
-    liveBackgroundData &&
-    isBroadcaster
-  ) {
-
-    applyLiveBackground(
-      liveBackgroundData
-    );
-
-  } else {
-
-    setLiveBackgroundPreset(
-      "blue"
-    );
-
-  }
-
-}
-
-
-function closeLivePanel() {
-
-  if (
-    isBroadcaster
-  ) {
-
-    return;
-
-  }
-
-
-  closePeers();
-
-
-  document.getElementById(
-    "livePanel"
-  ).classList.remove(
-    "show"
-  );
-
-
-  document.getElementById(
-    "audioEnableButton"
-  ).style.display =
-    "none";
-
-
-  document.getElementById(
-    "giftMenu"
-  ).classList.remove(
-    "show"
-  );
-
-}
-
-
-function setLiveCenterText(
-  text
-) {
-
-  const el =
-    document.getElementById(
-      "liveCenterText"
-    );
-
-
-  if (el) {
-
-    el.textContent =
-      text;
-
-  }
-
-}
-
-
-/* =========================================================
-   VIEWER COUNT
-========================================================= */
-
-function updateViewerCount() {
-
-  const el =
-    document.getElementById(
-      "viewerCount"
-    );
-
-
-  if (!el) {
-
-    return;
-
-  }
-
-
-  el.textContent =
-    "👀 " +
-    Math.max(
-      1,
-      viewerCount
-    ) +
-    "人が視聴中";
-
-}
-
-
-/* =========================================================
-   PEERS
-========================================================= */
-
-function closeViewerPeer() {
-
-  if (
-    currentBroadcasterId &&
-    peerConnections[
-      currentBroadcasterId
-    ]
-  ) {
-
-    try {
-
-      peerConnections[
-        currentBroadcasterId
-      ].close();
-
-    } catch(error) {}
-
-    delete
-      peerConnections[
-        currentBroadcasterId
-      ];
-
-  }
-
-}
-
 
 function closePeers() {
 
@@ -4890,9 +2510,7 @@ function closePeers() {
 
       try {
 
-        peerConnections[
-          key
-        ].close();
+        peerConnections[key].close();
 
       } catch(error) {}
 
@@ -4903,9 +2521,50 @@ function closePeers() {
   peerConnections =
     {};
 
+}
 
-  pendingIceCandidates =
-    {};
+
+/* =========================================================
+   PANEL
+========================================================= */
+
+function openPanel() {
+
+  document.getElementById(
+    "livePanel"
+  ).classList.add(
+    "show"
+  );
+
+}
+
+
+function closePanel() {
+
+  if (!isBroadcaster) {
+
+    closePeers();
+
+  }
+
+
+  document.getElementById(
+    "livePanel"
+  ).classList.remove(
+    "show"
+  );
+
+}
+
+
+function setPanelStatus(
+  text
+) {
+
+  document.getElementById(
+    "panelStatus"
+  ).textContent =
+    text;
 
 }
 
@@ -4916,24 +2575,9 @@ function closePeers() {
 
 function goHome() {
 
-  if (
-    document.getElementById(
-      "livePanel"
-    ).classList.contains(
-      "show"
-    ) &&
-    !isBroadcaster
-  ) {
-
-    closeLivePanel();
-
-  }
-
-
   window.scrollTo({
 
-    top:
-      0,
+    top: 0,
 
     behavior:
       "smooth"
@@ -4960,7 +2604,7 @@ function scrollLive() {
 function showNotice() {
 
   alert(
-    "お知らせ機能はこれから追加できます。"
+    "縺顔衍繧峨○讖溯�縺ｯ縺薙ｌ縺九ｉ霑ｽ蜉�縺ｧ縺阪∪縺吶�"
   );
 
 }
@@ -4969,59 +2613,23 @@ function showNotice() {
 function showProfile() {
 
   alert(
-    "マイページ機能はこれから追加できます。"
+    "繝槭う繝壹�繧ｸ讖溯�縺ｯ縺薙ｌ縺九ｉ霑ｽ蜉�縺ｧ縺阪∪縺吶�"
   );
 
 }
 
 
 /* =========================================================
-   RTC CONFIG
-========================================================= */
-
-const rtcConfig = {
-
-  iceServers: [
-
-    {
-      urls:
-        "stun:stun.l.google.com:19302"
-    },
-
-    {
-      urls:
-        "stun:stun1.l.google.com:19302"
-    }
-
-  ],
-
-  bundlePolicy:
-    "max-bundle",
-
-  rtcpMuxPolicy:
-    "require"
-
-};
-
-
-/* =========================================================
-   LOAD
+   START
 ========================================================= */
 
 window.addEventListener(
   "load",
   function() {
 
-    if (
-      liveBackgroundData
-    ) {
-
-      applyLiveBackground(
-        liveBackgroundData
-      );
-
-    }
-
+    console.log(
+      "voice繝懊ちLive loaded"
+    );
 
     connectSocket();
 
@@ -5031,7 +2639,8 @@ window.addEventListener(
 </script>
 
 </body>
-</html>`;
+</html>
+`;
 
 
 /* =========================================================
@@ -5075,9 +2684,16 @@ const server =
         url === "/home.png"
       ) {
 
+        const fs =
+          require("fs");
+
+        const path =
+          require("path");
+
         const file =
           path.join(
-            PUBLIC_DIR,
+            __dirname,
+            "public",
             "home.png"
           );
 
@@ -5090,13 +2706,9 @@ const server =
             200,
             {
               "Content-Type":
-                "image/png",
-
-              "Cache-Control":
-                "public, max-age=3600"
+                "image/png"
             }
           );
-
 
           fs.createReadStream(
             file
@@ -5132,7 +2744,6 @@ const server =
           }
         );
 
-
         res.end(
           JSON.stringify({
 
@@ -5140,13 +2751,7 @@ const server =
               "ok",
 
             live:
-              liveInfo.active,
-
-            name:
-              liveInfo.name,
-
-            title:
-              liveInfo.title
+              liveInfo.active
 
           })
         );
@@ -5169,13 +2774,12 @@ const server =
 
 
 /* =========================================================
-   WEBSOCKET
+   WEBSOCKET SERVER
 ========================================================= */
 
 const wss =
   new WebSocket.Server({
-    server:
-      server
+    server: server
   });
 
 
@@ -5191,9 +2795,7 @@ function sendTo(
   ) {
 
     ws.send(
-      JSON.stringify(
-        data
-      )
+      JSON.stringify(data)
     );
 
   }
@@ -5206,9 +2808,7 @@ function broadcast(
 ) {
 
   const message =
-    JSON.stringify(
-      data
-    );
+    JSON.stringify(data);
 
 
   clients.forEach(
@@ -5216,7 +2816,7 @@ function broadcast(
 
       if (
         client.readyState ===
-        WebSocket.OPEN
+          WebSocket.OPEN
       ) {
 
         client.send(
@@ -5253,13 +2853,7 @@ function getLiveList() {
         liveInfo.name,
 
       title:
-        liveInfo.title,
-
-      background:
-        liveInfo.background || "",
-
-      startedAt:
-        liveInfo.startedAt
+        liveInfo.title
 
     }
 
@@ -5284,117 +2878,7 @@ function sendLiveList() {
 
 
 /* =========================================================
-   VIEWER COUNT
-========================================================= */
-
-function getViewerCount() {
-
-  let count =
-    0;
-
-
-  clients.forEach(
-    function(client) {
-
-      if (
-        client.joinedLive
-      ) {
-
-        count++;
-
-      }
-
-    }
-  );
-
-
-  return Math.max(
-    1,
-    count
-  );
-
-}
-
-
-function sendViewerCount() {
-
-  broadcast({
-
-    type:
-      "viewer_count",
-
-    count:
-      getViewerCount()
-
-  });
-
-}
-
-
-/* =========================================================
-   STOP SERVER LIVE
-========================================================= */
-
-function stopLiveServer() {
-
-  broadcaster =
-    null;
-
-
-  clients.forEach(
-    function(client) {
-
-      client.joinedLive =
-        false;
-
-      client.isBroadcaster =
-        false;
-
-    }
-  );
-
-
-  liveInfo = {
-
-    active:
-      false,
-
-    id:
-      null,
-
-    name:
-      "",
-
-    title:
-      "",
-
-    background:
-      "",
-
-    startedAt:
-      null
-
-  };
-
-
-  broadcast({
-
-    type:
-      "live_stopped",
-
-    lives:
-      []
-
-  });
-
-
-  sendLiveList();
-
-}
-
-
-/* =========================================================
-   CONNECTION
+   WEBSOCKET CONNECTION
 ========================================================= */
 
 wss.on(
@@ -5416,8 +2900,11 @@ wss.on(
     ws.isBroadcaster =
       false;
 
-    ws.joinedLive =
-      false;
+
+    console.log(
+      "CLIENT CONNECT:",
+      ws.clientId
+    );
 
 
     sendTo(
@@ -5455,9 +2942,9 @@ wss.on(
         }
 
 
-        /* =================================================
+        /* =====================
            HELLO
-        ================================================= */
+        ===================== */
 
         if (
           data.type ===
@@ -5469,12 +2956,7 @@ wss.on(
           ) {
 
             ws.clientId =
-              String(
-                data.clientId
-              ).substring(
-                0,
-                100
-              );
+              data.clientId;
 
           }
 
@@ -5483,9 +2965,9 @@ wss.on(
         }
 
 
-        /* =================================================
+        /* =====================
            START LIVE
-        ================================================= */
+        ===================== */
 
         if (
           data.type ===
@@ -5507,7 +2989,7 @@ wss.on(
                   "live_start_failed",
 
                 reason:
-                  "現在ほかの配信者が配信中です。"
+                  "迴ｾ蝨ｨ縺ｻ縺九�驟堺ｿ｡閠�′驟堺ｿ｡荳ｭ縺ｧ縺�"
 
               }
             );
@@ -5525,10 +3007,6 @@ wss.on(
             true;
 
 
-          ws.joinedLive =
-            true;
-
-
           liveInfo = {
 
             active:
@@ -5538,36 +3016,21 @@ wss.on(
               ws.clientId,
 
             name:
-              String(
-                data.name ||
-                "VoiceボタLive配信者"
-              ).substring(
-                0,
-                30
-              ),
+              data.name ||
+              "Voice驟堺ｿ｡閠�",
 
             title:
-              String(
-                data.title ||
-                "音声ライブ配信中"
-              ).substring(
-                0,
-                100
-              ),
-
-            background:
-              String(
-                data.background ||
-                ""
-              ).substring(
-                0,
-                180000
-              ),
-
-            startedAt:
-              Date.now()
+              data.title ||
+              "髻ｳ螢ｰ繝ｩ繧､繝夜�菫｡荳ｭ"
 
           };
+
+
+          console.log(
+            "LIVE START:",
+            liveInfo.name,
+            liveInfo.title
+          );
 
 
           sendTo(
@@ -5583,49 +3046,15 @@ wss.on(
 
           sendLiveList();
 
-          sendViewerCount();
 
           return;
 
         }
 
 
-        /* =================================================
-           UPDATE BACKGROUND
-        ================================================= */
-
-        if (
-          data.type ===
-          "update_background"
-        ) {
-
-          if (
-            broadcaster ===
-            ws
-          ) {
-
-            liveInfo.background =
-              String(
-                data.background ||
-                ""
-              ).substring(
-                0,
-                180000
-              );
-
-
-            sendLiveList();
-
-          }
-
-          return;
-
-        }
-
-
-        /* =================================================
+        /* =====================
            STOP LIVE
-        ================================================= */
+        ===================== */
 
         if (
           data.type ===
@@ -5637,18 +3066,57 @@ wss.on(
             ws
           ) {
 
-            stopLiveServer();
+            broadcaster =
+              null;
+
+
+            ws.isBroadcaster =
+              false;
+
+
+            liveInfo = {
+
+              active:
+                false,
+
+              id:
+                null,
+
+              name:
+                "",
+
+              title:
+                ""
+
+            };
+
+
+            broadcast({
+
+              type:
+                "live_stopped"
+
+            });
+
+
+            sendLiveList();
+
+
+            console.log(
+              "LIVE STOP"
+            );
 
           }
+
 
           return;
 
         }
 
 
-        /* =================================================
+        /* =====================
            JOIN LIVE
-        ================================================= */
+        ===================== */
 
         if (
           data.type ===
@@ -5677,10 +3145,6 @@ wss.on(
           }
 
 
-          ws.joinedLive =
-            true;
-
-
           sendTo(
             broadcaster,
             {
@@ -5695,21 +3159,28 @@ wss.on(
           );
 
 
-          sendViewerCount();
+          console.log(
+            "VIEWER JOIN:",
+            ws.clientId
+          );
+
 
           return;
 
         }
 
 
-        /* =================================================
-           WEBRTC
-        ================================================= */
+        /* =====================
+           WEBRTC SIGNALING
+        ===================== */
 
         if (
-          data.type === "offer" ||
-          data.type === "answer" ||
-          data.type === "ice"
+          data.type ===
+            "offer" ||
+          data.type ===
+            "answer" ||
+          data.type ===
+            "ice"
         ) {
 
           let target =
@@ -5750,23 +3221,14 @@ wss.on(
         }
 
 
-        /* =================================================
+        /* =====================
            COMMENT
-        ================================================= */
+        ===================== */
 
         if (
           data.type ===
           "comment"
         ) {
-
-          if (
-            !liveInfo.active
-          ) {
-
-            return;
-
-          }
-
 
           broadcast({
 
@@ -5776,7 +3238,7 @@ wss.on(
             name:
               String(
                 data.name ||
-                "ユーザー"
+                "繝ｦ繝ｼ繧ｶ繝ｼ"
               ).substring(
                 0,
                 30
@@ -5799,23 +3261,14 @@ wss.on(
         }
 
 
-        /* =================================================
+        /* =====================
            LIKE
-        ================================================= */
+        ===================== */
 
         if (
           data.type ===
           "like"
         ) {
-
-          if (
-            !liveInfo.active
-          ) {
-
-            return;
-
-          }
-
 
           broadcast({
 
@@ -5825,7 +3278,7 @@ wss.on(
             name:
               String(
                 data.name ||
-                "ユーザー"
+                "繝ｦ繝ｼ繧ｶ繝ｼ"
               ).substring(
                 0,
                 30
@@ -5839,58 +3292,20 @@ wss.on(
         }
 
 
-        /* =================================================
-           GIFT
-        ================================================= */
+        /* =====================
+           BLOCK
+        ===================== */
 
         if (
           data.type ===
-          "gift"
+          "block"
         ) {
 
-          if (
-            !liveInfo.active
-          ) {
-
-            return;
-
-          }
-
-
-          broadcast({
-
-            type:
-              "gift",
-
-            name:
-              String(
-                data.name ||
-                "ユーザー"
-              ).substring(
-                0,
-                30
-              ),
-
-            gift:
-              String(
-                data.gift ||
-                "🎁"
-              ).substring(
-                0,
-                10
-              ),
-
-            giftName:
-              String(
-                data.giftName ||
-                "ギフト"
-              ).substring(
-                0,
-                30
-              )
-
-          });
-
+          console.log(
+            "BLOCK:",
+            ws.clientId,
+            data.target
+          );
 
           return;
 
@@ -5899,10 +3314,6 @@ wss.on(
       }
     );
 
-
-    /* =====================================================
-       CLOSE
-    ===================================================== */
 
     ws.on(
       "close",
@@ -5918,50 +3329,44 @@ wss.on(
           ws
         ) {
 
-          stopLiveServer();
-
-          console.log(
-            "Broadcaster disconnected"
-          );
-
-          return;
-
-        }
+          broadcaster =
+            null;
 
 
-        if (
-          ws.joinedLive
-        ) {
+          liveInfo = {
 
-          ws.joinedLive =
-            false;
+            active:
+              false,
 
+            id:
+              null,
 
-          if (
-            broadcaster &&
-            broadcaster.readyState ===
-              WebSocket.OPEN
-          ) {
+            name:
+              "",
 
-            sendTo(
-              broadcaster,
-              {
+            title:
+              ""
 
-                type:
-                  "viewer_left",
-
-                viewerId:
-                  ws.clientId
-
-              }
-            );
-
-          }
+          };
 
 
-          sendViewerCount();
+          broadcast({
+
+            type:
+              "live_stopped"
+
+          });
+
+
+          sendLiveList();
 
         }
+
+
+        console.log(
+          "CLIENT DISCONNECT:",
+          ws.clientId
+        );
 
       }
     );
@@ -5984,7 +3389,7 @@ wss.on(
 
 
 /* =========================================================
-   SERVER START
+   START SERVER
 ========================================================= */
 
 server.listen(
@@ -5993,20 +3398,11 @@ server.listen(
   function() {
 
     console.log(
-      "================================="
+      "================================"
     );
 
     console.log(
-      "VoiceボタLive"
-    );
-
-    console.log(
-      "Server started"
-    );
-
-    console.log(
-      "HOST:",
-      HOST
+      "voice繝懊ちLive START"
     );
 
     console.log(
@@ -6015,37 +3411,7 @@ server.listen(
     );
 
     console.log(
-      "================================="
-    );
-
-  }
-);
-
-
-/* =========================================================
-   ERROR HANDLING
-========================================================= */
-
-process.on(
-  "uncaughtException",
-  function(error) {
-
-    console.error(
-      "UNCAUGHT EXCEPTION:",
-      error
-    );
-
-  }
-);
-
-
-process.on(
-  "unhandledRejection",
-  function(error) {
-
-    console.error(
-      "UNHANDLED REJECTION:",
-      error
+      "================================"
     );
 
   }

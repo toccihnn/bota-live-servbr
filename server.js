@@ -426,6 +426,10 @@ button {
 ========================= */
 
 .live-panel {
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   display: none;
 
   position: fixed;
@@ -520,7 +524,7 @@ button {
 }
 
 .audio-icon {
-  display: none;
+  font-size: 58px;
 }
 
 #audioText {
@@ -587,6 +591,56 @@ button {
 
 
 /* =========================
+   BACKGROUND CUSTOMIZATION
+========================= */
+
+.custom-background {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(8,12,32,.88);
+  border: 1px solid rgba(120,140,255,.2);
+}
+
+.custom-background-title {
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.custom-background-row {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-background-row input {
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid rgba(120,140,255,.25);
+  background: #0d1230;
+  color: #fff;
+}
+
+.custom-background-row button,
+.custom-background-reset {
+  border: 0;
+  border-radius: 11px;
+  padding: 0 12px;
+  background: #526cff;
+  color: #fff;
+  font-weight: 800;
+}
+
+.custom-background-reset {
+  min-height: 38px;
+  margin-top: 8px;
+  background: #252b49;
+}
+
+/* =========================
    COMMENTS
 ========================= */
 
@@ -596,13 +650,9 @@ button {
 
 .comment-list {
   height: 180px;
-  max-height: 35vh;
+
   overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-  scrollbar-width: thin;
+
   padding: 10px;
 
   border-radius: 15px;
@@ -980,11 +1030,16 @@ button {
   </div>
 
 
-  <div class="audio-status">
-
-    <div class="audio-icon">
-      🎙️
+  <div class="custom-background">
+    <div class="custom-background-title">🎨 配信画面カスタム（背景画像）</div>
+    <div class="custom-background-row">
+      <input id="customBackgroundUrl" type="url" placeholder="背景画像のURLを貼り付け">
+      <button type="button" onclick="applyCustomBackground()">適用</button>
     </div>
+    <button class="custom-background-reset" type="button" onclick="resetCustomBackground()">背景を元に戻す</button>
+  </div>
+
+  <div class="audio-status">
 
     <div id="audioText">
       音声接続
@@ -2457,45 +2512,70 @@ function addComment(
   name,
   text
 ) {
-
-  const list =
-    document.getElementById(
-      "commentList"
-    );
-
-
-  const item =
-    document.createElement(
-      "div"
-    );
-
-
-  item.className =
-    "comment-item";
-
-
-  item.textContent =
-    name +
-    ": " +
-    text;
-
-
-  // コメント追加前に一番下付近を見ていたか確認する。
-  // 過去コメントをスクロールして読んでいる場合は位置を維持する。
+  const list = document.getElementById("commentList");
   const wasNearBottom =
-    list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+    list.scrollHeight - list.scrollTop - list.clientHeight < 35;
+  const item = document.createElement("div");
+  item.className = "comment-item";
+  item.textContent = name + ": " + text;
+  list.appendChild(item);
 
-  list.appendChild(
-    item
-  );
-
-  // 一番下を見ていたときだけ、新しいコメントへ自動スクロール。
+  // 下の最新コメントを見ているときだけ自動で最下部へ移動。
+  // 過去コメントを読んでいる場合はスクロール位置を維持する。
   if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
-
 }
 
+
+/* =========================================================
+   BACKGROUND CUSTOMIZATION
+========================================================= */
+
+function applyCustomBackground() {
+  const input = document.getElementById("customBackgroundUrl");
+  const url = input.value.trim();
+  if (!url) {
+    alert("背景画像のURLを入力してください。");
+    return;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      throw new Error("invalid protocol");
+    }
+  } catch (error) {
+    alert("http:// または https:// から始まる画像URLを入力してください。");
+    return;
+  }
+  const panel = document.getElementById("livePanel");
+  const safeUrl = url.replace(/[\\"'()\\\s]/g, function(ch) {
+    return encodeURIComponent(ch);
+  });
+  panel.style.backgroundImage = "linear-gradient(rgba(4,5,17,.48), rgba(4,5,17,.72)), url(\"" + safeUrl + "\")";
+  try { localStorage.setItem("voiceBotaLiveCustomBackground", url); } catch (error) {}
+}
+
+function resetCustomBackground() {
+  const panel = document.getElementById("livePanel");
+  panel.style.backgroundImage = "";
+  const input = document.getElementById("customBackgroundUrl");
+  if (input) input.value = "";
+  try { localStorage.removeItem("voiceBotaLiveCustomBackground"); } catch (error) {}
+}
+
+function loadCustomBackground() {
+  try {
+    const saved = localStorage.getItem("voiceBotaLiveCustomBackground");
+    if (saved) {
+      const input = document.getElementById("customBackgroundUrl");
+      if (input) input.value = saved;
+      const panel = document.getElementById("livePanel");
+      const safeUrl = saved.replace(/[\\"'()\\\s]/g, function(ch) { return encodeURIComponent(ch); });
+      panel.style.backgroundImage = "linear-gradient(rgba(4,5,17,.48), rgba(4,5,17,.72)), url(\"" + safeUrl + "\")";
+    }
+  } catch (error) {}
+}
 
 /* =========================================================
    CLOSE PEERS
@@ -2631,6 +2711,7 @@ window.addEventListener(
       "voiceボタLive loaded"
     );
 
+    loadCustomBackground();
     connectSocket();
 
   }

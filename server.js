@@ -834,13 +834,13 @@ button {
 .panel-title {max-width:calc(100% - 72px);font-size:20px;text-shadow:0 2px 8px #000;}
 .panel-live {font-size:12px;padding:7px 13px;flex-shrink:0}
 .panel-status {position:absolute;top:88px;left:18px;max-width:72%;margin:0;padding:7px 11px;border-radius:20px;background:rgba(5,8,22,.58);backdrop-filter:blur(8px);font-size:12px;z-index:4}
-.audio-status {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;padding:0;background:transparent;border:0;pointer-events:none;max-width:70%;}
+.audio-status {display:none!important;}
 #audioText {margin:0;font-size:12px;text-shadow:0 1px 6px #000;color:rgba(255,255,255,.82);}
 .audio-icon {display:none!important}
 #remoteAudio {display:none}
-#likeButton {position:absolute;right:14px;top:44%;width:66px;height:66px;margin:0;border-radius:50%;padding:0;background:rgba(12,12,25,.72);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:12px;z-index:6;box-shadow:0 4px 18px #0004}
+#likeButton {position:static;width:66px;height:66px;flex-shrink:0;margin:0;border-radius:50%;padding:0;background:rgba(12,12,25,.72);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:12px;z-index:auto;box-shadow:0 4px 18px #0004}
 #likeButton::first-line {font-size:25px}
-.action-rail {position:absolute;right:14px;top:54%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:6}
+.action-rail {position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:6;align-items:center}
 .live-action {width:66px;height:66px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(10,10,24,.72);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;backdrop-filter:blur(8px)}
 .live-action .action-emoji {font-size:25px;line-height:1.1}
 .panel-close {position:absolute;right:14px;top:max(18px,env(safe-area-inset-top));width:54px;height:54px;border-radius:50%;border:1px solid #ffffff30;background:#0505109c;color:#fff;font-size:28px;z-index:7}
@@ -866,7 +866,7 @@ button {
  .comments {bottom:calc(78px + env(safe-area-inset-bottom))}
  .comment-list {height:25vh;min-height:72px}
  #livePanel.is-broadcaster .comments {bottom:calc(132px + env(safe-area-inset-bottom))}
- .action-rail {gap:7px;top:56%}
+ .action-rail {gap:7px;top:50%}
  .live-action,#likeButton {width:56px;height:56px}
 }
 
@@ -1073,8 +1073,8 @@ button {
   <div class="audio-status"><div id="audioText">音声接続</div></div>
   <audio id="remoteAudio" autoplay playsinline></audio>
   <button id="audioButton" class="panel-button start-button" type="button" onclick="enableAudio()" style="display:none">🔊 音声をONにする</button>
-  <button id="likeButton" class="panel-button like-button" type="button" onclick="sendLike()">❤️<br>いいね</button>
   <div class="action-rail">
+    <button id="likeButton" class="live-action" type="button" onclick="sendLike()"><span class="action-emoji">❤️</span><span>いいね</span></button>
     <button class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
     <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
     <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>

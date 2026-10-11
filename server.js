@@ -426,10 +426,6 @@ button {
 ========================= */
 
 .live-panel {
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
   display: none;
 
   position: fixed;
@@ -438,8 +434,11 @@ button {
 
   z-index: 2000;
 
-  background:
-    rgba(4,5,17,.98);
+  background-color: rgba(4,5,17,.98);
+  background-image: linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82));
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 
   overflow-y: auto;
 
@@ -591,53 +590,53 @@ button {
 
 
 /* =========================
-   BACKGROUND CUSTOMIZATION
+   BACKGROUND CUSTOM
 ========================= */
 
-.custom-background {
-  margin-top: 12px;
-  padding: 12px;
+.background-custom {
+  margin-top: 14px;
+  padding: 14px;
   border-radius: 16px;
   background: rgba(8,12,32,.88);
   border: 1px solid rgba(120,140,255,.2);
 }
 
-.custom-background-title {
-  font-size: 13px;
+.background-custom-title {
+  font-size: 14px;
   font-weight: 900;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.custom-background-row {
-  display: flex;
+.background-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
-.custom-background-row input {
-  min-width: 0;
-  flex: 1;
-  height: 42px;
-  padding: 0 10px;
-  border-radius: 11px;
-  border: 1px solid rgba(120,140,255,.25);
-  background: #0d1230;
-  color: #fff;
-}
-
-.custom-background-row button,
-.custom-background-reset {
-  border: 0;
-  border-radius: 11px;
-  padding: 0 12px;
-  background: #526cff;
-  color: #fff;
+.background-option {
+  min-height: 54px;
+  padding: 7px 3px;
+  border: 2px solid rgba(255,255,255,.18);
+  border-radius: 12px;
+  color: white;
+  font-size: 11px;
   font-weight: 800;
 }
 
-.custom-background-reset {
-  min-height: 38px;
-  margin-top: 8px;
-  background: #252b49;
+.background-option:active { transform: scale(.97); }
+.background-blue { background: linear-gradient(135deg,#244fc7,#111735); }
+.background-purple { background: linear-gradient(135deg,#8d3ed1,#251044); }
+.background-pink { background: linear-gradient(135deg,#f05caa,#6c205b); }
+.background-image { background: #222944; }
+.background-reset {
+  width: 100%;
+  margin-top: 9px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 11px;
+  background: #161c37;
+  color: white;
+  font-weight: 800;
 }
 
 /* =========================
@@ -1030,13 +1029,16 @@ button {
   </div>
 
 
-  <div class="custom-background">
-    <div class="custom-background-title">🎨 配信画面カスタム（背景画像）</div>
-    <div class="custom-background-row">
-      <input id="customBackgroundUrl" type="url" placeholder="背景画像のURLを貼り付け">
-      <button type="button" onclick="applyCustomBackground()">適用</button>
+  <div class="background-custom">
+    <div class="background-custom-title">🎨 配信画面の背景をカスタム</div>
+    <div class="background-options">
+      <button class="background-option background-blue" type="button" onclick="setLiveBackground('blue')">💙 ブルー</button>
+      <button class="background-option background-purple" type="button" onclick="setLiveBackground('purple')">💜 パープル</button>
+      <button class="background-option background-pink" type="button" onclick="setLiveBackground('pink')">🌸 ピンク</button>
+      <button class="background-option background-image" type="button" onclick="document.getElementById('backgroundFile').click()">🖼️ 画像</button>
     </div>
-    <button class="custom-background-reset" type="button" onclick="resetCustomBackground()">背景を元に戻す</button>
+    <input id="backgroundFile" type="file" accept="image/*" style="display:none" onchange="loadCustomBackground(event)">
+    <button class="background-reset" type="button" onclick="resetLiveBackground()">背景をリセット</button>
   </div>
 
   <div class="audio-status">
@@ -2466,6 +2468,52 @@ function sendLike() {
 
 
 /* =========================================================
+   BACKGROUND CUSTOM
+========================================================= */
+
+function setLiveBackground(kind) {
+  const backgrounds = {
+    blue: 'linear-gradient(145deg, rgba(36,79,199,.88), rgba(11,15,42,.92))',
+    purple: 'linear-gradient(145deg, rgba(141,62,209,.86), rgba(37,16,68,.93))',
+    pink: 'linear-gradient(145deg, rgba(240,92,170,.82), rgba(108,32,91,.93))'
+  };
+  const panel = document.getElementById('livePanel');
+  if (!backgrounds[kind]) return;
+  panel.style.backgroundImage = backgrounds[kind];
+  try { localStorage.setItem('voiceBotaLiveBackground', backgrounds[kind]); } catch (e) {}
+}
+
+function loadCustomBackground(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('画像ファイルを選択してください');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function() {
+    const value = 'url("' + reader.result + '")';
+    document.getElementById('livePanel').style.backgroundImage = value;
+    try { localStorage.setItem('voiceBotaLiveBackground', value); } catch (e) {}
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function resetLiveBackground() {
+  const panel = document.getElementById('livePanel');
+  panel.style.backgroundImage = 'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))';
+  try { localStorage.removeItem('voiceBotaLiveBackground'); } catch (e) {}
+}
+
+function restoreLiveBackground() {
+  try {
+    const saved = localStorage.getItem('voiceBotaLiveBackground');
+    if (saved) document.getElementById('livePanel').style.backgroundImage = saved;
+  } catch (e) {}
+}
+
+/* =========================================================
    COMMENT
 ========================================================= */
 
@@ -2512,70 +2560,42 @@ function addComment(
   name,
   text
 ) {
-  const list = document.getElementById("commentList");
-  const wasNearBottom =
-    list.scrollHeight - list.scrollTop - list.clientHeight < 35;
-  const item = document.createElement("div");
-  item.className = "comment-item";
-  item.textContent = name + ": " + text;
-  list.appendChild(item);
 
-  // 下の最新コメントを見ているときだけ自動で最下部へ移動。
-  // 過去コメントを読んでいる場合はスクロール位置を維持する。
+  const list =
+    document.getElementById(
+      "commentList"
+    );
+
+
+  const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 30;
+
+  const item =
+    document.createElement(
+      "div"
+    );
+
+
+  item.className =
+    "comment-item";
+
+
+  item.textContent =
+    name +
+    ": " +
+    text;
+
+
+  list.appendChild(
+    item
+  );
+
+
   if (wasNearBottom) {
     list.scrollTop = list.scrollHeight;
   }
+
 }
 
-
-/* =========================================================
-   BACKGROUND CUSTOMIZATION
-========================================================= */
-
-function applyCustomBackground() {
-  const input = document.getElementById("customBackgroundUrl");
-  const url = input.value.trim();
-  if (!url) {
-    alert("背景画像のURLを入力してください。");
-    return;
-  }
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      throw new Error("invalid protocol");
-    }
-  } catch (error) {
-    alert("http:// または https:// から始まる画像URLを入力してください。");
-    return;
-  }
-  const panel = document.getElementById("livePanel");
-  const safeUrl = url.replace(/[\\"'()\\\s]/g, function(ch) {
-    return encodeURIComponent(ch);
-  });
-  panel.style.backgroundImage = "linear-gradient(rgba(4,5,17,.48), rgba(4,5,17,.72)), url(\"" + safeUrl + "\")";
-  try { localStorage.setItem("voiceBotaLiveCustomBackground", url); } catch (error) {}
-}
-
-function resetCustomBackground() {
-  const panel = document.getElementById("livePanel");
-  panel.style.backgroundImage = "";
-  const input = document.getElementById("customBackgroundUrl");
-  if (input) input.value = "";
-  try { localStorage.removeItem("voiceBotaLiveCustomBackground"); } catch (error) {}
-}
-
-function loadCustomBackground() {
-  try {
-    const saved = localStorage.getItem("voiceBotaLiveCustomBackground");
-    if (saved) {
-      const input = document.getElementById("customBackgroundUrl");
-      if (input) input.value = saved;
-      const panel = document.getElementById("livePanel");
-      const safeUrl = saved.replace(/[\\"'()\\\s]/g, function(ch) { return encodeURIComponent(ch); });
-      panel.style.backgroundImage = "linear-gradient(rgba(4,5,17,.48), rgba(4,5,17,.72)), url(\"" + safeUrl + "\")";
-    }
-  } catch (error) {}
-}
 
 /* =========================================================
    CLOSE PEERS
@@ -2711,7 +2731,7 @@ window.addEventListener(
       "voiceボタLive loaded"
     );
 
-    loadCustomBackground();
+    restoreLiveBackground();
     connectSocket();
 
   }

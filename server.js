@@ -942,6 +942,9 @@ button {
 #myPageScreen .mp-bottom button:nth-child(2){border:2px solid #fbd4e8;border-radius:50%;padding:8px 12px;background:linear-gradient(135deg,#ffb576,#e653a1);box-shadow:0 0 15px #f8a8d2}
 
 
+/* お問い合わせ欄が画面下に隠れないようにする */
+#myPageScreen{padding-bottom:calc(150px + env(safe-area-inset-bottom))!important;overscroll-behavior:contain}
+#myPageScreen .mp-item:last-of-type{margin-bottom:24px}
 /* 月光花マイページ：最新の配置 */
 #myPageScreen{padding-bottom:36px}
 #myPageScreen .mp-center{position:relative}
@@ -1209,7 +1212,7 @@ button {
     <div id="mpBioText" class="mp-bio-text">自己紹介はまだありません。</div>
   </div>
   <button class="mp-item" type="button" onclick="myPageInfo('ファンランキングは準備中です')"><span>☆ &nbsp; ファンランキング</span><span>›</span></button>
-  <button class="mp-item" type="button" onclick="myPageInfo('お問い合わせ機能は準備中です')"><span>ⓘ &nbsp; 困ったときは</span><span>›</span></button>
+  <button class="mp-item" type="button" onclick="myPageInfo('お問い合わせ機能は準備中です')"><span>✉ &nbsp; お問い合わせ・困ったときは</span><span>›</span></button>
   <input id="mpAvatarFile" type="file" accept="image/*" style="display:none" onchange="saveMyPageAvatar(this)">
 </section>
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
@@ -2942,7 +2945,41 @@ function showNotice() {
 }
 
 
+function saveMyPageBackground(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { alert("画像ファイルを選んでください"); return; }
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  image.onload = function () {
+    const canvas = document.createElement("canvas");
+    const maxWidth = 1100;
+    const scale = Math.min(1, maxWidth / image.width);
+    canvas.width = Math.round(image.width * scale);
+    canvas.height = Math.round(image.height * scale);
+    canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);
+    try {
+      localStorage.setItem("voiceBotaMyPageBackground", canvas.toDataURL("image/jpeg",.86));
+      applyMyPageBackground();
+    } catch(error) { alert("画像が大きすぎて保存できませんでした。小さめの画像を選んでください"); }
+    URL.revokeObjectURL(objectUrl);
+    input.value = "";
+  };
+  image.onerror = function() { URL.revokeObjectURL(objectUrl); alert("画像を読み込めませんでした"); };
+  image.src = objectUrl;
+}
+function applyMyPageBackground() {
+  const url = localStorage.getItem("voiceBotaMyPageBackground");
+  if (url) {
+    const screen = document.getElementById("myPageScreen");
+    screen.style.backgroundImage = "url(" + JSON.stringify(url) + ")";
+    screen.style.backgroundSize = "cover";
+    screen.style.backgroundPosition = "center top";
+    screen.style.backgroundAttachment = "scroll";
+  }
+}
 function showProfile() {
+  applyMyPageBackground();
   const name = localStorage.getItem("voiceBotaProfileName") ||
     (typeof getMyName === "function" ? getMyName() : "月光花");
   document.getElementById("mpMoonName").textContent = (name || "月光花");

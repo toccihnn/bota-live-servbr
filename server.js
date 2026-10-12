@@ -79,7 +79,7 @@ const HTML = String.raw`
 
 <style>
 /* Simeji decorative Unicode characters: optional fallback web fonts. */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&family=Noto+Sans+Math&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Emoji:wght@300..700&family=Noto+Sans+Math&family=Noto+Sans+Symbols+2&display=swap');
 
 
 * {
@@ -1105,6 +1105,34 @@ input:not([type="file"]), textarea, [contenteditable="true"] {
 #vbTitleDialog input {width:100%;box-sizing:border-box;background:#fff;color:#161616;font-size:17px;border-radius:9px;padding:12px;border:1px solid #999;margin:14px 0;}
 #vbTitleDialog .vb-title-actions {display:flex;justify-content:flex-end;gap:10px;}
 #vbTitleDialog button {border:0;border-radius:9px;padding:10px 14px;}
+
+
+/* Unicode / Simeji fallback, scoped to editable and user-generated text only.
+   Native font handles familiar Japanese and colored emoji; downloaded symbol
+   fonts are fallback for decorative Unicode when installed fonts lack glyphs. */
+:root { --vb-unicode-font:
+  system-ui, -apple-system, BlinkMacSystemFont,
+  "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+  "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Emoji",
+  "Noto Emoji", "Noto Sans Symbols 2", "Noto Sans Math", sans-serif;
+}
+#commentInput, #mpNameInput, #mpBioInput, #vbTitleInput,
+input:not([type="file"]), textarea, [contenteditable="true"],
+.comment-item, .comment-item *, .live-top-title,
+.live-name, .live-title, .live-host-name,
+#mpMoonName, #presenceProfileName, #presenceProfileBio,
+.social-list, .social-list *, .presence-strip, .presence-strip * {
+  font-family: var(--vb-unicode-font) !important;
+  text-transform: none !important;
+  font-variant-ligatures: normal;
+  font-feature-settings: normal;
+  font-synthesis: auto;
+}
+/* Keep text selectable and avoid clipping combining marks. */
+.comment-item, .live-top-title, .live-name, .live-title,
+.live-host-name, #mpMoonName, #presenceProfileName, #presenceProfileBio {
+  overflow-wrap: anywhere;
+}
 
 </style>
 

@@ -2103,6 +2103,7 @@ async function startLive() {
   isBroadcaster =
     true;
   document.getElementById("livePanel").classList.add("is-broadcaster");
+  updateAudioAction();
 
 
   document.getElementById(
@@ -2224,6 +2225,7 @@ function stopLive() {
   isBroadcaster =
     false;
   document.getElementById("livePanel").classList.remove("is-broadcaster");
+  updateAudioAction();
 
 
   document.getElementById(
@@ -2757,14 +2759,39 @@ async function shareLive() {
   } catch (e) { if (e && e.name !== "AbortError") console.error("Share failed", e); }
 }
 
+function updateAudioAction() {
+  const button = document.getElementById("muteAction");
+  if (!button) return;
+  const icon = button.querySelector(".action-emoji");
+  const label = button.querySelector("span:last-child");
+  if (isBroadcaster) {
+    const track = localStream && localStream.getAudioTracks()[0];
+    const muted = !!track && !track.enabled;
+    icon.textContent = muted ? "🔇" : "🎙️";
+    label.textContent = muted ? "ミュート中" : "マイクON";
+    button.setAttribute("aria-pressed", String(muted));
+  } else {
+    const audio = document.getElementById("remoteAudio");
+    icon.textContent = audio.muted ? "🔇" : "🔊";
+    label.textContent = audio.muted ? "ミュート中" : "音声";
+    button.setAttribute("aria-pressed", String(audio.muted));
+  }
+}
+
 function toggleRemoteAudio() {
+  if (isBroadcaster) {
+    const track = localStream && localStream.getAudioTracks()[0];
+    if (!track || track.readyState !== "live") {
+      alert("マイクが使用できません。配信を開始し直してください。");
+      return;
+    }
+    track.enabled = !track.enabled;
+    updateAudioAction();
+    return;
+  }
   const audio = document.getElementById("remoteAudio");
   audio.muted = !audio.muted;
-  const button = document.getElementById("muteAction");
-  if (button) {
-    button.querySelector(".action-emoji").textContent = audio.muted ? "🔇" : "🔊";
-    button.querySelector("span:last-child").textContent = audio.muted ? "ミュート中" : "音声";
-  }
+  updateAudioAction();
 }
 
 /* =========================================================
@@ -2961,6 +2988,7 @@ function closePeers() {
 ========================================================= */
 
 function openPanel() {
+  updateAudioAction();
 
   document.getElementById(
     "livePanel"

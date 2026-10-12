@@ -8,14 +8,23 @@ let clients = new Set();
 let broadcaster = null;
 const fsSocial = require("fs");
 const socialPath = require("path").join(__dirname,"voicebota_social.json");
-let socialData = {following:{},blocked:{}};
+let socialData = {following:{},blocked:{},profiles:{}};
 try {const v=JSON.parse(fsSocial.readFileSync(socialPath,"utf8"));socialData={...socialData,...v};}catch(e){}
 function saveSocialData(){try{fsSocial.writeFileSync(socialPath,JSON.stringify(socialData));}catch(e){console.error("social save",e.message);}}
 function socialIds(key,id){return Array.isArray(socialData[key][id])?socialData[key][id]:[];}
 function blockedEither(a,b){return !!(a&&b&&(socialIds("blocked",a).includes(b)||socialIds("blocked",b).includes(a)));}
 function socialState(ws){
  const id=ws.clientId;
- sendTo(ws,{type:"social_state",following:socialIds("following",id),blocked:socialIds("blocked",id)});
+ const following=socialIds("following",id);
+ const followers=Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id));
+ const ids=[...new Set([...following,...followers])];
+ const profiles={};
+ ids.forEach(userId=>{
+   const online=[...clients].find(c=>c.clientId===userId);
+   const p=(online&&online.profile)||socialData.profiles[userId]||{};
+   profiles[userId]={name:p.name||"ユーザー",avatar:p.avatar||""};
+ });
+ sendTo(ws,{type:"social_state",following,followers,blocked:socialIds("blocked",id),profiles});
 }
 function removeBlockedViewer(){
  if(!broadcaster)return;
@@ -1565,6 +1574,8 @@ function paintPresenceAvatar(el,member){
 let presenceProfileTarget = null;
 let presenceFollowing = [];
 let presenceBlocked = [];
+let presenceFollowers = [];
+let socialProfiles = {};
 function updatePresenceSocialButtons(){
  const id=presenceProfileTarget;
  const f=document.getElementById("presenceFollowButton"),b=document.getElementById("presenceBlockButton");
@@ -1638,6 +1649,12 @@ function handleMessage(data) {
   if(data.type==="social_state"){
     presenceFollowing=Array.isArray(data.following)?data.following:[];
     presenceBlocked=Array.isArray(data.blocked)?data.blocked:[];
+    presenceFollowers=Array.isArray(data.followers)?data.followers:[];
+    socialProfiles=data.profiles&&typeof data.profiles==="object"?data.profiles:{};
+    const followingCount=document.getElementById("mpFollowing");
+    const followersCount=document.getElementById("mpFollowers");
+    if(followingCount)followingCount.textContent=String(presenceFollowing.length);
+    if(followersCount)followersCount.textContent=String(presenceFollowers.length);
     updatePresenceSocialButtons();return;
   }
   if(data.type==="social_notice"){
@@ -3133,9 +3150,30 @@ function openFollowList(kind) {
   document.getElementById("mpFollowTitle").textContent = followers ? "フォロワー" : "フォロー中";
   const container = document.getElementById("mpFollowContents");
   container.replaceChildren();
-  const message = document.createElement("p");
-  message.textContent = "現在、表示できるユーザーはいません。";
-  container.appendChild(message);
+  const ids=followers?presenceFollowers:presenceFollowing;
+  if(!ids.length){
+    const message=document.createElement("p");
+    message.textContent="まだユーザーはいません。";
+    container.appendChild(message);
+  }else{
+    ids.forEach(function(id){
+      const member=socialProfiles[id]||{};
+      const button=document.createElement("button");
+      button.type="button";
+      button.style.cssText="display:block;width:100%;padding:14px;margin:7px 0;border:1px solid #ffffff55;border-radius:12px;background:#242a4d;color:white;text-align:left";
+      button.textContent="👤 "+(member.name||"ユーザー");
+      button.onclick=function(){
+        closeFollowList();
+        const existing=presenceMembers.find(m=>m.id===id)||(broadcasterProfile&&broadcasterProfile.id===id?broadcasterProfile:null);
+        if(existing){openPresenceProfile(id);}
+        else{
+          presenceMembers.push({id:id,name:member.name||"ユーザー",avatar:member.avatar||"",gender:"未設定",bio:""});
+          openPresenceProfile(id);
+        }
+      };
+      container.appendChild(button);
+    });
+  }
   document.getElementById("mpFollowDialog").classList.add("active");
 }
 function closeFollowList() {
@@ -3594,12 +3632,14 @@ wss.on(
             socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
           }
           saveSocialData();socialState(ws);
+          clients.forEach(other=>{if(other.clientId===target)socialState(other);});
           sendTo(ws,{type:"social_notice",message:action==="follow"?"フォロー設定を更新しました":"ブロック設定を更新しました"});
           if(action==="block")removeBlockedViewer();
           return;
         }
         if(data.type === "profile_update"){
           ws.profile=cleanProfile(data.profile);
+          if(ws.clientId){socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};saveSocialData();}
           if(ws.liveJoined)sendPresence();
           return;
         }

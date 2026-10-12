@@ -1425,7 +1425,7 @@ function getSharedAvatar(){
   try { return localStorage.getItem("voiceBotaProfileAvatar") || ""; } catch(e) { return ""; }
 }
 function shareProfile(){
-  send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar()});
+  send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar(),bio:localStorage.getItem("voiceBotaProfileBio")||"",gender:localStorage.getItem("voiceBotaProfileGender")||""});
 }
 function connectSocket() {
 
@@ -1457,7 +1457,7 @@ function connectSocket() {
         "WebSocket connected"
       );
 
-      send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar()});
+      send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar(),bio:localStorage.getItem("voiceBotaProfileBio")||"",gender:localStorage.getItem("voiceBotaProfileGender")||""});
       requestSocial();
 
     };
@@ -1554,19 +1554,21 @@ function socialAction(action,id){
   send({type:"social_action",action:action,target:id});
 }
 function openUserActions(id, displayName){
-  if(!id || id===myId)return;
-  const u=socialState.users.find(x=>x.id===id) || presenceMembers.find(x=>x.id===id);
-  const name=(u&&u.name)||displayName||"ユーザー";
-  // 相手にブロックされている場合はサーバー側でもフォローを拒否する。
-  const blocked=socialState.blocked.includes(id),following=socialState.following.includes(id);
+  if(!id)return;
+  const u=presenceMembers.find(x=>x.id===id)||socialState.users.find(x=>x.id===id)||{};
+  const name=u.name||displayName||"ユーザー";
   document.getElementById("socialQuickMenu")?.remove();
   const overlay=document.createElement("div");overlay.id="socialQuickMenu";
-  overlay.style.cssText="position:fixed;inset:0;z-index:99999;background:#0009;display:flex;align-items:center;justify-content:center;padding:20px";
-  const panel=document.createElement("div");panel.style.cssText="width:min(90vw,340px);background:#22213d;color:white;border-radius:18px;padding:20px;display:grid;gap:12px;text-align:center";
-  const heading=document.createElement("strong");heading.textContent=name;panel.appendChild(heading);
-  function actionButton(label,action){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.style.cssText="padding:13px;border-radius:12px;border:1px solid #b5a3df;background:#39345f;color:white;font-size:16px";btn.onclick=()=>{overlay.remove();socialAction(action,id)};panel.appendChild(btn)}
-  actionButton(following?"フォロー解除":"フォローする",following?"unfollow":"follow");
-  actionButton(blocked?"ブロック解除":"ブロックする",blocked?"unblock":"block");
+  overlay.style.cssText="position:fixed;inset:0;z-index:99999;background:#000b;display:flex;align-items:center;justify-content:center;padding:20px";
+  const panel=document.createElement("div");panel.style.cssText="width:min(90vw,350px);max-height:80vh;overflow-y:auto;background:#22213d;color:white;border-radius:18px;padding:22px;display:grid;justify-items:center;gap:12px;text-align:center";
+  const avatar=document.createElement("div");avatar.style.cssText="width:88px;height:88px;border-radius:50%;background:#6266aa center/cover;display:grid;place-items:center;font-size:38px;border:2px solid #e5d7ff";
+  if(u.avatar)avatar.style.backgroundImage="url("+JSON.stringify(u.avatar)+")";else avatar.textContent="👤";
+  panel.appendChild(avatar);
+  const heading=document.createElement("strong");heading.style.fontSize="20px";heading.textContent=name;panel.appendChild(heading);
+  const gender=document.createElement("div");gender.textContent=u.gender?"性別："+u.gender:"";panel.appendChild(gender);
+  const bio=document.createElement("div");bio.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;opacity:.9";bio.textContent=u.bio||"自己紹介はまだありません";panel.appendChild(bio);
+  function actionButton(label,action){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.style.cssText="width:100%;padding:13px;border-radius:12px;border:1px solid #b5a3df;background:#39345f;color:white;font-size:16px";btn.onclick=()=>{overlay.remove();socialAction(action,id)};panel.appendChild(btn)}
+  if(id!==myId){const blocked=socialState.blocked.includes(id),following=socialState.following.includes(id);actionButton(following?"フォロー解除":"フォローする",following?"unfollow":"follow");actionButton(blocked?"ブロック解除":"ブロックする",blocked?"unblock":"block");}
   const close=document.createElement("button");close.textContent="閉じる";close.style.cssText="padding:12px;background:transparent;color:white;border:0";close.onclick=()=>overlay.remove();panel.appendChild(close);
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};overlay.appendChild(panel);document.body.appendChild(overlay);
 }
@@ -2462,9 +2464,14 @@ async function receiveOffer(
   delete earlyIce[data.from];
 
 
+  pc.addTransceiver("audio",{direction:"recvonly"});
+  pc.oniceconnectionstatechange=function(){
+    const label=document.getElementById("audioText");
+    if(label && pc.iceConnectionState!=="connected" && pc.iceConnectionState!=="completed")label.textContent="音声通信: "+pc.iceConnectionState;
+  };
   pc.onconnectionstatechange=function(){
     const label=document.getElementById("audioText");
-    if(label)label.textContent="音声接続: "+pc.connectionState;
+    if(label)label.textContent=pc.connectionState==="connected"?"🔊 音声接続済み":"音声接続: "+pc.connectionState;
     if(pc.connectionState==="failed"){
       setPanelStatus("音声接続に失敗しました。通信環境を確認してください（TURNサーバーが必要な場合があります）");
       const status=document.getElementById("audioText");if(status)status.textContent="⚠ 音声接続失敗（TURN設定が必要な可能性）";
@@ -2485,15 +2492,8 @@ async function receiveOffer(
         );
 
 
-      if (
-        event.streams &&
-        event.streams[0]
-      ) {
-
-        audio.srcObject =
-          event.streams[0];
-
-      }
+      if(event.streams && event.streams[0]) audio.srcObject=event.streams[0];
+      else {const stream=new MediaStream();stream.addTrack(event.track);audio.srcObject=stream;}
 
 
       audio.autoplay=true;
@@ -3475,7 +3475,7 @@ function sendPresence() {
   const members = [];
   clients.forEach(function(client) {
     if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
-      members.push({id:client.clientId,name:client.liveName || "ゲスト",avatar:socialDB.users[client.clientId]?.avatar||"",broadcaster:false});
+      members.push({id:client.clientId,name:client.liveName || "ゲスト",avatar:socialDB.users[client.clientId]?.avatar||"",bio:socialDB.users[client.clientId]?.bio||"",gender:socialDB.users[client.clientId]?.gender||"",broadcaster:false});
     }
   });
   clients.forEach(c=>{
@@ -3575,7 +3575,7 @@ wss.on(
           }
 
           ws.liveName=String(data.name||"ユーザー").slice(0,30);
-          socialDB.users[ws.clientId]={name:ws.liveName,avatar:typeof data.avatar==="string" && data.avatar.startsWith("data:image/") && data.avatar.length<900000 ? data.avatar : (socialDB.users[ws.clientId]?.avatar||"")};saveSocial();socialSend(ws);sendPresence();
+          socialDB.users[ws.clientId]={name:ws.liveName,bio:String(data.bio||"").slice(0,500),gender:String(data.gender||"").slice(0,30),avatar:typeof data.avatar==="string" && data.avatar.startsWith("data:image/") && data.avatar.length<900000 ? data.avatar : (socialDB.users[ws.clientId]?.avatar||"")};saveSocial();socialSend(ws);sendPresence();
           return;
 
         }

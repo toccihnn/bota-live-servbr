@@ -78,6 +78,10 @@ const HTML = String.raw`
 <title>voiceボタLive</title>
 
 <style>
+/* Simeji: U+148C/U+144B (Canadian Aboriginal), U+A564 (Vai) glyph fallback.
+   Font loading needs an internet connection; other unsupported glyphs may remain boxes. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Canadian+Aboriginal&family=Noto+Sans+Vai&family=Noto+Sans+Symbols+2&display=swap');
+
 
 
 
@@ -1075,11 +1079,20 @@ button {
 #vbTitleDialog button {border:0;border-radius:9px;padding:10px 14px;}
 
 
-/* Simeji glyph diagnostic only; no changes to existing inputs or features */
-#vbGlyphTest {display:none;position:fixed;left:12px;right:12px;top:25%;z-index:3900;background:#171b35;color:#fff;border:1px solid #8999c9;border-radius:14px;padding:12px;box-shadow:0 5px 24px #000a;max-height:48vh;overflow:auto}
-#vbGlyphTest .vb-glyph-line {margin-top:6px;padding:7px;background:#070b20;border-radius:7px;overflow-wrap:anywhere;white-space:pre-wrap;font-size:19px;line-height:1.6}
-#vbGlyphTest .vb-glyph-caption {font-size:11px;color:#d5dbf2;margin-top:8px}
-#vbGlyphTest button {float:right;color:white;background:#444b71;border:0;border-radius:8px;padding:4px 10px}
+/* Simeji display fix: applies only to user-entered text and its rendering. */
+#commentInput, #mpNameInput, #mpBioInput, #vbTitleInput,
+.comment-item, .comment-content, .comment-user-link,
+.live-host-name, .live-top-title, .live-name, .live-title,
+.mp-name, .mp-follow-user-name, #mpMoonName,
+#presenceProfileName, #presenceProfileBio,
+.presence-entry, .social-list, .presence-strip,
+input[type="text"], textarea {
+  font-family: "Noto Sans Canadian Aboriginal", "Noto Sans Vai",
+    "Noto Sans Symbols 2", system-ui, "Noto Sans JP",
+    "Noto Color Emoji", "Segoe UI Emoji", sans-serif !important;
+  text-transform: none;
+  font-variant-ligatures: normal;
+}
 
 </style>
 
@@ -3407,32 +3420,6 @@ window.addEventListener(
 
   }
 );
-
-
-/* Temporary Unicode display comparison. No value mutation. */
-(function () {
-  function setupGlyphTest() {
-    var input = document.getElementById("commentInput");
-    if (!input || document.getElementById("vbGlyphTest")) return;
-    var box = document.createElement("div");
-    box.id = "vbGlyphTest";
-    box.innerHTML = '<button type="button" id="vbGlyphClose">閉じる</button><strong>文字表示テスト</strong><div class="vb-glyph-caption">A：Android標準に近い指定</div><div class="vb-glyph-line" id="vbGlyphA" style="font-family:Roboto,sans-serif;font-weight:400"></div><div class="vb-glyph-caption">B：フォント指定なし</div><div class="vb-glyph-line" id="vbGlyphB" style="font-family:initial;font-weight:400"></div><div class="vb-glyph-caption" id="vbGlyphInfo"></div>';
-    document.body.appendChild(box);
-    document.getElementById("vbGlyphClose").addEventListener("click", function(){box.style.display="none";});
-    function refresh() {
-      var value = input.value;
-      if (!value) {box.style.display="none";return;}
-      document.getElementById("vbGlyphA").textContent=value;
-      document.getElementById("vbGlyphB").textContent=value;
-      document.getElementById("vbGlyphInfo").textContent="文字データ: " + Array.from(value).slice(0,32).map(function(c){return "U+"+c.codePointAt(0).toString(16).toUpperCase();}).join(" ");
-      box.style.display="block";
-    }
-    input.addEventListener("input",refresh);
-    input.addEventListener("paste",function(){setTimeout(refresh,0);});
-  }
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",setupGlyphTest);
-  else setupGlyphTest();
-})();
 
 </script>
 

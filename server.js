@@ -3179,6 +3179,7 @@ function openFollowList(kind) {
         img.src = member.avatar;
         img.alt = "";
         img.loading = "lazy";
+        img.onerror = function(){img.remove();avatar.textContent="👤";};
         avatar.appendChild(img);
       } else {
         avatar.textContent = "👤";
@@ -3202,7 +3203,10 @@ function openFollowList(kind) {
       container.appendChild(button);
     });
   }
-  document.getElementById("mpFollowDialog").classList.add("active");
+  const followDialog = document.getElementById("mpFollowDialog");
+  // 視聴者のマイページからも一覧が前面に開くようにする
+  if (followDialog.parentElement !== document.body) document.body.appendChild(followDialog);
+  followDialog.classList.add("active");
 }
 function closeFollowList() {
   const dialog = document.getElementById("mpFollowDialog");
@@ -3210,6 +3214,9 @@ function closeFollowList() {
 }
 
 function showProfile() {
+  // 配信視聴中でもマイページのフォロー人数を最新の受信状態で表示
+  document.getElementById("mpFollowing").textContent = String(presenceFollowing.length);
+  document.getElementById("mpFollowers").textContent = String(presenceFollowers.length);
   applyMyPageBackground();
   const name = localStorage.getItem("voiceBotaProfileName") ||
     (typeof getMyName === "function" ? getMyName() : "月光花");
@@ -3638,7 +3645,10 @@ wss.on(
 
           }
 
-          if(data.profile && typeof data.profile === "object") ws.profile=cleanProfile(data.profile);
+          if(data.profile && typeof data.profile === "object") {
+            ws.profile=cleanProfile(data.profile);
+            if(ws.clientId){socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};saveSocialData();}
+          }
           socialState(ws);
           return;
 
@@ -3667,7 +3677,11 @@ wss.on(
         }
         if(data.type === "profile_update"){
           ws.profile=cleanProfile(data.profile);
-          if(ws.clientId){socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};saveSocialData();}
+          if(ws.clientId){
+            socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};
+            saveSocialData();
+            clients.forEach(other=>{if(other.clientId!==ws.clientId && (socialIds("following",other.clientId).includes(ws.clientId)||socialIds("following",ws.clientId).includes(other.clientId)))socialState(other);});
+          }
           if(ws.liveJoined)sendPresence();
           return;
         }

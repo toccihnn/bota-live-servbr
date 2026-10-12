@@ -873,6 +873,10 @@ button {
  .live-action,#likeButton {width:56px;height:56px}
 }
 
+/* 配信者画面のみ：いいね・ギフトを非表示（視聴者側はそのまま） */
+#livePanel.is-broadcaster #likeButton,
+#livePanel.is-broadcaster #giftButton { display:none!important; }
+
 </style>
 
 </head>
@@ -1078,7 +1082,7 @@ button {
   <button id="audioButton" class="panel-button start-button" type="button" onclick="enableAudio()" style="display:none">🔊 音声をONにする</button>
   <div class="action-rail">
     <button id="likeButton" class="live-action" type="button" onclick="sendLike()"><span class="action-emoji">❤️</span><span>いいね</span></button>
-    <button class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
+    <button id="giftButton" class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
     <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
     <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>
     <button class="live-action" type="button" onclick="toggleBackgroundPanel()"><span class="action-emoji">🎨</span><span>背景</span></button>

@@ -79,6 +79,8 @@ const HTML = String.raw`
 
 <style>
 
+
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -1064,6 +1066,32 @@ button {
 #livePanel .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
 #livePanel:not(.is-broadcaster) .live-host-info,#livePanel:not(.is-broadcaster) .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
 
+
+#vbTitleDialog { position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:none;align-items:center;justify-content:center;padding:18px; }
+#vbTitleDialog.active {display:flex;}
+#vbTitleDialog .vb-title-box {background:#211c31;color:white;width:min(100%,420px);padding:20px;border-radius:15px;box-sizing:border-box;}
+#vbTitleDialog input {width:100%;box-sizing:border-box;background:#fff;color:#161616;font-size:17px;border-radius:9px;padding:12px;border:1px solid #999;margin:14px 0;}
+#vbTitleDialog .vb-title-actions {display:flex;justify-content:flex-end;gap:10px;}
+#vbTitleDialog button {border:0;border-radius:9px;padding:10px 14px;}
+
+
+/* Simeji表示検証：コメント入力欄のみ、Android/Chrome標準の文字描画に戻す。
+   特殊文字の字形は端末のフォント収録状況に依存します。 */
+#commentInput {
+  font-family: sans-serif !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+  font-variant: normal !important;
+  font-feature-settings: normal !important;
+  font-variation-settings: normal !important;
+  font-synthesis: none !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  -webkit-text-security: none !important;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+
 </style>
 
 </head>
@@ -1295,7 +1323,7 @@ button {
     <div class="comment-list" id="commentList" aria-label="コメント一覧"></div>
   </div>
   <div class="comment-input">
-    <input id="commentInput" type="text" inputmode="text" maxlength="400" placeholder="コメントを入力...">
+    <input id="commentInput" type="text" inputmode="text" placeholder="コメントを入力...">
     <button type="button" onclick="sendComment()" aria-label="コメント送信">➤</button>
   </div>
   <button id="stopButton" class="panel-button stop-button" type="button" onclick="stopLive()" style="display:none">⛔ 配信を終了する</button>
@@ -1339,15 +1367,22 @@ button {
     <div id="mpFollowContents" class="mp-follow-contents">まだ表示できるユーザーはいません。</div>
   </div>
 </div>
+<div id="vbTitleDialog" role="dialog" aria-modal="true" aria-label="配信タイトル編集">
+  <div class="vb-title-box">
+    <strong>配信タイトルを編集</strong>
+    <input id="vbTitleInput" type="text" inputmode="text" autocomplete="off" placeholder="絵文字・Simeji特殊文字も入力できます">
+    <div class="vb-title-actions"><button type="button" onclick="closeLiveTitleDialog()">キャンセル</button><button type="button" onclick="saveLiveTitleDialog()">保存する</button></div>
+  </div>
+</div>
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
     <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
-    <input id="mpNameInput" maxlength="120" placeholder="表示名を入力">
+    <input id="mpNameInput" type="text" inputmode="text" placeholder="表示名を入力">
     <label for="mpGenderInput">性別</label>
     <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
     <label for="mpBioInput">自己紹介</label>
-    <textarea id="mpBioInput" maxlength="300" rows="5" placeholder="自己紹介を入力"></textarea>
+    <textarea id="mpBioInput" rows="5" placeholder="自己紹介を入力"></textarea>
     <div class="mp-dialog-actions"><button type="button" onclick="closeMyPageEdit()">キャンセル</button><button type="button" onclick="saveMyPageEdit()">保存する</button></div>
   </div>
 </div>
@@ -1626,7 +1661,7 @@ function sendMyProfile(){
 }
 function paintPresenceAvatar(el,member){
   const photo = member.avatar || "";
-  el.textContent = photo ? "" : (member.name || "？").slice(0,1);
+  el.textContent = photo ? "" : emojiSafeLimit(member.name || "？",1);
   el.style.backgroundImage = photo && photo.startsWith("data:image/") ? 'url("' + photo + '")' : "";
 }
 let presenceProfileTarget = null;
@@ -2909,14 +2944,23 @@ function publishLiveBackground(background) {
 
 function editLiveTitle() {
   if (!isBroadcaster || !connected) return;
-  const value = prompt("新しい配信タイトルを入力してください", activeLiveTitle || "");
-  if (value === null) return;
-  const title = emojiSafeLimit(value.trim(), 100);
-  if (!title) { alert("配信タイトルを入力してください"); return; }
+  const input = document.getElementById("vbTitleInput");
+  input.value = activeLiveTitle || "";
+  document.getElementById("vbTitleDialog").classList.add("active");
+  input.focus();
+}
+function closeLiveTitleDialog() {
+  document.getElementById("vbTitleDialog").classList.remove("active");
+}
+function saveLiveTitleDialog() {
+  if (!isBroadcaster || !connected) return;
+  const title = emojiSafeLimit(document.getElementById("vbTitleInput").value.trim(),100);
+  if (!title) {alert("配信タイトルを入力してください");return;}
   if (!send({type:"title_update",title:title})) {alert("サーバーに接続できません");return;}
   activeLiveTitle = title;
   renderLiveHeader();
   document.getElementById("panelTitle").textContent = title;
+  closeLiveTitleDialog();
 }
 
 function setLiveBackground(kind) {
@@ -3034,7 +3078,7 @@ function addComment(name, text, clientId, avatar) {
     const icon = document.createElement("button");
     icon.type = "button";
     icon.className = "comment-user-avatar";
-    icon.textContent = photo ? "" : (name || "？").slice(0,1);
+    icon.textContent = photo ? "" : emojiSafeLimit(name || "？",1);
     if (photo.startsWith("data:image/")) icon.style.backgroundImage = 'url("' + photo + '")';
     icon.onclick = function(){openPresenceProfile(clientId);};
     const content = document.createElement("div");
@@ -3310,6 +3354,14 @@ function editMyPage() {
 function closeMyPageEdit() {
   document.getElementById("mpEditDialog").classList.remove("active");
 }
+// Optional browser console check: voiceBotaUnicodeCheck("Simeji文字")
+// Reports exact Unicode code points; never modifies the original input.
+window.voiceBotaUnicodeCheck = function(value) {
+  const text = String(value == null ? "" : value);
+  const points = Array.from(text, c => "U+" + c.codePointAt(0).toString(16).toUpperCase());
+  console.info("Simeji Unicode", {text, points});
+  return {text, points};
+};
 function emojiSafeLimit(value, max) {
   const str = String(value == null ? "" : value);
   if (typeof Intl !== "undefined" && Intl.Segmenter) {
@@ -3322,7 +3374,7 @@ function saveMyPageEdit() {
   if (!name) { alert("表示名を入力してください"); return; }
   localStorage.setItem("voiceBotaProfileName", name);
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
-  localStorage.setItem("voiceBotaProfileBio", document.getElementById("mpBioInput").value.trim());
+  localStorage.setItem("voiceBotaProfileBio", emojiSafeLimit(document.getElementById("mpBioInput").value.trim(),300));
   closeMyPageEdit();
   showProfile();
   sendMyProfile();
@@ -4086,7 +4138,7 @@ wss.on(
 
             clientId: ws.clientId,
             avatar: (ws.profile && typeof ws.profile.avatar === "string") ? ws.profile.avatar : "",
-            name: String(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト")).substring(0,30),
+            name: limitEmojiText(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト"),30),
 
             text:
               limitEmojiText(data.text || "", 200)

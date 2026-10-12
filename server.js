@@ -8,36 +8,14 @@ let clients = new Set();
 let broadcaster = null;
 const fsSocial = require("fs");
 const socialPath = require("path").join(__dirname,"voicebota_social.json");
-let socialData = {following:{},blocked:{},profiles:{}};
+let socialData = {following:{},blocked:{}};
 try {const v=JSON.parse(fsSocial.readFileSync(socialPath,"utf8"));socialData={...socialData,...v};}catch(e){}
-function limitEmojiText(value, max) {
-  const str = String(value == null ? "" : value);
-  if (typeof Intl !== "undefined" && Intl.Segmenter) {
-    const parts = new Intl.Segmenter("ja", {granularity:"grapheme"}).segment(str);
-    let result = "", count = 0;
-    for (const part of parts) {
-      if (count++ >= max) break;
-      result += part.segment;
-    }
-    return result;
-  }
-  return Array.from(str).slice(0, max).join("");
-}
 function saveSocialData(){try{fsSocial.writeFileSync(socialPath,JSON.stringify(socialData));}catch(e){console.error("social save",e.message);}}
 function socialIds(key,id){return Array.isArray(socialData[key][id])?socialData[key][id]:[];}
 function blockedEither(a,b){return !!(a&&b&&(socialIds("blocked",a).includes(b)||socialIds("blocked",b).includes(a)));}
 function socialState(ws){
  const id=ws.clientId;
- const following=socialIds("following",id);
- const followers=Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id));
- const ids=[...new Set([...following,...followers])];
- const profiles={};
- ids.forEach(userId=>{
-   const online=[...clients].find(c=>c.clientId===userId);
-   const p=(online&&online.profile)||socialData.profiles[userId]||{};
-   profiles[userId]={name:p.name||"ユーザー",avatar:p.avatar||""};
- });
- sendTo(ws,{type:"social_state",following,followers,blocked:socialIds("blocked",id),profiles});
+ sendTo(ws,{type:"social_state",following:socialIds("following",id),blocked:socialIds("blocked",id)});
 }
 function removeBlockedViewer(){
  if(!broadcaster)return;
@@ -78,12 +56,6 @@ const HTML = String.raw`
 <title>voiceボタLive</title>
 
 <style>
-/* Simeji: U+148C/U+144B (Canadian Aboriginal), U+A564 (Vai) glyph fallback.
-   Font loading needs an internet connection; other unsupported glyphs may remain boxes. */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Canadian+Aboriginal&family=Noto+Sans+Vai&family=Noto+Sans+Symbols+2&display=swap');
-
-
-
 
 * {
   box-sizing: border-box;
@@ -102,9 +74,6 @@ body {
     -apple-system,
     BlinkMacSystemFont,
     "Noto Sans JP",
-    "Apple Color Emoji",
-    "Noto Color Emoji",
-    "Segoe UI Emoji",
     sans-serif;
 }
 
@@ -930,16 +899,6 @@ button {
 #livePanel:not(.is-broadcaster) #audioButton {display:block;top:130px;left:18px;z-index:9}
 #livePanel:not(.is-broadcaster) #audioText {position:absolute;top:174px;left:18px;z-index:8;font-size:11px}
 
-#livePanel.is-broadcaster #editLiveTitleAction{display:flex!important}
-#livePanel:not(.is-broadcaster) #editLiveTitleAction{display:none!important}
-/* 配信中ヘッダー：タイトル上部、配信者は左、視聴者は右 */
-#livePanel .live-top-title{position:absolute;top:max(18px,env(safe-area-inset-top));left:16px;right:72px;z-index:8;color:white;font-size:16px;font-weight:900;line-height:1.4;text-shadow:0 2px 6px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
-#livePanel .live-host-info{position:absolute;top:max(61px,calc(env(safe-area-inset-top) + 43px));left:14px;z-index:8;display:flex!important;align-items:center;gap:7px;max-width:42%;min-width:0}
-#livePanel .live-host-info .presence-avatar{width:37px;height:37px;flex-shrink:0}
-#livePanel .live-host-name{background:#05051099;border:0;border-radius:15px;color:white;font-size:12px;font-weight:800;text-shadow:0 1px 3px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 8px;min-width:0}
-#livePanel .presence-strip{top:max(61px,calc(env(safe-area-inset-top) + 43px));left:auto;right:14px;max-width:48%;justify-content:flex-end;overflow:hidden}
-#livePanel .presence-strip .presence-avatar{width:32px;height:32px;flex-shrink:0}
-#livePanel .presence-strip .presence-more{padding:5px;font-size:10px;white-space:nowrap}
 /* コメント投稿者名をタップしてプロフィールを開く */
 .comment-user-link{appearance:none;border:0;background:none;padding:0;color:#a9d9ff;font:inherit;font-weight:900;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 /* 入室者アイコン：配信者・視聴者共通 */
@@ -952,7 +911,7 @@ button {
 .presence-entry{padding:11px;border-bottom:1px solid #ffffff22}
 .presence-avatar{background-size:cover;background-position:center;overflow:hidden;cursor:pointer}
 .presence-entry{display:flex;align-items:center;gap:10px;cursor:pointer}
-.presence-profile{display:none;position:fixed;inset:0;z-index:3600;background:#000a;align-items:center;justify-content:center;padding:20px}
+.presence-profile{display:none;position:absolute;inset:0;z-index:25;background:#000a;align-items:center;justify-content:center;padding:20px}
 .presence-profile.open{display:flex}
 .presence-profile-card{width:min(100%,340px);background:#151a36;border:1px solid #ffffff55;border-radius:20px;padding:22px;text-align:center}
 .presence-profile-photo{width:88px;height:88px;border-radius:50%;background:#374075;background-size:cover;background-position:center;margin:8px auto 12px;display:flex;align-items:center;justify-content:center;font-size:38px}
@@ -1039,61 +998,8 @@ button {
 .mp-follow-title{display:flex;align-items:center;justify-content:space-between;font-size:18px;border-bottom:1px solid #ffffff33;padding-bottom:12px}
 .mp-follow-title button{font-size:28px;background:transparent;border:0;color:white;cursor:pointer;padding:0 8px}
 .mp-follow-contents{padding:28px 4px;text-align:center;color:#e4ddfa}
-/* フォロー中・フォロワー一覧のみ：アイコン＋名前 */
-.mp-follow-contents:has(.mp-follow-user){padding:12px 0;text-align:left}
-.mp-follow-user{display:flex;align-items:center;gap:12px;width:100%;padding:10px 5px;border:0;border-bottom:1px solid #ffffff22;background:transparent;color:white;text-align:left;cursor:pointer;font:inherit}
-.mp-follow-user-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:#38446d;font-size:22px;overflow:hidden}
-.mp-follow-user-avatar img{width:100%;height:100%;object-fit:cover}
-.mp-follow-user-name{flex:1;min-width:0;font-size:15px;font-weight:700;overflow-wrap:anywhere}
-.mp-follow-user>span:last-child{font-size:24px;color:#b7bde0}
-
 /* ホーム画面の上部ロゴを削除した分の余白調整 */
 .hero { margin-top: 0; }
-
-/* リスナー側：背景の上でもタイトルと参加者が読みやすい */
-#livePanel:not(.is-broadcaster) .live-top-title{top:max(14px,env(safe-area-inset-top));left:14px;right:78px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-height:3.1em;padding:7px 11px;border-radius:12px;background:rgba(5,8,24,.72);backdrop-filter:blur(6px);font-size:17px;line-height:1.45}
-#livePanel:not(.is-broadcaster) .live-host-info{top:max(86px,calc(env(safe-area-inset-top) + 72px));max-width:48%;padding:3px 6px 3px 3px;border-radius:25px;background:rgba(5,8,24,.65)}
-#livePanel:not(.is-broadcaster) .presence-strip{top:max(90px,calc(env(safe-area-inset-top) + 76px));right:14px;max-width:43%;gap:4px}
-#livePanel:not(.is-broadcaster) .presence-strip .presence-avatar{width:34px;height:34px}
-/* 配信者・リスナー双方のコメント投稿者画像 */
-#livePanel .comment-item{display:flex;align-items:flex-start;gap:8px;max-width:100%;width:max-content}
-#livePanel .comment-user-avatar{width:34px;height:34px;min-width:34px;border-radius:50%;border:1px solid #ffffff88;background:#28345c;background-size:cover;background-position:center;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer}
-#livePanel .comment-content{min-width:0;flex:1;overflow-wrap:anywhere}
-#livePanel .comment-user-link{display:inline-block;margin-bottom:3px;text-decoration:none}
-
-
-/* 配信者・リスナー共通：タイトルとLIVE表示を重ねず横並びにする */
-#livePanel .panel-header{position:absolute!important;top:max(15px,env(safe-area-inset-top))!important;left:14px!important;right:72px!important;display:flex!important;align-items:center!important;gap:8px!important;min-height:40px!important;z-index:8!important;pointer-events:none}
-#livePanel .panel-header .panel-live{position:static!important;flex-shrink:0!important;margin:0!important;padding:5px 9px!important;font-size:11px!important;line-height:1.3!important}
-#livePanel .live-top-title{position:static!important;display:block!important;flex:1!important;min-width:0!important;max-width:none!important;max-height:2.8em!important;overflow:hidden!important;white-space:normal!important;line-height:1.4!important;font-size:17px!important;text-shadow:0 2px 6px #000,0 0 12px #000!important;background:rgba(3,6,20,.62)!important;border-radius:10px!important;padding:6px 9px!important;pointer-events:none!important}
-#livePanel .live-host-info{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
-#livePanel .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
-#livePanel:not(.is-broadcaster) .live-host-info,#livePanel:not(.is-broadcaster) .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
-
-
-#vbTitleDialog { position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:none;align-items:center;justify-content:center;padding:18px; }
-#vbTitleDialog.active {display:flex;}
-#vbTitleDialog .vb-title-box {background:#211c31;color:white;width:min(100%,420px);padding:20px;border-radius:15px;box-sizing:border-box;}
-#vbTitleDialog input {width:100%;box-sizing:border-box;background:#fff;color:#161616;font-size:17px;border-radius:9px;padding:12px;border:1px solid #999;margin:14px 0;}
-#vbTitleDialog .vb-title-actions {display:flex;justify-content:flex-end;gap:10px;}
-#vbTitleDialog button {border:0;border-radius:9px;padding:10px 14px;}
-
-
-/* Simeji display fix: applies only to user-entered text and its rendering. */
-#commentInput, #mpNameInput, #mpBioInput, #vbTitleInput,
-.comment-item, .comment-content, .comment-user-link,
-.live-host-name, .live-top-title, .live-name, .live-title,
-.mp-name, .mp-follow-user-name, #mpMoonName,
-#presenceProfileName, #presenceProfileBio,
-.presence-entry, .social-list, .presence-strip,
-input[type="text"], textarea {
-  font-family: "Noto Sans Canadian Aboriginal", "Noto Sans Vai",
-    "Noto Sans Symbols 2", system-ui, "Noto Sans JP",
-    "Noto Color Emoji", "Segoe UI Emoji", sans-serif !important;
-  text-transform: none;
-  font-variant-ligatures: normal;
-}
-
 </style>
 
 </head>
@@ -1269,11 +1175,9 @@ input[type="text"], textarea {
 <div class="live-panel" id="livePanel">
   <div class="panel-header">
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
-    <div class="live-top-title" id="liveTopTitle"></div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
-  <div class="live-host-info" id="liveHostInfo" style="display:none"><button type="button" class="presence-avatar" id="liveHostAvatar" aria-label="配信者のプロフィール"></button><button type="button" id="liveHostName" class="live-host-name"></button></div>
-  <div class="presence-strip" id="presenceStrip" aria-label="現在の視聴者"></div>
+  <div class="presence-strip" id="presenceStrip" aria-label="現在の参加者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
     <div class="presence-dialog" onclick="event.stopPropagation()">
       <div style="display:flex;justify-content:space-between;align-items:center"><strong id="presenceHeading">参加者一覧</strong><button type="button" onclick="closePresence()" style="color:white;background:transparent;border:0;font-size:24px">×</button></div>
@@ -1318,14 +1222,13 @@ input[type="text"], textarea {
     <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
     <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>
     <button id="backgroundAction" class="live-action" type="button" onclick="toggleBackgroundPanel()"><span class="action-emoji">🎨</span><span>背景</span></button>
-    <button id="editLiveTitleAction" class="live-action" type="button" onclick="editLiveTitle()"><span class="action-emoji">✏️</span><span>タイトル</span></button>
   </div>
 
   <div class="comments">
     <div class="comment-list" id="commentList" aria-label="コメント一覧"></div>
   </div>
   <div class="comment-input">
-    <input id="commentInput" type="text" inputmode="text" placeholder="コメントを入力...">
+    <input id="commentInput" maxlength="200" placeholder="コメントを入力...">
     <button type="button" onclick="sendComment()" aria-label="コメント送信">➤</button>
   </div>
   <button id="stopButton" class="panel-button stop-button" type="button" onclick="stopLive()" style="display:none">⛔ 配信を終了する</button>
@@ -1369,22 +1272,15 @@ input[type="text"], textarea {
     <div id="mpFollowContents" class="mp-follow-contents">まだ表示できるユーザーはいません。</div>
   </div>
 </div>
-<div id="vbTitleDialog" role="dialog" aria-modal="true" aria-label="配信タイトル編集">
-  <div class="vb-title-box">
-    <strong>配信タイトルを編集</strong>
-    <input id="vbTitleInput" type="text" inputmode="text" autocomplete="off" placeholder="絵文字・Simeji特殊文字も入力できます">
-    <div class="vb-title-actions"><button type="button" onclick="closeLiveTitleDialog()">キャンセル</button><button type="button" onclick="saveLiveTitleDialog()">保存する</button></div>
-  </div>
-</div>
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
     <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
-    <input id="mpNameInput" type="text" inputmode="text" placeholder="表示名を入力">
+    <input id="mpNameInput" maxlength="24" placeholder="表示名を入力">
     <label for="mpGenderInput">性別</label>
     <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
     <label for="mpBioInput">自己紹介</label>
-    <textarea id="mpBioInput" rows="5" placeholder="自己紹介を入力"></textarea>
+    <textarea id="mpBioInput" maxlength="300" rows="5" placeholder="自己紹介を入力"></textarea>
     <div class="mp-dialog-actions"><button type="button" onclick="closeMyPageEdit()">キャンセル</button><button type="button" onclick="saveMyPageEdit()">保存する</button></div>
   </div>
 </div>
@@ -1498,7 +1394,6 @@ let peerConnections = {};
 
 let currentUserName = "ユーザー";
 let presenceMembers = [];
-let broadcasterProfile = null;
 
 let currentLiveId = null;
 
@@ -1663,14 +1558,12 @@ function sendMyProfile(){
 }
 function paintPresenceAvatar(el,member){
   const photo = member.avatar || "";
-  el.textContent = photo ? "" : emojiSafeLimit(member.name || "？",1);
+  el.textContent = photo ? "" : (member.name || "？").slice(0,1);
   el.style.backgroundImage = photo && photo.startsWith("data:image/") ? 'url("' + photo + '")' : "";
 }
 let presenceProfileTarget = null;
 let presenceFollowing = [];
 let presenceBlocked = [];
-let presenceFollowers = [];
-let socialProfiles = {};
 function updatePresenceSocialButtons(){
  const id=presenceProfileTarget;
  const f=document.getElementById("presenceFollowButton"),b=document.getElementById("presenceBlockButton");
@@ -1688,10 +1581,8 @@ function togglePresenceBlock(){if(!presenceProfileTarget||presenceProfileTarget=
  send({type:"social_action",action:"block",targetId:presenceProfileTarget});
 }
 function openPresenceProfile(id){
-  const member = presenceMembers.find(function(m){return m.id === id;}) || (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null) || (socialProfiles[id] ? {id:id,...socialProfiles[id]} : null);
+  const member = presenceMembers.find(function(m){return m.id === id;});
   if(!member)return;
-  const profileOverlay=document.getElementById("presenceProfile");
-  if(profileOverlay && profileOverlay.parentElement!==document.body)document.body.appendChild(profileOverlay);
   closePresence();
   presenceProfileTarget=id;
   document.getElementById("presenceSocialNotice").textContent="";
@@ -1705,21 +1596,6 @@ function openPresenceProfile(id){
   document.getElementById("presenceProfile").classList.add("open");
 }
 function closePresenceProfile(){document.getElementById("presenceProfile").classList.remove("open");}
-function renderLiveHeader(){
-  const title=document.getElementById("liveTopTitle");
-  const hostInfo=document.getElementById("liveHostInfo");
-  const hostAvatar=document.getElementById("liveHostAvatar");
-  const hostName=document.getElementById("liveHostName");
-  if(title)title.textContent=activeLiveTitle || "配信中";
-  if(!hostInfo || !hostAvatar || !hostName)return;
-  const host=broadcasterProfile;
-  hostInfo.style.visibility=host ? "visible" : "hidden";
-  if(!host)return;
-  paintPresenceAvatar(hostAvatar,host);
-  hostName.textContent=host.name || "配信者";
-  hostAvatar.onclick=hostName.onclick=function(){openPresenceProfile(host.id);};
-}
-let activeLiveTitle="";
 function renderPresence() {
   const strip = document.getElementById("presenceStrip");
   const list = document.getElementById("presenceList");
@@ -1761,12 +1637,6 @@ function handleMessage(data) {
   if(data.type==="social_state"){
     presenceFollowing=Array.isArray(data.following)?data.following:[];
     presenceBlocked=Array.isArray(data.blocked)?data.blocked:[];
-    presenceFollowers=Array.isArray(data.followers)?data.followers:[];
-    socialProfiles=data.profiles&&typeof data.profiles==="object"?data.profiles:{};
-    const followingCount=document.getElementById("mpFollowing");
-    const followersCount=document.getElementById("mpFollowers");
-    if(followingCount)followingCount.textContent=String(presenceFollowing.length);
-    if(followersCount)followersCount.textContent=String(presenceFollowers.length);
     updatePresenceSocialButtons();return;
   }
   if(data.type==="social_notice"){
@@ -1779,10 +1649,7 @@ function handleMessage(data) {
 
   if (data.type === "presence_update") {
     presenceMembers = Array.isArray(data.members) ? data.members : [];
-    broadcasterProfile = data.broadcasterProfile || null;
-    activeLiveTitle=data.title || activeLiveTitle;
     renderPresence();
-    renderLiveHeader();
     return;
   }
 
@@ -1806,13 +1673,6 @@ function handleMessage(data) {
 
   }
 
-
-  if (data.type === "title_update") {
-    activeLiveTitle = String(data.title || "配信中");
-    renderLiveHeader();
-    document.getElementById("panelTitle").textContent = activeLiveTitle;
-    return;
-  }
 
   if (data.type === "background_update") {
     if (data.background) applyLiveBackground(data.background);
@@ -1912,8 +1772,7 @@ function handleMessage(data) {
     addComment(
       data.name,
       data.text,
-      data.clientId,
-      data.avatar
+      data.clientId
     );
 
     return;
@@ -2137,10 +1996,21 @@ async function startLive() {
   }
 
 
-  // 配信者名はマイページの登録名を自動で使用する
-  const profileName = String(getMyPublicProfile().name || "").trim();
-  const name = profileName && profileName !== "ユーザー" && profileName !== "ゲスト"
-    ? profileName : (String(currentUserName || "").trim() || "配信者");
+  const name =
+    prompt(
+      "配信者名を入力してください",
+      "ぼたもち"
+    );
+
+
+  if (
+    name === null ||
+    name.trim() === ""
+  ) {
+
+    return;
+
+  }
 
 
   const title =
@@ -2161,7 +2031,7 @@ async function startLive() {
 
 
   currentUserName =
-    emojiSafeLimit(name.trim(),30);
+    name.trim();
 
 
   setPanelStatus(
@@ -2226,8 +2096,6 @@ async function startLive() {
   }
 
 
-  activeLiveTitle = title;
-  renderLiveHeader();
   isBroadcaster =
     true;
   document.getElementById("livePanel").classList.add("is-broadcaster");
@@ -2944,27 +2812,6 @@ function publishLiveBackground(background) {
   }
 }
 
-function editLiveTitle() {
-  if (!isBroadcaster || !connected) return;
-  const input = document.getElementById("vbTitleInput");
-  input.value = activeLiveTitle || "";
-  document.getElementById("vbTitleDialog").classList.add("active");
-  input.focus();
-}
-function closeLiveTitleDialog() {
-  document.getElementById("vbTitleDialog").classList.remove("active");
-}
-function saveLiveTitleDialog() {
-  if (!isBroadcaster || !connected) return;
-  const title = emojiSafeLimit(document.getElementById("vbTitleInput").value.trim(),100);
-  if (!title) {alert("配信タイトルを入力してください");return;}
-  if (!send({type:"title_update",title:title})) {alert("サーバーに接続できません");return;}
-  activeLiveTitle = title;
-  renderLiveHeader();
-  document.getElementById("panelTitle").textContent = title;
-  closeLiveTitleDialog();
-}
-
 function setLiveBackground(kind) {
   const overlay = 'linear-gradient(rgba(4,5,17,.28), rgba(4,5,17,.58)), ';
   const backgrounds = {
@@ -3033,10 +2880,8 @@ function sendComment() {
     );
 
 
-  const rawText = input.value.trim();
-  const text = (typeof Intl !== "undefined" && Intl.Segmenter)
-    ? Array.from(new Intl.Segmenter("ja", {granularity:"grapheme"}).segment(rawText), x => x.segment).slice(0,200).join("")
-    : Array.from(rawText).slice(0,200).join("");
+  const text =
+    input.value.trim();
 
 
   if (!text) {
@@ -3066,39 +2911,54 @@ function sendComment() {
 }
 
 
-function addComment(name, text, clientId, avatar) {
-  const list = document.getElementById("commentList");
-  if (!list) return;
+function addComment(
+  name,
+  text,
+  clientId
+) {
+
+  const list =
+    document.getElementById(
+      "commentList"
+    );
+
+
   const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 30;
-  const item = document.createElement("div");
-  item.className = "comment-item";
+
+  const item =
+    document.createElement(
+      "div"
+    );
+
+
+  item.className =
+    "comment-item";
+
+
   if (clientId && typeof clientId === "string") {
-    const profile = presenceMembers.find(m => m.id === clientId) ||
-      (broadcasterProfile && broadcasterProfile.id === clientId ? broadcasterProfile : null) ||
-      socialProfiles[clientId] || {};
-    const photo = (typeof avatar === "string" && avatar.startsWith("data:image/") ? avatar : "") || profile.avatar || "";
-    const icon = document.createElement("button");
-    icon.type = "button";
-    icon.className = "comment-user-avatar";
-    icon.textContent = photo ? "" : emojiSafeLimit(name || "？",1);
-    if (photo.startsWith("data:image/")) icon.style.backgroundImage = 'url("' + photo + '")';
-    icon.onclick = function(){openPresenceProfile(clientId);};
-    const content = document.createElement("div");
-    content.className = "comment-content";
     const nameButton = document.createElement("button");
     nameButton.type = "button";
     nameButton.className = "comment-user-link";
     nameButton.textContent = name || "ゲスト";
-    nameButton.onclick = function(){openPresenceProfile(clientId);};
-    const body = document.createElement("div");
-    body.textContent = text || "";
-    content.append(nameButton, body);
-    item.append(icon, content);
+    nameButton.addEventListener("click", function() {
+      openPresenceProfile(clientId);
+    });
+    item.appendChild(nameButton);
+    item.appendChild(document.createTextNode(": " + (text || "")));
   } else {
     item.textContent = (name ? name + ": " : "") + (text || "");
   }
-  list.appendChild(item);
-  if (wasNearBottom) list.scrollTop = list.scrollHeight;
+
+
+  list.appendChild(
+    item
+  );
+
+
+  if (wasNearBottom) {
+    list.scrollTop = list.scrollHeight;
+  }
+
 }
 
 
@@ -3146,7 +3006,6 @@ function openPanel() {
 
 
 function closePanel() {
-  activeLiveTitle="";
   closePresence();
   if (!isBroadcaster) {
     send({type:"leave_live"});
@@ -3269,56 +3128,13 @@ function applyMyPageBackground() {
 // フォロー一覧：サーバー連携ができるまでは架空のユーザーを表示しない
 function openFollowList(kind) {
   const followers = kind === "followers";
-  const ids = followers ? presenceFollowers : presenceFollowing;
-  const title = document.getElementById("mpFollowTitle");
-  title.textContent = (followers ? "フォロワー" : "フォロー中") + "（" + ids.length + "人）";
+  document.getElementById("mpFollowTitle").textContent = followers ? "フォロワー" : "フォロー中";
   const container = document.getElementById("mpFollowContents");
   container.replaceChildren();
-  if (!ids.length) {
-    const message = document.createElement("p");
-    message.textContent = "まだユーザーはいません。";
-    container.appendChild(message);
-  } else {
-    ids.forEach(function(id) {
-      const member = socialProfiles[id] || {};
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "mp-follow-user";
-      const avatar = document.createElement("span");
-      avatar.className = "mp-follow-user-avatar";
-      if (member.avatar) {
-        const img = document.createElement("img");
-        img.src = member.avatar;
-        img.alt = "";
-        img.loading = "lazy";
-        img.onerror = function(){img.remove();avatar.textContent="👤";};
-        avatar.appendChild(img);
-      } else {
-        avatar.textContent = "👤";
-      }
-      const name = document.createElement("span");
-      name.className = "mp-follow-user-name";
-      name.textContent = member.name || "ユーザー";
-      const arrow = document.createElement("span");
-      arrow.textContent = "›";
-      arrow.setAttribute("aria-hidden", "true");
-      button.append(avatar, name, arrow);
-      button.onclick = function() {
-        closeFollowList();
-        const existing = presenceMembers.find(m => m.id === id) ||
-          (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null);
-        if (!existing) {
-          presenceMembers.push({id:id,name:member.name||"ユーザー",avatar:member.avatar||"",gender:"未設定",bio:""});
-        }
-        openPresenceProfile(id);
-      };
-      container.appendChild(button);
-    });
-  }
-  const followDialog = document.getElementById("mpFollowDialog");
-  // 視聴者のマイページからも一覧が前面に開くようにする
-  if (followDialog.parentElement !== document.body) document.body.appendChild(followDialog);
-  followDialog.classList.add("active");
+  const message = document.createElement("p");
+  message.textContent = "現在、表示できるユーザーはいません。";
+  container.appendChild(message);
+  document.getElementById("mpFollowDialog").classList.add("active");
 }
 function closeFollowList() {
   const dialog = document.getElementById("mpFollowDialog");
@@ -3326,9 +3142,6 @@ function closeFollowList() {
 }
 
 function showProfile() {
-  // 配信視聴中でもマイページのフォロー人数を最新の受信状態で表示
-  document.getElementById("mpFollowing").textContent = String(presenceFollowing.length);
-  document.getElementById("mpFollowers").textContent = String(presenceFollowers.length);
   applyMyPageBackground();
   const name = localStorage.getItem("voiceBotaProfileName") ||
     (typeof getMyName === "function" ? getMyName() : "月光花");
@@ -3356,27 +3169,12 @@ function editMyPage() {
 function closeMyPageEdit() {
   document.getElementById("mpEditDialog").classList.remove("active");
 }
-// Optional browser console check: voiceBotaUnicodeCheck("Simeji文字")
-// Reports exact Unicode code points; never modifies the original input.
-window.voiceBotaUnicodeCheck = function(value) {
-  const text = String(value == null ? "" : value);
-  const points = Array.from(text, c => "U+" + c.codePointAt(0).toString(16).toUpperCase());
-  console.info("Simeji Unicode", {text, points});
-  return {text, points};
-};
-function emojiSafeLimit(value, max) {
-  const str = String(value == null ? "" : value);
-  if (typeof Intl !== "undefined" && Intl.Segmenter) {
-    return Array.from(new Intl.Segmenter("ja",{granularity:"grapheme"}).segment(str), item=>item.segment).slice(0,max).join("");
-  }
-  return Array.from(str).slice(0,max).join("");
-}
 function saveMyPageEdit() {
-  const name = emojiSafeLimit(document.getElementById("mpNameInput").value.trim(), 30);
+  const name = document.getElementById("mpNameInput").value.trim();
   if (!name) { alert("表示名を入力してください"); return; }
   localStorage.setItem("voiceBotaProfileName", name);
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
-  localStorage.setItem("voiceBotaProfileBio", emojiSafeLimit(document.getElementById("mpBioInput").value.trim(),300));
+  localStorage.setItem("voiceBotaProfileBio", document.getElementById("mpBioInput").value.trim());
   closeMyPageEdit();
   showProfile();
   sendMyProfile();
@@ -3653,7 +3451,7 @@ function getLiveList() {
 function cleanProfile(p){
   if(!p || typeof p !== "object")return {};
   const avatar=typeof p.avatar === "string" && /^data:image\/(jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(p.avatar) && p.avatar.length < 190000 ? p.avatar : "";
-  return {name:limitEmojiText(p.name||"ゲスト",30),avatar:avatar,gender:String(p.gender||"未設定").slice(0,20),bio:String(p.bio||"").slice(0,500)};
+  return {name:String(p.name||"ゲスト").slice(0,30),avatar:avatar,gender:String(p.gender||"未設定").slice(0,20),bio:String(p.bio||"").slice(0,500)};
 }
 
 function sendPresence() {
@@ -3666,9 +3464,7 @@ function sendPresence() {
       members.push({id:client.clientId,name:profile.name || client.liveName || "ゲスト",avatar:profile.avatar || "",gender:profile.gender || "未設定",bio:profile.bio || "",broadcaster:false});
     }
   });
-  const hostProfile = broadcaster.profile || {};
-  const host = {id:broadcaster.clientId,name:liveInfo.name || hostProfile.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true};
-  broadcast({type:"presence_update",members:members,broadcasterProfile:host,title:liveInfo.title});
+  broadcast({type:"presence_update",members:members});
 }
 
 function sendLiveList() {
@@ -3772,10 +3568,7 @@ wss.on(
 
           }
 
-          if(data.profile && typeof data.profile === "object") {
-            ws.profile=cleanProfile(data.profile);
-            if(ws.clientId){socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};saveSocialData();}
-          }
+          if(data.profile && typeof data.profile === "object") ws.profile=cleanProfile(data.profile);
           socialState(ws);
           return;
 
@@ -3797,18 +3590,12 @@ wss.on(
             socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
           }
           saveSocialData();socialState(ws);
-          clients.forEach(other=>{if(other.clientId===target)socialState(other);});
           sendTo(ws,{type:"social_notice",message:action==="follow"?"フォロー設定を更新しました":"ブロック設定を更新しました"});
           if(action==="block")removeBlockedViewer();
           return;
         }
         if(data.type === "profile_update"){
           ws.profile=cleanProfile(data.profile);
-          if(ws.clientId){
-            socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};
-            saveSocialData();
-            clients.forEach(other=>{if(other.clientId!==ws.clientId && (socialIds("following",other.clientId).includes(ws.clientId)||socialIds("following",ws.clientId).includes(other.clientId)))socialState(other);});
-          }
           if(ws.liveJoined)sendPresence();
           return;
         }
@@ -4004,7 +3791,7 @@ wss.on(
           }
           ws.liveJoined = true;
           ws.profile = cleanProfile(data.profile || ws.profile);
-          ws.liveName = limitEmojiText(String(data.name || "ゲスト").trim(),30) || "ゲスト";
+          ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
           sendPresence();
           sendTo(
             ws,
@@ -4100,19 +3887,6 @@ wss.on(
            BACKGROUND UPDATE
         ===================== */
 
-        if (data.type === "title_update") {
-          if (ws === broadcaster && liveInfo.active && typeof data.title === "string") {
-            const title = limitEmojiText(data.title.trim(),100);
-            if (title) {
-              liveInfo.title = title;
-              broadcast({type:"title_update",title:title});
-              sendLiveList();
-              sendPresence();
-            }
-          }
-          return;
-        }
-
         if (data.type === "background_update") {
           if (ws === broadcaster && typeof data.background === "string") {
             // 背景設定は長さを制限して保存・配信
@@ -4139,11 +3913,16 @@ wss.on(
               "comment",
 
             clientId: ws.clientId,
-            avatar: (ws.profile && typeof ws.profile.avatar === "string") ? ws.profile.avatar : "",
-            name: limitEmojiText(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト"),30),
+            name: String((ws.profile && ws.profile.name) || ws.liveName || data.name || "ゲスト").substring(0,30),
 
             text:
-              limitEmojiText(data.text || "", 200)
+              String(
+                data.text ||
+                ""
+              ).substring(
+                0,
+                200
+              )
 
           });
 

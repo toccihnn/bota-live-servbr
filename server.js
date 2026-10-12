@@ -912,7 +912,7 @@ button {
 
 /* 入室者アイコン：配信者・視聴者共通 */
 .presence-strip{position:absolute;top:max(78px,env(safe-area-inset-top) + 62px);left:14px;z-index:8;display:flex;align-items:center;gap:5px;max-width:calc(100% - 100px)}
-.presence-avatar{width:34px;height:34px;border-radius:50%;border:2px solid #ffffff88;background:linear-gradient(135deg,#557bff,#c36aff);color:white;font-size:15px;font-weight:bold}
+.presence-avatar{background-size:cover;background-position:center;background-repeat:no-repeat;width:34px;height:34px;border-radius:50%;border:2px solid #ffffff88;background:linear-gradient(135deg,#557bff,#c36aff);color:white;font-size:15px;font-weight:bold}
 .presence-more{border:1px solid #ffffff66;background:#10142dbb;color:white;border-radius:18px;padding:8px;font-size:11px}
 .presence-overlay{display:none;position:absolute;inset:0;background:#0009;z-index:20;align-items:center;justify-content:center;padding:24px}
 .presence-overlay.open{display:flex}
@@ -1958,10 +1958,6 @@ async function startLive() {
   );
 
 
-  alert(
-    "配信ボタンを押しました"
-  );
-
 
   if (!connected) {
 
@@ -2308,6 +2304,7 @@ function listenLive(
     "接続中...";
 
 
+  shareProfile();
   send({
 
     type:
@@ -2468,7 +2465,7 @@ async function receiveOffer(
   delete earlyIce[data.from];
 
 
-  pc.addTransceiver("audio",{direction:"recvonly"});
+  // 受信側はofferの音声トラックに応答する。不要なm-lineを追加しない。
   pc.oniceconnectionstatechange=function(){
     const label=document.getElementById("audioText");
     if(label && pc.iceConnectionState!=="connected" && pc.iceConnectionState!=="completed")label.textContent="音声通信: "+pc.iceConnectionState;
@@ -3791,6 +3788,8 @@ wss.on(
 
           if(isBlockedEither(ws.clientId,broadcaster.clientId)){denyBlocked(ws);return;}
           ws.liveJoined = true;
+          // 入室時のプロフィールを同期。旧端末・保存済みの情報も利用する
+          if(!socialDB.users[ws.clientId]) socialDB.users[ws.clientId]={name:ws.liveName||"ゲスト",avatar:"",bio:"",gender:""};
           sendTo(ws,{type:"room_joined",viewerId:ws.clientId});
           ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
           sendPresence();

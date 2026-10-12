@@ -1007,6 +1007,14 @@ button {
 .mp-follow-title{display:flex;align-items:center;justify-content:space-between;font-size:18px;border-bottom:1px solid #ffffff33;padding-bottom:12px}
 .mp-follow-title button{font-size:28px;background:transparent;border:0;color:white;cursor:pointer;padding:0 8px}
 .mp-follow-contents{padding:28px 4px;text-align:center;color:#e4ddfa}
+/* フォロー中・フォロワー一覧のみ：アイコン＋名前 */
+.mp-follow-contents:has(.mp-follow-user){padding:12px 0;text-align:left}
+.mp-follow-user{display:flex;align-items:center;gap:12px;width:100%;padding:10px 5px;border:0;border-bottom:1px solid #ffffff22;background:transparent;color:white;text-align:left;cursor:pointer;font:inherit}
+.mp-follow-user-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:#38446d;font-size:22px;overflow:hidden}
+.mp-follow-user-avatar img{width:100%;height:100%;object-fit:cover}
+.mp-follow-user-name{flex:1;min-width:0;font-size:15px;font-weight:700;overflow-wrap:anywhere}
+.mp-follow-user>span:last-child{font-size:24px;color:#b7bde0}
+
 /* ホーム画面の上部ロゴを削除した分の余白調整 */
 .hero { margin-top: 0; }
 </style>
@@ -3149,29 +3157,47 @@ function applyMyPageBackground() {
 // フォロー一覧：サーバー連携ができるまでは架空のユーザーを表示しない
 function openFollowList(kind) {
   const followers = kind === "followers";
-  document.getElementById("mpFollowTitle").textContent = followers ? "フォロワー" : "フォロー中";
+  const ids = followers ? presenceFollowers : presenceFollowing;
+  const title = document.getElementById("mpFollowTitle");
+  title.textContent = (followers ? "フォロワー" : "フォロー中") + "（" + ids.length + "人）";
   const container = document.getElementById("mpFollowContents");
   container.replaceChildren();
-  const ids=followers?presenceFollowers:presenceFollowing;
-  if(!ids.length){
-    const message=document.createElement("p");
-    message.textContent="まだユーザーはいません。";
+  if (!ids.length) {
+    const message = document.createElement("p");
+    message.textContent = "まだユーザーはいません。";
     container.appendChild(message);
-  }else{
-    ids.forEach(function(id){
-      const member=socialProfiles[id]||{};
-      const button=document.createElement("button");
-      button.type="button";
-      button.style.cssText="display:block;width:100%;padding:14px;margin:7px 0;border:1px solid #ffffff55;border-radius:12px;background:#242a4d;color:white;text-align:left";
-      button.textContent="👤 "+(member.name||"ユーザー");
-      button.onclick=function(){
+  } else {
+    ids.forEach(function(id) {
+      const member = socialProfiles[id] || {};
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mp-follow-user";
+      const avatar = document.createElement("span");
+      avatar.className = "mp-follow-user-avatar";
+      if (member.avatar) {
+        const img = document.createElement("img");
+        img.src = member.avatar;
+        img.alt = "";
+        img.loading = "lazy";
+        avatar.appendChild(img);
+      } else {
+        avatar.textContent = "👤";
+      }
+      const name = document.createElement("span");
+      name.className = "mp-follow-user-name";
+      name.textContent = member.name || "ユーザー";
+      const arrow = document.createElement("span");
+      arrow.textContent = "›";
+      arrow.setAttribute("aria-hidden", "true");
+      button.append(avatar, name, arrow);
+      button.onclick = function() {
         closeFollowList();
-        const existing=presenceMembers.find(m=>m.id===id)||(broadcasterProfile&&broadcasterProfile.id===id?broadcasterProfile:null);
-        if(existing){openPresenceProfile(id);}
-        else{
+        const existing = presenceMembers.find(m => m.id === id) ||
+          (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null);
+        if (!existing) {
           presenceMembers.push({id:id,name:member.name||"ユーザー",avatar:member.avatar||"",gender:"未設定",bio:""});
-          openPresenceProfile(id);
         }
+        openPresenceProfile(id);
       };
       container.appendChild(button);
     });

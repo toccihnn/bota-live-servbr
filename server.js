@@ -1792,10 +1792,9 @@ function handleMessage(data) {
   ) {
 
     addComment(
-      "システム",
-      "❤️ " +
-      data.name +
-      " さんがいいねしました"
+      data.name || "ゲスト",
+      "❤️ いいねしました",
+      data.clientId
     );
 
     return;
@@ -2953,7 +2952,7 @@ function addComment(
     item.appendChild(nameButton);
     item.appendChild(document.createTextNode(": " + (text || "")));
   } else {
-    item.textContent = (name || "システム") + ": " + (text || "");
+    item.textContent = (name ? name + ": " : "") + (text || "");
   }
 
 
@@ -3464,10 +3463,7 @@ function cleanProfile(p){
 function sendPresence() {
   if (!liveInfo.active || !broadcaster) return;
   const members = [];
-  if (broadcaster.readyState === WebSocket.OPEN) {
-    const hostProfile = broadcaster.profile || {};
-    members.push({id:broadcaster.clientId,name:hostProfile.name || liveInfo.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true});
-  }
+  // 参加者アイコンは視聴者だけ表示する（配信者は除外）
   clients.forEach(function(client) {
     if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
       const profile=client.profile || {};
@@ -3956,10 +3952,13 @@ wss.on(
             type:
               "like",
 
+            clientId: ws.clientId,
             name:
               String(
+                ((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト") ? ws.profile.name : "") ||
+                (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") ||
                 data.name ||
-                "ユーザー"
+                "ゲスト"
               ).substring(
                 0,
                 30

@@ -1081,6 +1081,28 @@ button {
   font-variant-ligatures: normal;
 }
 
+
+/* Simeji / Unicode text: apply the same fallback stack to every editable text field and user-generated text. */
+:root { --vb-unicode-font: "Noto Sans", "Noto Sans JP", "Noto Sans Symbols 2", "Noto Sans Symbols", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", "Segoe UI Emoji", system-ui, sans-serif; }
+html, body, input:not([type="file"]), textarea, select, button,
+[contenteditable="true"], .comment-item, .comment-item *, .live-top-title,
+.live-host-info, .live-host-info *, .social-list, .social-list *,
+.mp-dialog, .mp-dialog *, .presence-strip, .presence-strip * {
+  font-family: var(--vb-unicode-font) !important;
+}
+input:not([type="file"]), textarea, [contenteditable="true"] {
+  font-variant-ligatures: normal;
+  font-feature-settings: normal;
+  text-transform: none;
+  unicode-bidi: plaintext;
+}
+#vbTitleDialog { position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:none;align-items:center;justify-content:center;padding:18px; }
+#vbTitleDialog.active {display:flex;}
+#vbTitleDialog .vb-title-box {background:#211c31;color:white;width:min(100%,420px);padding:20px;border-radius:15px;box-sizing:border-box;}
+#vbTitleDialog input {width:100%;box-sizing:border-box;background:#fff;color:#161616;font-size:17px;border-radius:9px;padding:12px;border:1px solid #999;margin:14px 0;}
+#vbTitleDialog .vb-title-actions {display:flex;justify-content:flex-end;gap:10px;}
+#vbTitleDialog button {border:0;border-radius:9px;padding:10px 14px;}
+
 </style>
 
 </head>
@@ -1356,15 +1378,22 @@ button {
     <div id="mpFollowContents" class="mp-follow-contents">まだ表示できるユーザーはいません。</div>
   </div>
 </div>
+<div id="vbTitleDialog" role="dialog" aria-modal="true" aria-label="配信タイトル編集">
+  <div class="vb-title-box">
+    <strong>配信タイトルを編集</strong>
+    <input id="vbTitleInput" type="text" inputmode="text" autocomplete="off" placeholder="絵文字・Simeji特殊文字も入力できます">
+    <div class="vb-title-actions"><button type="button" onclick="closeLiveTitleDialog()">キャンセル</button><button type="button" onclick="saveLiveTitleDialog()">保存する</button></div>
+  </div>
+</div>
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
     <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
-    <input id="mpNameInput" placeholder="表示名を入力">
+    <input id="mpNameInput" type="text" inputmode="text" placeholder="表示名を入力">
     <label for="mpGenderInput">性別</label>
     <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
     <label for="mpBioInput">自己紹介</label>
-    <textarea id="mpBioInput" maxlength="300" rows="5" placeholder="自己紹介を入力"></textarea>
+    <textarea id="mpBioInput" rows="5" placeholder="自己紹介を入力"></textarea>
     <div class="mp-dialog-actions"><button type="button" onclick="closeMyPageEdit()">キャンセル</button><button type="button" onclick="saveMyPageEdit()">保存する</button></div>
   </div>
 </div>
@@ -2926,14 +2955,23 @@ function publishLiveBackground(background) {
 
 function editLiveTitle() {
   if (!isBroadcaster || !connected) return;
-  const value = prompt("新しい配信タイトルを入力してください", activeLiveTitle || "");
-  if (value === null) return;
-  const title = emojiSafeLimit(value.trim(), 100);
-  if (!title) { alert("配信タイトルを入力してください"); return; }
+  const input = document.getElementById("vbTitleInput");
+  input.value = activeLiveTitle || "";
+  document.getElementById("vbTitleDialog").classList.add("active");
+  input.focus();
+}
+function closeLiveTitleDialog() {
+  document.getElementById("vbTitleDialog").classList.remove("active");
+}
+function saveLiveTitleDialog() {
+  if (!isBroadcaster || !connected) return;
+  const title = emojiSafeLimit(document.getElementById("vbTitleInput").value.trim(),100);
+  if (!title) {alert("配信タイトルを入力してください");return;}
   if (!send({type:"title_update",title:title})) {alert("サーバーに接続できません");return;}
   activeLiveTitle = title;
   renderLiveHeader();
   document.getElementById("panelTitle").textContent = title;
+  closeLiveTitleDialog();
 }
 
 function setLiveBackground(kind) {
@@ -3339,7 +3377,7 @@ function saveMyPageEdit() {
   if (!name) { alert("表示名を入力してください"); return; }
   localStorage.setItem("voiceBotaProfileName", name);
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
-  localStorage.setItem("voiceBotaProfileBio", document.getElementById("mpBioInput").value.trim());
+  localStorage.setItem("voiceBotaProfileBio", emojiSafeLimit(document.getElementById("mpBioInput").value.trim(),300));
   closeMyPageEdit();
   showProfile();
   sendMyProfile();

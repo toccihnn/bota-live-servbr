@@ -1185,7 +1185,7 @@ button {
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
-  <div id="liveViewerNotice" style="position:absolute;top:114px;left:14px;z-index:8;color:white;font-size:12px;text-shadow:0 1px 5px #000;pointer-events:none">視聴者 0人</div>
+  <div id="liveViewerNotice" style="position:absolute;top:102px;left:14px;right:14px;z-index:50;color:white;font-size:12px;text-shadow:0 1px 5px #000;pointer-events:none">視聴者 0人</div>
   <div class="presence-strip" id="presenceStrip" aria-label="現在の参加者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
     <div class="presence-dialog" onclick="event.stopPropagation()">
@@ -1621,6 +1621,11 @@ function openPresence() { document.getElementById("presenceOverlay").classList.a
 function closePresence() { document.getElementById("presenceOverlay").classList.remove("open"); }
 
 function handleMessage(data) {
+  if(data.type==="viewer_joined_notice"){
+    const el=document.getElementById("liveViewerNotice");
+    if(el)el.textContent=(data.name||"ゲスト")+" さんが入室しました（視聴者 "+data.count+"人）";
+    return;
+  }
   if(data.type==="room_joined"){
     const el=document.getElementById("audioText");
     if(el)el.textContent="入室しました・音声接続中…";
@@ -1707,7 +1712,7 @@ function handleMessage(data) {
     data.type ===
     "viewer_joined"
   ) {
-
+    setPanelStatus("視聴者が入室しました・音声接続中…");
     createOffer(
       data.viewerId
     );
@@ -1721,7 +1726,8 @@ function handleMessage(data) {
     data.type ===
     "offer"
   ) {
-
+    const el=document.getElementById("audioText");
+    if(el)el.textContent="配信者の音声接続情報を受信・接続中…";
     receiveOffer(
       data
     );
@@ -2431,10 +2437,8 @@ async function createOffer(
 
   } catch(error) {
 
-    console.error(
-      "CREATE OFFER ERROR",
-      error
-    );
+    console.error("CREATE OFFER ERROR",error);
+    setPanelStatus("音声送信エラー: "+error.message);
 
   }
 
@@ -2609,10 +2613,9 @@ async function receiveOffer(
 
   } catch(error) {
 
-    console.error(
-      "RECEIVE OFFER ERROR",
-      error
-    );
+    console.error("RECEIVE OFFER ERROR",error);
+    const el=document.getElementById("audioText");
+    if(el)el.textContent="音声受信エラー: "+error.message;
 
   }
 
@@ -2652,10 +2655,8 @@ async function receiveAnswer(
 
   } catch(error) {
 
-    console.error(
-      "ANSWER ERROR",
-      error
-    );
+    console.error("ANSWER ERROR",error);
+    setPanelStatus("音声応答エラー: "+error.message);
 
   }
 
@@ -3793,6 +3794,8 @@ wss.on(
           sendTo(ws,{type:"room_joined",viewerId:ws.clientId});
           ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
           sendPresence();
+          const liveCount=[...clients].filter(c=>c!==broadcaster&&c.liveJoined&&c.readyState===WebSocket.OPEN).length;
+          sendTo(broadcaster,{type:"viewer_joined_notice",name:ws.liveName,count:liveCount});
           sendTo(
             ws,
             {

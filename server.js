@@ -1094,6 +1094,33 @@ button {
 /* Keep received text independent from display-font effects elsewhere. */
 #commentList .comment-item { font-family: sans-serif; font-variant: normal; font-feature-settings: normal; }
 
+
+/* Sent comments: use the same native Android text renderer as the editor. */
+#commentList .comment-simeji-text {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 22px;
+  height: auto;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+  font-family: sans-serif !important;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  pointer-events: auto;
+}
+
 </style>
 
 </head>
@@ -3112,9 +3139,19 @@ function addComment(name, text, clientId, avatar) {
     nameButton.className = "comment-user-link";
     nameButton.textContent = name || "ゲスト";
     nameButton.onclick = function(){openPresenceProfile(clientId);};
-    const body = document.createElement("div");
-    body.textContent = text || "";
+    // Use a native text field for sent comments, matching Simeji's input rendering.
+    // Keep the original Unicode string untouched (no HTML conversion).
+    const body = document.createElement("textarea");
+    body.className = "comment-simeji-text";
+    body.readOnly = true;
+    body.tabIndex = -1;
+    body.rows = 1;
+    body.value = String(text == null ? "" : text);
     content.append(nameButton, body);
+    requestAnimationFrame(function(){
+      body.style.height = "auto";
+      body.style.height = Math.max(22, body.scrollHeight) + "px";
+    });
     item.append(icon, content);
   } else {
     item.textContent = (name ? name + ": " : "") + (text || "");

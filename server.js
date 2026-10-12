@@ -998,6 +998,8 @@ button {
 .mp-follow-title{display:flex;align-items:center;justify-content:space-between;font-size:18px;border-bottom:1px solid #ffffff33;padding-bottom:12px}
 .mp-follow-title button{font-size:28px;background:transparent;border:0;color:white;cursor:pointer;padding:0 8px}
 .mp-follow-contents{padding:28px 4px;text-align:center;color:#e4ddfa}
+/* ホーム画面の上部ロゴを削除した分の余白調整 */
+.hero { margin-top: 0; }
 </style>
 
 </head>
@@ -1008,13 +1010,7 @@ button {
 <div class="app">
 
 
-<header class="header">
 
-  <div class="logo">
-    voiceボタLive
-  </div>
-
-</header>
 
 
 <section class="hero">
@@ -1035,9 +1031,7 @@ button {
 
   <div class="hero-content">
 
-    <div class="hero-small">
-      声でつながる、みんなの居場所。
-    </div>
+    
 
     <h1 class="hero-title">
 

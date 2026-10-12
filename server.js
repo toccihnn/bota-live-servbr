@@ -3086,7 +3086,6 @@ function getLiveList() {
 function sendPresence() {
   if (!liveInfo.active || !broadcaster) return;
   const members = [];
-  members.push({id:broadcaster.clientId,name:liveInfo.name,broadcaster:true});
   clients.forEach(function(client) {
     if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
       members.push({id:client.clientId,name:client.liveName || "ゲスト",broadcaster:false});

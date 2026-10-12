@@ -958,6 +958,16 @@ button {
 #myPageScreen .mp-bio-text{white-space:pre-wrap;overflow-wrap:anywhere;padding:14px 16px;min-height:75px;line-height:1.7}
 #mpEditDialog .mp-dialog{background:#242345;color:white}
 #mpEditDialog .mp-dialog select,#mpEditDialog .mp-dialog textarea{display:block;width:100%;padding:11px;margin:9px 0 13px;border-radius:8px;border:1px solid #ccc;background:white;color:#222;font-size:16px}
+
+/* マイページ：フォロー一覧のタップ表示 */
+#myPageScreen .mp-follow-button{border:0;background:transparent;color:inherit;min-width:100px;cursor:pointer;padding:10px 8px;border-radius:12px;font:inherit}
+#myPageScreen .mp-follow-button:active{background:#ffffff26}
+.mp-follow-dialog{display:none;position:fixed;inset:0;z-index:3500;background:#06091bc9;align-items:center;justify-content:center;padding:18px}
+.mp-follow-dialog.active{display:flex}
+.mp-follow-panel{width:min(100%,430px);max-height:75vh;overflow-y:auto;background:#1b2048;color:white;border:1px solid #cfb4ff;border-radius:18px;padding:18px;box-shadow:0 14px 40px #0008}
+.mp-follow-title{display:flex;align-items:center;justify-content:space-between;font-size:18px;border-bottom:1px solid #ffffff33;padding-bottom:12px}
+.mp-follow-title button{font-size:28px;background:transparent;border:0;color:white;cursor:pointer;padding:0 8px}
+.mp-follow-contents{padding:28px 4px;text-align:center;color:#e4ddfa}
 </style>
 
 </head>
@@ -1203,7 +1213,10 @@ button {
     
     <div class="mp-gender" id="mpGenderLabel">性別：未設定</div>
   </div>
-  <div class="mp-follow"><div><strong id="mpFollowing">0</strong><small>フォロー中</small></div><div><strong id="mpFollowers">0</strong><small>フォロワー</small></div></div>
+  <div class="mp-follow">
+    <button type="button" class="mp-follow-button" onclick="openFollowList('following')"><strong id="mpFollowing">0</strong><small>フォロー中</small></button>
+    <button type="button" class="mp-follow-button" onclick="openFollowList('followers')"><strong id="mpFollowers">0</strong><small>フォロワー</small></button>
+  </div>
   <button class="mp-item" type="button" onclick="changeMyPageAvatar()"><span>◉ &nbsp; アイコンを変更</span><span>›</span></button>
   <button class="mp-item" type="button" onclick="editMyPage()"><span>✎ &nbsp; プロフィール編集</span><span>›</span></button>
   <button class="mp-item" type="button" onclick="myPageInfo('コインの購入・利用履歴は準備中です')"><span>🟡 &nbsp; もっているコイン</span><span><b id="mpCoinCount">0</b> &nbsp; ›</span></button>
@@ -1215,6 +1228,12 @@ button {
   <button class="mp-item" type="button" onclick="myPageInfo('お問い合わせ機能は準備中です')"><span>✉ &nbsp; お問い合わせ・困ったときは</span><span>›</span></button>
   <input id="mpAvatarFile" type="file" accept="image/*" style="display:none" onchange="saveMyPageAvatar(this)">
 </section>
+<div id="mpFollowDialog" class="mp-follow-dialog" role="dialog" aria-modal="true" aria-labelledby="mpFollowTitle" onclick="closeFollowList()">
+  <div class="mp-follow-panel" onclick="event.stopPropagation()">
+    <div class="mp-follow-title"><strong id="mpFollowTitle">フォロー中</strong><button type="button" onclick="closeFollowList()" aria-label="閉じる">×</button></div>
+    <div id="mpFollowContents" class="mp-follow-contents">まだ表示できるユーザーはいません。</div>
+  </div>
+</div>
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
@@ -2978,6 +2997,22 @@ function applyMyPageBackground() {
     screen.style.backgroundAttachment = "scroll";
   }
 }
+// フォロー一覧：サーバー連携ができるまでは架空のユーザーを表示しない
+function openFollowList(kind) {
+  const followers = kind === "followers";
+  document.getElementById("mpFollowTitle").textContent = followers ? "フォロワー" : "フォロー中";
+  const container = document.getElementById("mpFollowContents");
+  container.replaceChildren();
+  const message = document.createElement("p");
+  message.textContent = "現在、表示できるユーザーはいません。";
+  container.appendChild(message);
+  document.getElementById("mpFollowDialog").classList.add("active");
+}
+function closeFollowList() {
+  const dialog = document.getElementById("mpFollowDialog");
+  if (dialog) dialog.classList.remove("active");
+}
+
 function showProfile() {
   applyMyPageBackground();
   const name = localStorage.getItem("voiceBotaProfileName") ||

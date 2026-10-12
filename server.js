@@ -1188,7 +1188,7 @@ button {
 <!-- 月光花マイページ：既存ホーム・配信画面と独立 -->
 <section id="myPageScreen" aria-label="マイページ">
   <div class="mp-head">
-    <button class="mp-icon-btn" type="button" onclick="closeMyPage()" aria-label="戻る">‹</button>
+    <button class="mp-icon-btn" type="button" onclick="goHome()" aria-label="ホームに戻る">🏠</button>
     <div class="mp-name">マイページ</div>
     <button class="mp-icon-btn" type="button" onclick="myPageInfo('設定は準備中です')" aria-label="設定">⚙</button>
   </div>
@@ -2901,6 +2901,11 @@ function setPanelStatus(
 ========================================================= */
 
 function goHome() {
+
+  const myPage = document.getElementById("myPageScreen");
+  if (myPage) myPage.classList.remove("active");
+  const editDialog = document.getElementById("mpEditDialog");
+  if (editDialog) editDialog.classList.remove("active");
 
   window.scrollTo({
 

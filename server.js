@@ -78,6 +78,9 @@ const HTML = String.raw`
 <title>voiceボタLive</title>
 
 <style>
+/* Simeji decorative Unicode characters: optional fallback web fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&family=Noto+Sans+Math&display=swap');
+
 
 * {
   box-sizing: border-box;
@@ -1064,6 +1067,20 @@ button {
 #livePanel .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
 #livePanel:not(.is-broadcaster) .live-host-info,#livePanel:not(.is-broadcaster) .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
 
+
+/* Preserve original Unicode and try additional symbol glyphs for user text. */
+#commentInput, #mpNameInput, #mpBioInput,
+.comment-item, .comment-item *, .live-top-title,
+.live-host-info, .live-host-info *,
+.presence-strip, .presence-strip *,
+#mpMoonName, #presenceProfileName, #presenceProfileBio,
+#panelTitle, .social-list, .social-list * {
+  font-family: system-ui, "Apple Color Emoji", "Noto Color Emoji",
+    "Segoe UI Emoji", "Noto Sans Symbols 2", "Noto Sans Math",
+    "Noto Sans Symbols", "Noto Sans JP", sans-serif;
+  font-variant-ligatures: normal;
+}
+
 </style>
 
 </head>
@@ -1295,7 +1312,7 @@ button {
     <div class="comment-list" id="commentList" aria-label="コメント一覧"></div>
   </div>
   <div class="comment-input">
-    <input id="commentInput" type="text" inputmode="text" maxlength="400" placeholder="コメントを入力...">
+    <input id="commentInput" type="text" inputmode="text" placeholder="コメントを入力...">
     <button type="button" onclick="sendComment()" aria-label="コメント送信">➤</button>
   </div>
   <button id="stopButton" class="panel-button stop-button" type="button" onclick="stopLive()" style="display:none">⛔ 配信を終了する</button>
@@ -1343,7 +1360,7 @@ button {
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
     <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
-    <input id="mpNameInput" maxlength="120" placeholder="表示名を入力">
+    <input id="mpNameInput" placeholder="表示名を入力">
     <label for="mpGenderInput">性別</label>
     <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
     <label for="mpBioInput">自己紹介</label>
@@ -1626,7 +1643,7 @@ function sendMyProfile(){
 }
 function paintPresenceAvatar(el,member){
   const photo = member.avatar || "";
-  el.textContent = photo ? "" : (member.name || "？").slice(0,1);
+  el.textContent = photo ? "" : emojiSafeLimit(member.name || "？",1);
   el.style.backgroundImage = photo && photo.startsWith("data:image/") ? 'url("' + photo + '")' : "";
 }
 let presenceProfileTarget = null;
@@ -3034,7 +3051,7 @@ function addComment(name, text, clientId, avatar) {
     const icon = document.createElement("button");
     icon.type = "button";
     icon.className = "comment-user-avatar";
-    icon.textContent = photo ? "" : (name || "？").slice(0,1);
+    icon.textContent = photo ? "" : emojiSafeLimit(name || "？",1);
     if (photo.startsWith("data:image/")) icon.style.backgroundImage = 'url("' + photo + '")';
     icon.onclick = function(){openPresenceProfile(clientId);};
     const content = document.createElement("div");
@@ -4086,7 +4103,7 @@ wss.on(
 
             clientId: ws.clientId,
             avatar: (ws.profile && typeof ws.profile.avatar === "string") ? ws.profile.avatar : "",
-            name: String(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト")).substring(0,30),
+            name: limitEmojiText(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト"),30),
 
             text:
               limitEmojiText(data.text || "", 200)

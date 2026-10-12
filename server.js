@@ -1185,6 +1185,7 @@ button {
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
+  <div id="liveViewerNotice" style="position:absolute;top:114px;left:14px;z-index:8;color:white;font-size:12px;text-shadow:0 1px 5px #000;pointer-events:none">視聴者 0人</div>
   <div class="presence-strip" id="presenceStrip" aria-label="現在の参加者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
     <div class="presence-dialog" onclick="event.stopPropagation()">
@@ -1581,6 +1582,8 @@ function renderPresence() {
   if (!strip || !list) return;
   strip.replaceChildren();
   list.replaceChildren();
+  const notice=document.getElementById("liveViewerNotice");
+  if(notice)notice.textContent="視聴者 "+presenceMembers.length+"人"+(presenceMembers.length ? " ・ "+presenceMembers.slice(0,2).map(m=>m.name).join("、")+" が入室中" : "");
   document.getElementById("presenceHeading").textContent = "参加者一覧 (" + presenceMembers.length + "人)";
   presenceMembers.slice(0,3).forEach(function(member) {
     const button = document.createElement("button");
@@ -1588,7 +1591,7 @@ function renderPresence() {
     if(member.avatar){button.style.backgroundImage="url("+JSON.stringify(member.avatar)+")";button.style.backgroundSize="cover";button.style.backgroundPosition="center";}
     else button.textContent = (member.name || "？").slice(0,1);
     button.title = member.name;
-    button.onclick = openPresence;
+    button.onclick = () => openUserActions(member.id,member.name);
     strip.appendChild(button);
   });
   if (presenceMembers.length > 3) {
@@ -1616,6 +1619,11 @@ function openPresence() { document.getElementById("presenceOverlay").classList.a
 function closePresence() { document.getElementById("presenceOverlay").classList.remove("open"); }
 
 function handleMessage(data) {
+  if(data.type==="room_joined"){
+    const el=document.getElementById("audioText");
+    if(el)el.textContent="入室しました・音声接続中…";
+    return;
+  }
   if(data.type==="access_denied"){
     alert(data.reason||"ブロックされているため利用できません");
     if(typeof stopListening==="function")try{stopListening();}catch(e){}
@@ -1627,8 +1635,14 @@ function handleMessage(data) {
     renderSocial();renderPresence();return;
   }
   if (data.type === "presence_update") {
+    const oldIds=new Set(presenceMembers.map(m=>m.id));
     presenceMembers = (Array.isArray(data.members) ? data.members : []).filter(m=>!socialState.blocked.includes(m.id));
     renderPresence();
+    const joined=presenceMembers.filter(m=>!oldIds.has(m.id));
+    if(joined.length && isBroadcaster){
+      const el=document.getElementById("liveViewerNotice");
+      if(el)el.textContent=joined[joined.length-1].name+" さんが入室しました（視聴者 "+presenceMembers.length+"人）";
+    }
     return;
   }
 
@@ -2449,8 +2463,11 @@ async function receiveOffer(
 
 
   pc.onconnectionstatechange=function(){
+    const label=document.getElementById("audioText");
+    if(label)label.textContent="音声接続: "+pc.connectionState;
     if(pc.connectionState==="failed"){
       setPanelStatus("音声接続に失敗しました。通信環境を確認してください（TURNサーバーが必要な場合があります）");
+      const status=document.getElementById("audioText");if(status)status.textContent="⚠ 音声接続失敗（TURN設定が必要な可能性）";
       document.getElementById("audioButton").style.display="block";
     }
   };
@@ -2660,11 +2677,9 @@ async function receiveIce(
 
 
   if (!pc) {
-
+    (earlyIce[data.from] ||= []).push(data.candidate);
     return;
-
   }
-
 
   if (!pc.remoteDescription) {
     (pc._pendingIce ||= []).push(data.candidate);
@@ -3560,7 +3575,7 @@ wss.on(
           }
 
           ws.liveName=String(data.name||"ユーザー").slice(0,30);
-          socialDB.users[ws.clientId]={name:ws.liveName,avatar:typeof data.avatar==="string" && data.avatar.startsWith("data:image/") && data.avatar.length<130000 ? data.avatar : (socialDB.users[ws.clientId]?.avatar||"")};saveSocial();socialSend(ws);sendPresence();
+          socialDB.users[ws.clientId]={name:ws.liveName,avatar:typeof data.avatar==="string" && data.avatar.startsWith("data:image/") && data.avatar.length<900000 ? data.avatar : (socialDB.users[ws.clientId]?.avatar||"")};saveSocial();socialSend(ws);sendPresence();
           return;
 
         }
@@ -3775,6 +3790,7 @@ wss.on(
 
           if(isBlockedEither(ws.clientId,broadcaster.clientId)){denyBlocked(ws);return;}
           ws.liveJoined = true;
+          sendTo(ws,{type:"room_joined",viewerId:ws.clientId});
           ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
           sendPresence();
           sendTo(

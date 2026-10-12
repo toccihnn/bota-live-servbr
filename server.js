@@ -908,6 +908,8 @@ button {
 #livePanel:not(.is-broadcaster) #audioButton {display:block;top:130px;left:18px;z-index:9}
 #livePanel:not(.is-broadcaster) #audioText {position:absolute;top:174px;left:18px;z-index:8;font-size:11px}
 
+#livePanel.is-broadcaster #editLiveTitleAction{display:flex!important}
+#livePanel:not(.is-broadcaster) #editLiveTitleAction{display:none!important}
 /* 配信中ヘッダー：タイトル上部、配信者は左、視聴者は右 */
 #livePanel .live-top-title{position:absolute;top:max(18px,env(safe-area-inset-top));left:16px;right:72px;z-index:8;color:white;font-size:16px;font-weight:900;line-height:1.4;text-shadow:0 2px 6px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
 #livePanel .live-host-info{position:absolute;top:max(61px,calc(env(safe-area-inset-top) + 43px));left:14px;z-index:8;display:flex!important;align-items:center;gap:7px;max-width:42%;min-width:0}
@@ -1249,6 +1251,7 @@ button {
     <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
     <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>
     <button id="backgroundAction" class="live-action" type="button" onclick="toggleBackgroundPanel()"><span class="action-emoji">🎨</span><span>背景</span></button>
+    <button id="editLiveTitleAction" class="live-action" type="button" onclick="editLiveTitle()"><span class="action-emoji">✏️</span><span>タイトル</span></button>
   </div>
 
   <div class="comments">
@@ -1730,6 +1733,13 @@ function handleMessage(data) {
   }
 
 
+  if (data.type === "title_update") {
+    activeLiveTitle = String(data.title || "配信中");
+    renderLiveHeader();
+    document.getElementById("panelTitle").textContent = activeLiveTitle;
+    return;
+  }
+
   if (data.type === "background_update") {
     if (data.background) applyLiveBackground(data.background);
     return;
@@ -2152,6 +2162,8 @@ async function startLive() {
   }
 
 
+  activeLiveTitle = title;
+  renderLiveHeader();
   isBroadcaster =
     true;
   document.getElementById("livePanel").classList.add("is-broadcaster");
@@ -2866,6 +2878,18 @@ function publishLiveBackground(background) {
   if (isBroadcaster && connected) {
     send({ type: 'background_update', background: background });
   }
+}
+
+function editLiveTitle() {
+  if (!isBroadcaster || !connected) return;
+  const value = prompt("新しい配信タイトルを入力してください", activeLiveTitle || "");
+  if (value === null) return;
+  const title = value.trim().slice(0, 100);
+  if (!title) { alert("配信タイトルを入力してください"); return; }
+  if (!send({type:"title_update",title:title})) {alert("サーバーに接続できません");return;}
+  activeLiveTitle = title;
+  renderLiveHeader();
+  document.getElementById("panelTitle").textContent = title;
 }
 
 function setLiveBackground(kind) {
@@ -4000,6 +4024,19 @@ wss.on(
         /* =====================
            BACKGROUND UPDATE
         ===================== */
+
+        if (data.type === "title_update") {
+          if (ws === broadcaster && liveInfo.active && typeof data.title === "string") {
+            const title = data.title.trim().slice(0, 100);
+            if (title) {
+              liveInfo.title = title;
+              broadcast({type:"title_update",title:title});
+              sendLiveList();
+              sendPresence();
+            }
+          }
+          return;
+        }
 
         if (data.type === "background_update") {
           if (ws === broadcaster && typeof data.background === "string") {

@@ -1027,6 +1027,18 @@ button {
 
 /* ホーム画面の上部ロゴを削除した分の余白調整 */
 .hero { margin-top: 0; }
+
+/* リスナー側：背景の上でもタイトルと参加者が読みやすい */
+#livePanel:not(.is-broadcaster) .live-top-title{top:max(14px,env(safe-area-inset-top));left:14px;right:78px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-height:3.1em;padding:7px 11px;border-radius:12px;background:rgba(5,8,24,.72);backdrop-filter:blur(6px);font-size:17px;line-height:1.45}
+#livePanel:not(.is-broadcaster) .live-host-info{top:max(86px,calc(env(safe-area-inset-top) + 72px));max-width:48%;padding:3px 6px 3px 3px;border-radius:25px;background:rgba(5,8,24,.65)}
+#livePanel:not(.is-broadcaster) .presence-strip{top:max(90px,calc(env(safe-area-inset-top) + 76px));right:14px;max-width:43%;gap:4px}
+#livePanel:not(.is-broadcaster) .presence-strip .presence-avatar{width:34px;height:34px}
+/* 配信者・リスナー双方のコメント投稿者画像 */
+#livePanel .comment-item{display:flex;align-items:flex-start;gap:8px;max-width:100%;width:max-content}
+#livePanel .comment-user-avatar{width:34px;height:34px;min-width:34px;border-radius:50%;border:1px solid #ffffff88;background:#28345c;background-size:cover;background-position:center;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer}
+#livePanel .comment-content{min-width:0;flex:1;overflow-wrap:anywhere}
+#livePanel .comment-user-link{display:inline-block;margin-bottom:3px;text-decoration:none}
+
 </style>
 
 </head>
@@ -1838,7 +1850,8 @@ function handleMessage(data) {
     addComment(
       data.name,
       data.text,
-      data.clientId
+      data.clientId,
+      data.avatar
     );
 
     return;
@@ -2991,54 +3004,39 @@ function sendComment() {
 }
 
 
-function addComment(
-  name,
-  text,
-  clientId
-) {
-
-  const list =
-    document.getElementById(
-      "commentList"
-    );
-
-
+function addComment(name, text, clientId, avatar) {
+  const list = document.getElementById("commentList");
+  if (!list) return;
   const wasNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 30;
-
-  const item =
-    document.createElement(
-      "div"
-    );
-
-
-  item.className =
-    "comment-item";
-
-
+  const item = document.createElement("div");
+  item.className = "comment-item";
   if (clientId && typeof clientId === "string") {
+    const profile = presenceMembers.find(m => m.id === clientId) ||
+      (broadcasterProfile && broadcasterProfile.id === clientId ? broadcasterProfile : null) ||
+      socialProfiles[clientId] || {};
+    const photo = (typeof avatar === "string" && avatar.startsWith("data:image/") ? avatar : "") || profile.avatar || "";
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.className = "comment-user-avatar";
+    icon.textContent = photo ? "" : (name || "？").slice(0,1);
+    if (photo.startsWith("data:image/")) icon.style.backgroundImage = 'url("' + photo + '")';
+    icon.onclick = function(){openPresenceProfile(clientId);};
+    const content = document.createElement("div");
+    content.className = "comment-content";
     const nameButton = document.createElement("button");
     nameButton.type = "button";
     nameButton.className = "comment-user-link";
     nameButton.textContent = name || "ゲスト";
-    nameButton.addEventListener("click", function() {
-      openPresenceProfile(clientId);
-    });
-    item.appendChild(nameButton);
-    item.appendChild(document.createTextNode(": " + (text || "")));
+    nameButton.onclick = function(){openPresenceProfile(clientId);};
+    const body = document.createElement("div");
+    body.textContent = text || "";
+    content.append(nameButton, body);
+    item.append(icon, content);
   } else {
     item.textContent = (name ? name + ": " : "") + (text || "");
   }
-
-
-  list.appendChild(
-    item
-  );
-
-
-  if (wasNearBottom) {
-    list.scrollTop = list.scrollHeight;
-  }
-
+  list.appendChild(item);
+  if (wasNearBottom) list.scrollTop = list.scrollHeight;
 }
 
 
@@ -4064,6 +4062,7 @@ wss.on(
               "comment",
 
             clientId: ws.clientId,
+            avatar: (ws.profile && typeof ws.profile.avatar === "string") ? ws.profile.avatar : "",
             name: String(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト")).substring(0,30),
 
             text:

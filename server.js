@@ -896,6 +896,8 @@ button {
 #livePanel.is-broadcaster #likeButton,
 #livePanel.is-broadcaster #giftButton { display:none!important; }
 #livePanel:not(.is-broadcaster) #backgroundAction { display:none!important; }
+#livePanel:not(.is-broadcaster) #audioButton {display:block;top:130px;left:18px;z-index:9}
+#livePanel:not(.is-broadcaster) #audioText {position:absolute;top:174px;left:18px;z-index:8;font-size:11px}
 
 /* 入室者アイコン：配信者・視聴者共通 */
 .presence-strip{position:absolute;top:max(78px,env(safe-area-inset-top) + 62px);left:14px;z-index:8;display:flex;align-items:center;gap:5px;max-width:calc(100% - 100px)}
@@ -2276,7 +2278,12 @@ function listenLive(
 
 
   openPanel();
-
+  const remoteAudio = document.getElementById('remoteAudio');
+  remoteAudio.muted = false;
+  remoteAudio.volume = 1;
+  remoteAudio.autoplay = true;
+  remoteAudio.playsInline = true;
+  document.getElementById('audioButton').style.display = 'block';
 
   document.getElementById(
     "panelTitle"
@@ -2317,6 +2324,18 @@ function listenLive(
    BROADCASTER OFFER
 ========================================================= */
 
+const pendingIce = Object.create(null);
+async function flushPendingIce(id) {
+  const pc = peerConnections[id];
+  if (!pc || !pc.remoteDescription) return;
+  const list = pendingIce[id] || [];
+  delete pendingIce[id];
+  for (const candidate of list) {
+    try { await pc.addIceCandidate(candidate); }
+    catch (e) { console.warn('ICE candidate rejected', e); }
+  }
+}
+
 async function createOffer(
   viewerId
 ) {
@@ -2331,15 +2350,12 @@ async function createOffer(
   }
 
 
-  const pc =
-    new RTCPeerConnection(
-      rtcConfig
-    );
-
-
-  peerConnections[
-    viewerId
-  ] = pc;
+  if (peerConnections[viewerId]) peerConnections[viewerId].close();
+  const pc = new RTCPeerConnection(rtcConfig);
+  peerConnections[viewerId] = pc;
+  pc.oniceconnectionstatechange = function() {
+    console.log('配信者ICE:', viewerId, pc.iceConnectionState);
+  };
 
 
   localStream
@@ -2447,15 +2463,22 @@ async function receiveOffer(
     data.from;
 
 
-  const pc =
-    new RTCPeerConnection(
-      rtcConfig
-    );
-
-
-  peerConnections[
-    data.from
-  ] = pc;
+  if (peerConnections[data.from]) peerConnections[data.from].close();
+  const pc = new RTCPeerConnection(rtcConfig);
+  peerConnections[data.from] = pc;
+  pc.oniceconnectionstatechange = function() {
+    console.log('視聴者ICE:', pc.iceConnectionState);
+    if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+      setPanelStatus('🎧 音声接続済み');
+      const audio = document.getElementById('remoteAudio');
+      if (audio && audio.srcObject) audio.play().catch(function(){
+        document.getElementById('audioButton').style.display = 'block';
+      });
+    } else if (pc.iceConnectionState === 'failed') {
+      setPanelStatus('音声接続に失敗しました。Wi-Fiと再入室を確認してください');
+      document.getElementById('audioButton').style.display = 'block';
+    }
+  };
 
 
   pc.ontrack =
@@ -2555,11 +2578,8 @@ async function receiveOffer(
 
   try {
 
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(
-        data.sdp
-      )
-    );
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    await flushPendingIce(data.from);
 
 
     const answer =
@@ -2623,11 +2643,8 @@ async function receiveAnswer(
 
   try {
 
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(
-        data.sdp
-      )
-    );
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    await flushPendingIce(data.from);
 
   } catch(error) {
 
@@ -2645,40 +2662,16 @@ async function receiveAnswer(
    ICE
 ========================================================= */
 
-async function receiveIce(
-  data
-) {
-
-  const pc =
-    peerConnections[
-      data.from
-    ];
-
-
-  if (!pc) {
-
+async function receiveIce(data) {
+  if (!data || !data.from || !data.candidate) return;
+  const pc = peerConnections[data.from];
+  if (!pc || !pc.remoteDescription) {
+    (pendingIce[data.from] ||= []).push(data.candidate);
     return;
-
   }
-
-
-  try {
-
-    await pc.addIceCandidate(
-      data.candidate
-    );
-
-  } catch(error) {
-
-    console.error(
-      "ICE ERROR",
-      error
-    );
-
-  }
-
+  try { await pc.addIceCandidate(data.candidate); }
+  catch (e) { console.warn('ICE ERROR', e); }
 }
-
 
 /* =========================================================
    AUDIO
@@ -2810,28 +2803,25 @@ function setLiveBackground(kind) {
 function loadCustomBackground(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    alert('画像ファイルを選択してください');
-    event.target.value = '';
-    return;
-  }
-  // 大きすぎる画像の送信・保存を避ける
-  if (file.size > 5 * 1024 * 1024) {
-    alert('画像は5MB以下のものを選んでください');
-    event.target.value = '';
-    return;
-  }
+  event.target.value = '';
+  if (!file.type.startsWith('image/')) { alert('画像を選択してください'); return; }
   const reader = new FileReader();
   reader.onload = function() {
-    const imageData = String(reader.result || '');
-    const value = 'linear-gradient(rgba(4,5,17,.28), rgba(4,5,17,.58)), url("' + imageData + '")';
-    publishLiveBackground(value);
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, 1080 / img.width, 1920 / img.height);
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.76);
+      publishLiveBackground('linear-gradient(rgba(4,5,17,.28), rgba(4,5,17,.58)), url("' + dataUrl + '")');
+    };
+    img.onerror = function(){alert('画像の読み込みに失敗しました');};
+    img.src = String(reader.result || '');
   };
-  reader.onerror = function() {
-    alert('画像を読み込めませんでした。別の画像を選んでください。');
-  };
+  reader.onerror = function(){alert('画像の読み込みに失敗しました');};
   reader.readAsDataURL(file);
-  event.target.value = '';
 }
 
 function resetLiveBackground() {
@@ -2960,8 +2950,8 @@ function closePeers() {
   );
 
 
-  peerConnections =
-    {};
+  peerConnections = {};
+  Object.keys(pendingIce).forEach(function(id){delete pendingIce[id];});
 
 }
 

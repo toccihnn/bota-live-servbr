@@ -1545,16 +1545,22 @@ function socialAction(action,id){
   if(action==="block" && !confirm("このユーザーをブロックしますか？"))return;
   send({type:"social_action",action:action,target:id});
 }
-function openUserActions(id){
+function openUserActions(id, displayName){
   if(!id || id===myId)return;
   const u=socialState.users.find(x=>x.id===id) || presenceMembers.find(x=>x.id===id);
-  if(!u)return;
-  // ブロックされた側は相手のプロフィール・操作画面を開けない。
-  if(!socialState.blocked.includes(id) && !socialState.users.some(x=>x.id===id))return;
+  const name=(u&&u.name)||displayName||"ユーザー";
+  // 相手にブロックされている場合はサーバー側でもフォローを拒否する。
   const blocked=socialState.blocked.includes(id),following=socialState.following.includes(id);
-  const choice=prompt((u.name||"ユーザー")+"\n1："+(following?"フォロー解除":"フォローする")+"\n2："+(blocked?"ブロック解除":"ブロックする")+"\n数字を入力してください");
-  if(choice==="1")socialAction(following?"unfollow":"follow",id);
-  if(choice==="2")socialAction(blocked?"unblock":"block",id);
+  document.getElementById("socialQuickMenu")?.remove();
+  const overlay=document.createElement("div");overlay.id="socialQuickMenu";
+  overlay.style.cssText="position:fixed;inset:0;z-index:99999;background:#0009;display:flex;align-items:center;justify-content:center;padding:20px";
+  const panel=document.createElement("div");panel.style.cssText="width:min(90vw,340px);background:#22213d;color:white;border-radius:18px;padding:20px;display:grid;gap:12px;text-align:center";
+  const heading=document.createElement("strong");heading.textContent=name;panel.appendChild(heading);
+  function actionButton(label,action){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.style.cssText="padding:13px;border-radius:12px;border:1px solid #b5a3df;background:#39345f;color:white;font-size:16px";btn.onclick=()=>{overlay.remove();socialAction(action,id)};panel.appendChild(btn)}
+  actionButton(following?"フォロー解除":"フォローする",following?"unfollow":"follow");
+  actionButton(blocked?"ブロック解除":"ブロックする",blocked?"unblock":"block");
+  const close=document.createElement("button");close.textContent="閉じる";close.style.cssText="padding:12px;background:transparent;color:white;border:0";close.onclick=()=>overlay.remove();panel.appendChild(close);
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};overlay.appendChild(panel);document.body.appendChild(overlay);
 }
 function renderSocial(){
   document.getElementById("mpFollowing").textContent=socialState.following.length;
@@ -2414,6 +2420,7 @@ async function receiveOffer(
   peerConnections[
     data.from
   ] = pc;
+  pc._pendingIce = [];
 
 
   pc.ontrack =
@@ -2441,6 +2448,8 @@ async function receiveOffer(
       }
 
 
+      audio.muted=false;
+      audio.volume=1;
       audio.play()
         .then(
           function() {
@@ -2518,6 +2527,8 @@ async function receiveOffer(
         data.sdp
       )
     );
+    for(const candidate of (pc._pendingIce||[])){try{await pc.addIceCandidate(candidate)}catch(e){console.warn("ICE candidate:",e)}}
+    pc._pendingIce=[];
 
 
     const answer =
@@ -2586,6 +2597,8 @@ async function receiveAnswer(
         data.sdp
       )
     );
+    for(const candidate of (pc._pendingIce||[])){try{await pc.addIceCandidate(candidate)}catch(e){console.warn("ICE candidate:",e)}}
+    pc._pendingIce=[];
 
   } catch(error) {
 
@@ -2620,6 +2633,10 @@ async function receiveIce(
   }
 
 
+  if (!pc.remoteDescription) {
+    (pc._pendingIce ||= []).push(data.candidate);
+    return;
+  }
   try {
 
     await pc.addIceCandidate(
@@ -2891,7 +2908,7 @@ function addComment(
     avatar.setAttribute("aria-label", name + "のフォロー・ブロック");
     avatar.onclick = function(event) {
       event.stopPropagation();
-      openUserActions(userId);
+      openUserActions(userId,name);
     };
     item.appendChild(avatar);
   }

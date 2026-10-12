@@ -1188,7 +1188,7 @@ button {
 <!-- 月光花マイページ：既存ホーム・配信画面と独立 -->
 <section id="myPageScreen" aria-label="マイページ">
   <div class="mp-head">
-    <button class="mp-icon-btn" type="button" onclick="goHome()" aria-label="ホームに戻る">🏠</button>
+    <span class="mp-icon-btn" aria-hidden="true" style="visibility:hidden;pointer-events:none">🏠</span>
     <div class="mp-name">マイページ</div>
     <button class="mp-icon-btn" type="button" onclick="myPageInfo('設定は準備中です')" aria-label="設定">⚙</button>
   </div>

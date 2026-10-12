@@ -1082,20 +1082,23 @@ button {
 }
 
 
-/* Simeji / Unicode text: apply the same fallback stack to every editable text field and user-generated text. */
-:root { --vb-unicode-font: "Noto Sans", "Noto Sans JP", "Noto Sans Symbols 2", "Noto Sans Symbols", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", "Segoe UI Emoji", system-ui, sans-serif; }
-html, body, input:not([type="file"]), textarea, select, button,
-[contenteditable="true"], .comment-item, .comment-item *, .live-top-title,
-.live-host-info, .live-host-info *, .social-list, .social-list *,
-.mp-dialog, .mp-dialog *, .presence-strip, .presence-strip * {
+/* Simeji decorative Unicode: use Android/iOS native font fallback first.
+   Never force an unavailable web font across every input. */
+:root { --vb-unicode-font: system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans CJK JP", "Noto Sans JP", "Noto Sans Symbols 2", "Noto Sans Symbols", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+input:not([type="file"]), textarea, [contenteditable="true"],
+.comment-item, .comment-item *, .live-top-title, .live-host-info,
+.live-host-info *, .social-list, .social-list *, .presence-strip,
+.presence-strip *, #mpMoonName, #presenceProfileName, #presenceProfileBio {
   font-family: var(--vb-unicode-font) !important;
+  font-synthesis: none;
+  text-transform: none;
 }
 input:not([type="file"]), textarea, [contenteditable="true"] {
   font-variant-ligatures: normal;
   font-feature-settings: normal;
-  text-transform: none;
-  unicode-bidi: plaintext;
+  -webkit-text-fill-color: currentColor;
 }
+/* The native input should retain its own shaping; do not use unicode-bidi: plaintext. */
 #vbTitleDialog { position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:none;align-items:center;justify-content:center;padding:18px; }
 #vbTitleDialog.active {display:flex;}
 #vbTitleDialog .vb-title-box {background:#211c31;color:white;width:min(100%,420px);padding:20px;border-radius:15px;box-sizing:border-box;}
@@ -3365,6 +3368,14 @@ function editMyPage() {
 function closeMyPageEdit() {
   document.getElementById("mpEditDialog").classList.remove("active");
 }
+// Optional browser console check: voiceBotaUnicodeCheck("Simeji文字")
+// Reports exact Unicode code points; never modifies the original input.
+window.voiceBotaUnicodeCheck = function(value) {
+  const text = String(value == null ? "" : value);
+  const points = Array.from(text, c => "U+" + c.codePointAt(0).toString(16).toUpperCase());
+  console.info("Simeji Unicode", {text, points});
+  return {text, points};
+};
 function emojiSafeLimit(value, max) {
   const str = String(value == null ? "" : value);
   if (typeof Intl !== "undefined" && Intl.Segmenter) {

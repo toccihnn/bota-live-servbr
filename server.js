@@ -1222,7 +1222,8 @@ let localStream = null;
 
 let peerConnections = {};
 
-let currentUserName = "ユーザー";\nlet presenceMembers = [];
+let currentUserName = "ユーザー";
+let presenceMembers = [];
 
 let currentLiveId = null;
 
@@ -2068,7 +2069,8 @@ function listenLive(
       myId,
 
     liveId:
-      liveId
+      liveId,
+    name: currentUserName
 
   });
 

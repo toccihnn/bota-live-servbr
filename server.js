@@ -1383,6 +1383,7 @@ let isBroadcaster = false;
 let localStream = null;
 
 let peerConnections = {};
+let earlyIce = {};
 
 let currentUserName = "ユーザー";
 let presenceMembers = [];
@@ -1419,6 +1420,12 @@ const rtcConfig = {
    CONNECT
 ========================================================= */
 
+function getSharedAvatar(){
+  try { return localStorage.getItem("voiceBotaProfileAvatar") || ""; } catch(e) { return ""; }
+}
+function shareProfile(){
+  send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar()});
+}
 function connectSocket() {
 
   const protocol =
@@ -1449,7 +1456,7 @@ function connectSocket() {
         "WebSocket connected"
       );
 
-      send({type:"hello",clientId:myId,name:getMyName()});
+      send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar()});
       requestSocial();
 
     };
@@ -1578,7 +1585,8 @@ function renderPresence() {
   presenceMembers.slice(0,3).forEach(function(member) {
     const button = document.createElement("button");
     button.className = "presence-avatar";
-    button.textContent = (member.name || "？").slice(0,1);
+    if(member.avatar){button.style.backgroundImage="url("+JSON.stringify(member.avatar)+")";button.style.backgroundSize="cover";button.style.backgroundPosition="center";}
+    else button.textContent = (member.name || "？").slice(0,1);
     button.title = member.name;
     button.onclick = openPresence;
     strip.appendChild(button);
@@ -1593,7 +1601,12 @@ function renderPresence() {
   presenceMembers.forEach(function(member) {
     const item = document.createElement("div");
     item.className = "presence-entry";
-    item.textContent = (member.broadcaster ? "🎙️ " : "👤 ") + member.name + (member.broadcaster ? "（配信者）" : "") + "　プロフィール ›";
+    const photo=document.createElement("span");
+    photo.style.cssText="display:inline-flex;vertical-align:middle;width:32px;height:32px;border-radius:50%;margin-right:8px;background:#6266aa;align-items:center;justify-content:center;background-size:cover;background-position:center";
+    if(member.avatar)photo.style.backgroundImage="url("+JSON.stringify(member.avatar)+")";
+    else photo.textContent="👤";
+    item.appendChild(photo);
+    item.appendChild(document.createTextNode(member.name+"　フォロー・ブロック ›"));
     item.style.cursor="pointer";
     item.onclick=()=>openUserActions(member.id);
     list.appendChild(item);
@@ -2240,8 +2253,21 @@ function listenLive(
     liveId;
 
 
+  // 入室タップのユーザー操作中に音声再生を準備する。
+  // 一部ブラウザでは音声受信前の再生準備だけでは許可されないため、
+  // ontrackでも再度play()を呼び、拒否時のみ手動ボタンを表示する。
+  const audioButton=document.getElementById("audioButton");
+  if(audioButton)audioButton.style.display="none";
+  const remoteAudio=document.getElementById("remoteAudio");
+  if(remoteAudio){
+    remoteAudio.autoplay=true;
+    remoteAudio.playsInline=true;
+    remoteAudio.muted=false;
+    remoteAudio.volume=1;
+    const pending=remoteAudio.play();
+    if(pending && pending.catch)pending.catch(()=>{});
+  }
   openPanel();
-
 
   document.getElementById(
     "panelTitle"
@@ -2301,9 +2327,9 @@ async function createOffer(
     );
 
 
-  peerConnections[
-    viewerId
-  ] = pc;
+  peerConnections[viewerId] = pc;
+  pc._pendingIce=earlyIce[viewerId]||[];
+  delete earlyIce[viewerId];
 
 
   localStream
@@ -2417,12 +2443,17 @@ async function receiveOffer(
     );
 
 
-  peerConnections[
-    data.from
-  ] = pc;
-  pc._pendingIce = [];
+  peerConnections[data.from] = pc;
+  pc._pendingIce = earlyIce[data.from] || [];
+  delete earlyIce[data.from];
 
 
+  pc.onconnectionstatechange=function(){
+    if(pc.connectionState==="failed"){
+      setPanelStatus("音声接続に失敗しました。通信環境を確認してください（TURNサーバーが必要な場合があります）");
+      document.getElementById("audioButton").style.display="block";
+    }
+  };
   pc.ontrack =
     function(event) {
 
@@ -2448,6 +2479,8 @@ async function receiveOffer(
       }
 
 
+      audio.autoplay=true;
+      audio.playsInline=true;
       audio.muted=false;
       audio.volume=1;
       audio.play()
@@ -2903,7 +2936,9 @@ function addComment(
     const avatar = document.createElement("button");
     avatar.type = "button";
     avatar.className = "comment-user-avatar";
-    avatar.textContent = "👤";
+    const profileUser=socialState.users.find(x=>x.id===userId);
+    if(profileUser && profileUser.avatar){avatar.style.backgroundImage="url("+JSON.stringify(profileUser.avatar)+")";avatar.style.backgroundSize="cover";avatar.style.backgroundPosition="center";}
+    else avatar.textContent = "👤";
     avatar.title = name + "のフォロー・ブロック";
     avatar.setAttribute("aria-label", name + "のフォロー・ブロック");
     avatar.onclick = function(event) {
@@ -3148,6 +3183,7 @@ function saveMyPageEdit() {
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
   localStorage.setItem("voiceBotaProfileBio", document.getElementById("mpBioInput").value.trim());
   closeMyPageEdit();
+  shareProfile();
   showProfile();
 }
 function changeMyPageAvatar() { document.getElementById("mpAvatarFile").click(); }
@@ -3166,6 +3202,7 @@ function saveMyPageAvatar(input) {
     try {
       localStorage.setItem("voiceBotaProfileAvatar",canvas.toDataURL("image/jpeg",0.78));
       showProfile();
+      shareProfile();
     } catch(e) { alert("画像を保存できませんでした。別の画像をお試しください。"); }
     URL.revokeObjectURL(url);
     input.value = "";
@@ -3423,7 +3460,7 @@ function sendPresence() {
   const members = [];
   clients.forEach(function(client) {
     if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
-      members.push({id:client.clientId,name:client.liveName || "ゲスト",broadcaster:false});
+      members.push({id:client.clientId,name:client.liveName || "ゲスト",avatar:socialDB.users[client.clientId]?.avatar||"",broadcaster:false});
     }
   });
   clients.forEach(c=>{
@@ -3523,7 +3560,7 @@ wss.on(
           }
 
           ws.liveName=String(data.name||"ユーザー").slice(0,30);
-          socialDB.users[ws.clientId]={name:ws.liveName};saveSocial();socialSend(ws);
+          socialDB.users[ws.clientId]={name:ws.liveName,avatar:typeof data.avatar==="string" && data.avatar.startsWith("data:image/") && data.avatar.length<130000 ? data.avatar : (socialDB.users[ws.clientId]?.avatar||"")};saveSocial();socialSend(ws);sendPresence();
           return;
 
         }

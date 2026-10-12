@@ -878,6 +878,14 @@ button {
 #livePanel.is-broadcaster #giftButton { display:none!important; }
 #livePanel:not(.is-broadcaster) #backgroundAction { display:none!important; }
 
+/* 入室者アイコン：配信者・視聴者共通 */
+.presence-strip{position:absolute;top:max(78px,env(safe-area-inset-top) + 62px);left:14px;z-index:8;display:flex;align-items:center;gap:5px;max-width:calc(100% - 100px)}
+.presence-avatar{width:34px;height:34px;border-radius:50%;border:2px solid #ffffff88;background:linear-gradient(135deg,#557bff,#c36aff);color:white;font-size:15px;font-weight:bold}
+.presence-more{border:1px solid #ffffff66;background:#10142dbb;color:white;border-radius:18px;padding:8px;font-size:11px}
+.presence-overlay{display:none;position:absolute;inset:0;background:#0009;z-index:20;align-items:center;justify-content:center;padding:24px}
+.presence-overlay.open{display:flex}
+.presence-dialog{background:#151a36;border:1px solid #ffffff44;border-radius:18px;padding:20px;width:min(100%,360px);max-height:70vh;overflow-y:auto}
+.presence-entry{padding:11px;border-bottom:1px solid #ffffff22}
 </style>
 
 </head>
@@ -1063,6 +1071,13 @@ button {
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
+  <div class="presence-strip" id="presenceStrip" aria-label="現在の参加者"></div>
+  <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
+    <div class="presence-dialog" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center"><strong id="presenceHeading">参加者一覧</strong><button type="button" onclick="closePresence()" style="color:white;background:transparent;border:0;font-size:24px">×</button></div>
+      <div id="presenceList"></div>
+    </div>
+  </div>
   <button class="panel-close" type="button" onclick="closePanel()" aria-label="閉じる">×</button>
   <div class="panel-status" id="panelStatus">配信準備中</div>
 
@@ -1207,7 +1222,7 @@ let localStream = null;
 
 let peerConnections = {};
 
-let currentUserName = "ユーザー";
+let currentUserName = "ユーザー";\nlet presenceMembers = [];
 
 let currentLiveId = null;
 
@@ -1365,7 +1380,44 @@ function send(data) {
    MESSAGE
 ========================================================= */
 
+function renderPresence() {
+  const strip = document.getElementById("presenceStrip");
+  const list = document.getElementById("presenceList");
+  if (!strip || !list) return;
+  strip.replaceChildren();
+  list.replaceChildren();
+  document.getElementById("presenceHeading").textContent = "参加者一覧 (" + presenceMembers.length + "人)";
+  presenceMembers.slice(0,3).forEach(function(member) {
+    const button = document.createElement("button");
+    button.className = "presence-avatar";
+    button.textContent = (member.name || "？").slice(0,1);
+    button.title = member.name;
+    button.onclick = openPresence;
+    strip.appendChild(button);
+  });
+  if (presenceMembers.length > 3) {
+    const more = document.createElement("button");
+    more.className = "presence-more";
+    more.textContent = "+" + (presenceMembers.length - 3) + "人";
+    more.onclick = openPresence;
+    strip.appendChild(more);
+  }
+  presenceMembers.forEach(function(member) {
+    const item = document.createElement("div");
+    item.className = "presence-entry";
+    item.textContent = (member.broadcaster ? "🎙️ " : "👤 ") + member.name + (member.broadcaster ? "（配信者）" : "");
+    list.appendChild(item);
+  });
+}
+function openPresence() { document.getElementById("presenceOverlay").classList.add("open"); }
+function closePresence() { document.getElementById("presenceOverlay").classList.remove("open"); }
+
 function handleMessage(data) {
+  if (data.type === "presence_update") {
+    presenceMembers = Array.isArray(data.members) ? data.members : [];
+    renderPresence();
+    return;
+  }
 
 
   console.log(
@@ -2692,6 +2744,12 @@ function openPanel() {
 
 
 function closePanel() {
+  closePresence();
+  if (!isBroadcaster) {
+    send({type:"leave_live"});
+    presenceMembers = [];
+    renderPresence();
+  }
 
   if (isBroadcaster) {
     stopLive();
@@ -3023,6 +3081,18 @@ function getLiveList() {
 }
 
 
+function sendPresence() {
+  if (!liveInfo.active || !broadcaster) return;
+  const members = [];
+  members.push({id:broadcaster.clientId,name:liveInfo.name,broadcaster:true});
+  clients.forEach(function(client) {
+    if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
+      members.push({id:client.clientId,name:client.liveName || "ゲスト",broadcaster:false});
+    }
+  });
+  broadcast({type:"presence_update",members:members});
+}
+
 function sendLiveList() {
 
   broadcast({
@@ -3060,6 +3130,8 @@ wss.on(
 
     ws.isBroadcaster =
       false;
+    ws.liveJoined = false;
+    ws.liveName = "ゲスト";
 
 
     console.log(
@@ -3210,6 +3282,7 @@ wss.on(
 
 
           sendLiveList();
+          sendPresence();
 
 
           return;
@@ -3310,6 +3383,9 @@ wss.on(
           }
 
 
+          ws.liveJoined = true;
+          ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
+          sendPresence();
           sendTo(
             ws,
             {
@@ -3342,6 +3418,12 @@ wss.on(
 
         }
 
+
+        if (data.type === "leave_live") {
+          ws.liveJoined = false;
+          sendPresence();
+          return;
+        }
 
         /* =====================
            WEBRTC SIGNALING
@@ -3510,6 +3592,7 @@ wss.on(
         clients.delete(
           ws
         );
+        sendPresence();
 
 
         if (

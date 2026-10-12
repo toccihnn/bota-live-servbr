@@ -941,6 +941,20 @@ button {
 #myPageScreen .mp-bottom button{color:white}
 #myPageScreen .mp-bottom button:nth-child(2){border:2px solid #fbd4e8;border-radius:50%;padding:8px 12px;background:linear-gradient(135deg,#ffb576,#e653a1);box-shadow:0 0 15px #f8a8d2}
 
+
+/* 月光花マイページ：最新の配置 */
+#myPageScreen{padding-bottom:36px}
+#myPageScreen .mp-center{position:relative}
+#myPageScreen .mp-avatar{background-size:cover;background-position:center;cursor:pointer}
+#myPageScreen .mp-camera{position:absolute;top:116px;left:calc(50% + 36px);border:2px solid #dfcaff;background:#28214dcc;color:white;border-radius:50%;width:43px;height:43px;font-size:19px}
+#myPageScreen .mp-gender{display:inline-block;margin-top:9px;border:1px solid #e7b1ff;border-radius:20px;background:#8c3a9d88;padding:5px 14px;font-size:13px}
+#myPageScreen .mp-item{margin-top:7px;margin-bottom:0;border:1px solid #cdbbe799;border-radius:12px!important;min-height:62px}
+#myPageScreen .mp-item:first-of-type{border-radius:12px}
+#myPageScreen .mp-bio{margin:9px 15px 0;border:1px solid #cdbbe799;border-radius:12px;background:#262850aa;backdrop-filter:blur(8px);overflow:hidden}
+#myPageScreen .mp-bio-head{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid #cdbbe777}
+#myPageScreen .mp-bio-text{white-space:pre-wrap;overflow-wrap:anywhere;padding:14px 16px;min-height:75px;line-height:1.7}
+#mpEditDialog .mp-dialog{background:#242345;color:white}
+#mpEditDialog .mp-dialog select,#mpEditDialog .mp-dialog textarea{display:block;width:100%;padding:11px;margin:9px 0 13px;border-radius:8px;border:1px solid #ccc;background:white;color:#222;font-size:16px}
 </style>
 
 </head>
@@ -1171,33 +1185,42 @@ button {
 </div>
 
 
-<!-- マイページ：既存のホーム・配信画面とは独立 -->
+<!-- 月光花マイページ：既存ホーム・配信画面と独立 -->
 <section id="myPageScreen" aria-label="マイページ">
   <div class="mp-head">
     <button class="mp-icon-btn" type="button" onclick="closeMyPage()" aria-label="戻る">‹</button>
-    <div class="mp-name" id="mpDisplayName">ライブ配信ナビ</div>
-    <button class="mp-icon-btn" type="button" onclick="myPageInfo('設定は順次追加予定です')" aria-label="設定">⚙</button>
+    <div class="mp-name">マイページ</div>
+    <button class="mp-icon-btn" type="button" onclick="myPageInfo('設定は準備中です')" aria-label="設定">⚙</button>
   </div>
   <div style="text-align:right;padding:0 18px"><button type="button" class="mp-edit" onclick="editMyPage()">✎ 編集する</button></div>
-  <div class="mp-center"><div class="mp-avatar" id="mpAvatar">🌙</div><div style="font-weight:750;font-size:23px;text-shadow:0 2px 8px #000" id="mpMoonName">月光花 🌙</div><div style="opacity:.85;font-size:12px;margin-top:3px">VoiceボタLive</div></div>
-  <div class="mp-follow"><div><strong id="mpFollowers">0</strong><small>フォロワー</small></div><div><strong id="mpFollowing">0</strong><small>フォロー中</small></div></div>
-  <div class="mp-rank">
-    <div class="mp-rank-top"><span>RANK &nbsp; <span style="font-size:21px">E1</span></span><span style="font-size:11px">+3でランクアップ</span></div>
-    <div style="text-align:center;font-size:13px;margin-top:14px">⚡ 0 ⚡</div>
-    <div class="mp-rank-bar"></div>
-    <div class="mp-rank-foot">ランク機能は準備中</div>
+  <div class="mp-center">
+    <button type="button" class="mp-avatar" id="mpAvatar" onclick="changeMyPageAvatar()" aria-label="アイコンを変更">🌙</button>
+    <button type="button" class="mp-camera" onclick="changeMyPageAvatar()" aria-label="写真を選択">📷</button>
+    <div style="font-weight:750;font-size:23px;text-shadow:0 2px 8px #000" id="mpMoonName">月光花 🌙</div>
+    <div style="opacity:.85;font-size:12px;margin-top:3px" id="mpUserId">VoiceボタLive</div>
+    <div class="mp-gender" id="mpGenderLabel">性別：未設定</div>
   </div>
-  <button class="mp-item" type="button" onclick="myPageInfo('ダイヤ機能は準備中です')"><span>◇ &nbsp; もっているダイヤ</span><span>0 &nbsp; ›</span></button>
-  <button class="mp-item" type="button" onclick="myPageInfo('コイン機能は準備中です')"><span>ⓒ &nbsp; もっているコイン</span><span>0 &nbsp; ›</span></button>
+  <div class="mp-follow"><div><strong id="mpFollowers">0</strong><small>フォロワー</small></div><div><strong id="mpFollowing">0</strong><small>フォロー中</small></div></div>
+  <button class="mp-item" type="button" onclick="changeMyPageAvatar()"><span>◉ &nbsp; アイコンを変更</span><span>›</span></button>
+  <button class="mp-item" type="button" onclick="editMyPage()"><span>✎ &nbsp; プロフィール編集</span><span>›</span></button>
+  <button class="mp-item" type="button" onclick="myPageInfo('コインの購入・利用履歴は準備中です')"><span>🟡 &nbsp; もっているコイン</span><span><b id="mpCoinCount">0</b> &nbsp; ›</span></button>
+  <div class="mp-bio">
+    <div class="mp-bio-head"><span>▤ &nbsp; 自己紹介</span><button type="button" class="mp-edit" onclick="editMyPage()">編集する</button></div>
+    <div id="mpBioText" class="mp-bio-text">自己紹介はまだありません。</div>
+  </div>
   <button class="mp-item" type="button" onclick="myPageInfo('ファンランキングは準備中です')"><span>☆ &nbsp; ファンランキング</span><span>›</span></button>
-  <div class="mp-help">困ったときは ⓘ</div>
-  <div class="mp-bottom"><button type="button" onclick="closeMyPage()" aria-label="ホーム">⌂</button><button type="button" onclick="closeMyPage();startLive()" aria-label="配信">🔴</button><button type="button" aria-label="マイページ">♟</button></div>
+  <button class="mp-item" type="button" onclick="myPageInfo('お問い合わせ機能は準備中です')"><span>ⓘ &nbsp; 困ったときは</span><span>›</span></button>
+  <input id="mpAvatarFile" type="file" accept="image/*" style="display:none" onchange="saveMyPageAvatar(this)">
 </section>
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
     <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
     <input id="mpNameInput" maxlength="24" placeholder="表示名を入力">
+    <label for="mpGenderInput">性別</label>
+    <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
+    <label for="mpBioInput">自己紹介</label>
+    <textarea id="mpBioInput" maxlength="300" rows="5" placeholder="自己紹介を入力"></textarea>
     <div class="mp-dialog-actions"><button type="button" onclick="closeMyPageEdit()">キャンセル</button><button type="button" onclick="saveMyPageEdit()">保存する</button></div>
   </div>
 </div>
@@ -2915,10 +2938,16 @@ function showNotice() {
 
 
 function showProfile() {
-  const savedName = localStorage.getItem("voiceBotaProfileName");
-  const name = savedName || (typeof getMyName === "function" ? getMyName() : "ライブ配信ナビ");
-  document.getElementById("mpDisplayName").textContent = name || "ライブ配信ナビ";
+  const name = localStorage.getItem("voiceBotaProfileName") ||
+    (typeof getMyName === "function" ? getMyName() : "月光花");
   document.getElementById("mpMoonName").textContent = (name || "月光花") + " 🌙";
+  const gender = localStorage.getItem("voiceBotaProfileGender") || "未設定";
+  document.getElementById("mpGenderLabel").textContent = "性別：" + gender;
+  document.getElementById("mpBioText").textContent = localStorage.getItem("voiceBotaProfileBio") || "自己紹介はまだありません。";
+  const avatar = localStorage.getItem("voiceBotaProfileAvatar");
+  const el = document.getElementById("mpAvatar");
+  if (avatar) { el.style.backgroundImage = "url(" + JSON.stringify(avatar) + ")"; el.textContent = ""; }
+  else { el.style.backgroundImage = ""; el.textContent = "🌙"; }
   document.getElementById("myPageScreen").classList.add("active");
 }
 function closeMyPage() {
@@ -2926,7 +2955,10 @@ function closeMyPage() {
   closeMyPageEdit();
 }
 function editMyPage() {
-  document.getElementById("mpNameInput").value = document.getElementById("mpDisplayName").textContent;
+  document.getElementById("mpNameInput").value =
+    localStorage.getItem("voiceBotaProfileName") || document.getElementById("mpMoonName").textContent.replace(/ 🌙$/, "");
+  document.getElementById("mpGenderInput").value = localStorage.getItem("voiceBotaProfileGender") || "未設定";
+  document.getElementById("mpBioInput").value = localStorage.getItem("voiceBotaProfileBio") || "";
   document.getElementById("mpEditDialog").classList.add("active");
 }
 function closeMyPageEdit() {
@@ -2935,17 +2967,36 @@ function closeMyPageEdit() {
 function saveMyPageEdit() {
   const name = document.getElementById("mpNameInput").value.trim();
   if (!name) { alert("表示名を入力してください"); return; }
-  localStorage.setItem("voiceBotaProfileName",name);
-  document.getElementById("mpDisplayName").textContent = name;
-  document.getElementById("mpMoonName").textContent = name + " 🌙";
+  localStorage.setItem("voiceBotaProfileName", name);
+  localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
+  localStorage.setItem("voiceBotaProfileBio", document.getElementById("mpBioInput").value.trim());
   closeMyPageEdit();
+  showProfile();
+}
+function changeMyPageAvatar() { document.getElementById("mpAvatarFile").click(); }
+function saveMyPageAvatar(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { alert("画像を選択してください"); return; }
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = function() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 300; canvas.height = 300;
+    const ctx = canvas.getContext("2d");
+    const side = Math.min(img.width, img.height);
+    ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,300,300);
+    try {
+      localStorage.setItem("voiceBotaProfileAvatar",canvas.toDataURL("image/jpeg",0.78));
+      showProfile();
+    } catch(e) { alert("画像を保存できませんでした。別の画像をお試しください。"); }
+    URL.revokeObjectURL(url);
+    input.value = "";
+  };
+  img.onerror = function() { URL.revokeObjectURL(url); alert("画像を読み込めませんでした"); };
+  img.src = url;
 }
 function myPageInfo(message) { alert(message); }
-
-
-/* =========================================================
-   START
-========================================================= */
 
 window.addEventListener(
   "load",

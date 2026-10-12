@@ -920,7 +920,7 @@ button {
 .presence-entry{padding:11px;border-bottom:1px solid #ffffff22}
 .presence-avatar{background-size:cover;background-position:center;overflow:hidden;cursor:pointer}
 .presence-entry{display:flex;align-items:center;gap:10px;cursor:pointer}
-.presence-profile{display:none;position:absolute;inset:0;z-index:25;background:#000a;align-items:center;justify-content:center;padding:20px}
+.presence-profile{display:none;position:fixed;inset:0;z-index:3600;background:#000a;align-items:center;justify-content:center;padding:20px}
 .presence-profile.open{display:flex}
 .presence-profile-card{width:min(100%,340px);background:#151a36;border:1px solid #ffffff55;border-radius:20px;padding:22px;text-align:center}
 .presence-profile-photo{width:88px;height:88px;border-radius:50%;background:#374075;background-size:cover;background-position:center;margin:8px auto 12px;display:flex;align-items:center;justify-content:center;font-size:38px}
@@ -1593,8 +1593,10 @@ function togglePresenceBlock(){if(!presenceProfileTarget||presenceProfileTarget=
  send({type:"social_action",action:"block",targetId:presenceProfileTarget});
 }
 function openPresenceProfile(id){
-  const member = presenceMembers.find(function(m){return m.id === id;}) || (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null);
+  const member = presenceMembers.find(function(m){return m.id === id;}) || (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null) || (socialProfiles[id] ? {id:id,...socialProfiles[id]} : null);
   if(!member)return;
+  const profileOverlay=document.getElementById("presenceProfile");
+  if(profileOverlay && profileOverlay.parentElement!==document.body)document.body.appendChild(profileOverlay);
   closePresence();
   presenceProfileTarget=id;
   document.getElementById("presenceSocialNotice").textContent="";

@@ -10,6 +10,19 @@ const fsSocial = require("fs");
 const socialPath = require("path").join(__dirname,"voicebota_social.json");
 let socialData = {following:{},blocked:{},profiles:{}};
 try {const v=JSON.parse(fsSocial.readFileSync(socialPath,"utf8"));socialData={...socialData,...v};}catch(e){}
+function limitEmojiText(value, max) {
+  const str = String(value == null ? "" : value);
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    const parts = new Intl.Segmenter("ja", {granularity:"grapheme"}).segment(str);
+    let result = "", count = 0;
+    for (const part of parts) {
+      if (count++ >= max) break;
+      result += part.segment;
+    }
+    return result;
+  }
+  return Array.from(str).slice(0, max).join("");
+}
 function saveSocialData(){try{fsSocial.writeFileSync(socialPath,JSON.stringify(socialData));}catch(e){console.error("social save",e.message);}}
 function socialIds(key,id){return Array.isArray(socialData[key][id])?socialData[key][id]:[];}
 function blockedEither(a,b){return !!(a&&b&&(socialIds("blocked",a).includes(b)||socialIds("blocked",b).includes(a)));}
@@ -83,6 +96,9 @@ body {
     -apple-system,
     BlinkMacSystemFont,
     "Noto Sans JP",
+    "Apple Color Emoji",
+    "Noto Color Emoji",
+    "Segoe UI Emoji",
     sans-serif;
 }
 
@@ -1279,7 +1295,7 @@ button {
     <div class="comment-list" id="commentList" aria-label="コメント一覧"></div>
   </div>
   <div class="comment-input">
-    <input id="commentInput" maxlength="200" placeholder="コメントを入力...">
+    <input id="commentInput" type="text" inputmode="text" maxlength="400" placeholder="コメントを入力...">
     <button type="button" onclick="sendComment()" aria-label="コメント送信">➤</button>
   </div>
   <button id="stopButton" class="panel-button stop-button" type="button" onclick="stopLive()" style="display:none">⛔ 配信を終了する</button>
@@ -1327,7 +1343,7 @@ button {
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
     <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
-    <input id="mpNameInput" maxlength="24" placeholder="表示名を入力">
+    <input id="mpNameInput" maxlength="120" placeholder="表示名を入力">
     <label for="mpGenderInput">性別</label>
     <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
     <label for="mpBioInput">自己紹介</label>
@@ -2108,7 +2124,7 @@ async function startLive() {
 
 
   currentUserName =
-    name.trim();
+    emojiSafeLimit(name.trim(),30);
 
 
   setPanelStatus(
@@ -2895,7 +2911,7 @@ function editLiveTitle() {
   if (!isBroadcaster || !connected) return;
   const value = prompt("新しい配信タイトルを入力してください", activeLiveTitle || "");
   if (value === null) return;
-  const title = value.trim().slice(0, 100);
+  const title = emojiSafeLimit(value.trim(), 100);
   if (!title) { alert("配信タイトルを入力してください"); return; }
   if (!send({type:"title_update",title:title})) {alert("サーバーに接続できません");return;}
   activeLiveTitle = title;
@@ -2971,8 +2987,10 @@ function sendComment() {
     );
 
 
-  const text =
-    input.value.trim();
+  const rawText = input.value.trim();
+  const text = (typeof Intl !== "undefined" && Intl.Segmenter)
+    ? Array.from(new Intl.Segmenter("ja", {granularity:"grapheme"}).segment(rawText), x => x.segment).slice(0,200).join("")
+    : Array.from(rawText).slice(0,200).join("");
 
 
   if (!text) {
@@ -3292,8 +3310,15 @@ function editMyPage() {
 function closeMyPageEdit() {
   document.getElementById("mpEditDialog").classList.remove("active");
 }
+function emojiSafeLimit(value, max) {
+  const str = String(value == null ? "" : value);
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    return Array.from(new Intl.Segmenter("ja",{granularity:"grapheme"}).segment(str), item=>item.segment).slice(0,max).join("");
+  }
+  return Array.from(str).slice(0,max).join("");
+}
 function saveMyPageEdit() {
-  const name = document.getElementById("mpNameInput").value.trim();
+  const name = emojiSafeLimit(document.getElementById("mpNameInput").value.trim(), 30);
   if (!name) { alert("表示名を入力してください"); return; }
   localStorage.setItem("voiceBotaProfileName", name);
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
@@ -3574,7 +3599,7 @@ function getLiveList() {
 function cleanProfile(p){
   if(!p || typeof p !== "object")return {};
   const avatar=typeof p.avatar === "string" && /^data:image\/(jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(p.avatar) && p.avatar.length < 190000 ? p.avatar : "";
-  return {name:String(p.name||"ゲスト").slice(0,30),avatar:avatar,gender:String(p.gender||"未設定").slice(0,20),bio:String(p.bio||"").slice(0,500)};
+  return {name:limitEmojiText(p.name||"ゲスト",30),avatar:avatar,gender:String(p.gender||"未設定").slice(0,20),bio:String(p.bio||"").slice(0,500)};
 }
 
 function sendPresence() {
@@ -3925,7 +3950,7 @@ wss.on(
           }
           ws.liveJoined = true;
           ws.profile = cleanProfile(data.profile || ws.profile);
-          ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
+          ws.liveName = limitEmojiText(String(data.name || "ゲスト").trim(),30) || "ゲスト";
           sendPresence();
           sendTo(
             ws,
@@ -4023,7 +4048,7 @@ wss.on(
 
         if (data.type === "title_update") {
           if (ws === broadcaster && liveInfo.active && typeof data.title === "string") {
-            const title = data.title.trim().slice(0, 100);
+            const title = limitEmojiText(data.title.trim(),100);
             if (title) {
               liveInfo.title = title;
               broadcast({type:"title_update",title:title});
@@ -4064,13 +4089,7 @@ wss.on(
             name: String(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト")).substring(0,30),
 
             text:
-              String(
-                data.text ||
-                ""
-              ).substring(
-                0,
-                200
-              )
+              limitEmojiText(data.text || "", 200)
 
           });
 

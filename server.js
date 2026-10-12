@@ -1394,6 +1394,7 @@ let peerConnections = {};
 
 let currentUserName = "ユーザー";
 let presenceMembers = [];
+let broadcasterProfile = null;
 
 let currentLiveId = null;
 
@@ -1581,7 +1582,7 @@ function togglePresenceBlock(){if(!presenceProfileTarget||presenceProfileTarget=
  send({type:"social_action",action:"block",targetId:presenceProfileTarget});
 }
 function openPresenceProfile(id){
-  const member = presenceMembers.find(function(m){return m.id === id;});
+  const member = presenceMembers.find(function(m){return m.id === id;}) || (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null);
   if(!member)return;
   closePresence();
   presenceProfileTarget=id;
@@ -1649,6 +1650,7 @@ function handleMessage(data) {
 
   if (data.type === "presence_update") {
     presenceMembers = Array.isArray(data.members) ? data.members : [];
+    broadcasterProfile = data.broadcasterProfile || null;
     renderPresence();
     return;
   }
@@ -3464,7 +3466,9 @@ function sendPresence() {
       members.push({id:client.clientId,name:profile.name || client.liveName || "ゲスト",avatar:profile.avatar || "",gender:profile.gender || "未設定",bio:profile.bio || "",broadcaster:false});
     }
   });
-  broadcast({type:"presence_update",members:members});
+  const hostProfile = broadcaster.profile || {};
+  const host = {id:broadcaster.clientId,name:liveInfo.name || hostProfile.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true};
+  broadcast({type:"presence_update",members:members,broadcasterProfile:host});
 }
 
 function sendLiveList() {

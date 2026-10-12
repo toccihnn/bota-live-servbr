@@ -908,6 +908,14 @@ button {
 #livePanel:not(.is-broadcaster) #audioButton {display:block;top:130px;left:18px;z-index:9}
 #livePanel:not(.is-broadcaster) #audioText {position:absolute;top:174px;left:18px;z-index:8;font-size:11px}
 
+/* 配信中ヘッダー：タイトル上部、配信者は左、視聴者は右 */
+#livePanel .live-top-title{position:absolute;top:max(18px,env(safe-area-inset-top));left:16px;right:72px;z-index:8;color:white;font-size:16px;font-weight:900;line-height:1.4;text-shadow:0 2px 6px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
+#livePanel .live-host-info{position:absolute;top:max(61px,calc(env(safe-area-inset-top) + 43px));left:14px;z-index:8;display:flex!important;align-items:center;gap:7px;max-width:42%;min-width:0}
+#livePanel .live-host-info .presence-avatar{width:37px;height:37px;flex-shrink:0}
+#livePanel .live-host-name{background:#05051099;border:0;border-radius:15px;color:white;font-size:12px;font-weight:800;text-shadow:0 1px 3px #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 8px;min-width:0}
+#livePanel .presence-strip{top:max(61px,calc(env(safe-area-inset-top) + 43px));left:auto;right:14px;max-width:48%;justify-content:flex-end;overflow:hidden}
+#livePanel .presence-strip .presence-avatar{width:32px;height:32px;flex-shrink:0}
+#livePanel .presence-strip .presence-more{padding:5px;font-size:10px;white-space:nowrap}
 /* コメント投稿者名をタップしてプロフィールを開く */
 .comment-user-link{appearance:none;border:0;background:none;padding:0;color:#a9d9ff;font:inherit;font-weight:900;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 /* 入室者アイコン：配信者・視聴者共通 */
@@ -1194,7 +1202,9 @@ button {
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
-  <div class="presence-strip" id="presenceStrip" aria-label="現在の参加者"></div>
+  <div class="live-top-title" id="liveTopTitle"></div>
+  <div class="live-host-info" id="liveHostInfo" style="display:none"><button type="button" class="presence-avatar" id="liveHostAvatar" aria-label="配信者のプロフィール"></button><button type="button" id="liveHostName" class="live-host-name"></button></div>
+  <div class="presence-strip" id="presenceStrip" aria-label="現在の視聴者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
     <div class="presence-dialog" onclick="event.stopPropagation()">
       <div style="display:flex;justify-content:space-between;align-items:center"><strong id="presenceHeading">参加者一覧</strong><button type="button" onclick="closePresence()" style="color:white;background:transparent;border:0;font-size:24px">×</button></div>
@@ -1618,6 +1628,21 @@ function openPresenceProfile(id){
   document.getElementById("presenceProfile").classList.add("open");
 }
 function closePresenceProfile(){document.getElementById("presenceProfile").classList.remove("open");}
+function renderLiveHeader(){
+  const title=document.getElementById("liveTopTitle");
+  const hostInfo=document.getElementById("liveHostInfo");
+  const hostAvatar=document.getElementById("liveHostAvatar");
+  const hostName=document.getElementById("liveHostName");
+  if(title)title.textContent=activeLiveTitle || "配信中";
+  if(!hostInfo || !hostAvatar || !hostName)return;
+  const host=broadcasterProfile;
+  hostInfo.style.visibility=host ? "visible" : "hidden";
+  if(!host)return;
+  paintPresenceAvatar(hostAvatar,host);
+  hostName.textContent=host.name || "配信者";
+  hostAvatar.onclick=hostName.onclick=function(){openPresenceProfile(host.id);};
+}
+let activeLiveTitle="";
 function renderPresence() {
   const strip = document.getElementById("presenceStrip");
   const list = document.getElementById("presenceList");
@@ -1678,7 +1703,9 @@ function handleMessage(data) {
   if (data.type === "presence_update") {
     presenceMembers = Array.isArray(data.members) ? data.members : [];
     broadcasterProfile = data.broadcasterProfile || null;
+    activeLiveTitle=data.title || activeLiveTitle;
     renderPresence();
+    renderLiveHeader();
     return;
   }
 
@@ -3035,6 +3062,7 @@ function openPanel() {
 
 
 function closePanel() {
+  activeLiveTitle="";
   closePresence();
   if (!isBroadcaster) {
     send({type:"leave_live"});
@@ -3541,7 +3569,7 @@ function sendPresence() {
   });
   const hostProfile = broadcaster.profile || {};
   const host = {id:broadcaster.clientId,name:liveInfo.name || hostProfile.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true};
-  broadcast({type:"presence_update",members:members,broadcasterProfile:host});
+  broadcast({type:"presence_update",members:members,broadcasterProfile:host,title:liveInfo.title});
 }
 
 function sendLiveList() {

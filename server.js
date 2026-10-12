@@ -5,37 +5,26 @@ const PORT = process.env.PORT || 10000;
 const HOST = "0.0.0.0";
 
 let clients = new Set();
-const fs=require("fs");
-const socialFile=require("path").join(__dirname,"voicebota_social.json");
-let socialDB={users:{},following:{},blocked:{}};
-try { const saved=JSON.parse(fs.readFileSync(socialFile,"utf8")); socialDB={...socialDB,...saved}; }catch(e){}
-function saveSocial(){try{fs.writeFileSync(socialFile,JSON.stringify(socialDB));}catch(e){console.error("social save:",e.message);}}
-function socialList(id){
- // ブロック関係にある相手のプロフィールを相互に非公開にする。
- // 自分がブロックした相手だけは解除操作のためブロック一覧に残す。
- const blocked=socialDB.blocked[id]||[];
- const visible=uid=>!isBlockedEither(id,uid);
- const following=(socialDB.following[id]||[]).filter(visible);
- const followers=Object.keys(socialDB.following).filter(uid=>visible(uid)&&(socialDB.following[uid]||[]).includes(id));
- const users=Object.entries(socialDB.users).filter(([uid])=>visible(uid)||blocked.includes(uid)).map(([uid,u])=>({id:uid,name:u.name||"ユーザー"}));
- return {type:"social_state",following,followers,blocked,users};
+let broadcaster = null;
+const fsSocial = require("fs");
+const socialPath = require("path").join(__dirname,"voicebota_social.json");
+let socialData = {following:{},blocked:{}};
+try {const v=JSON.parse(fsSocial.readFileSync(socialPath,"utf8"));socialData={...socialData,...v};}catch(e){}
+function saveSocialData(){try{fsSocial.writeFileSync(socialPath,JSON.stringify(socialData));}catch(e){console.error("social save",e.message);}}
+function socialIds(key,id){return Array.isArray(socialData[key][id])?socialData[key][id]:[];}
+function blockedEither(a,b){return !!(a&&b&&(socialIds("blocked",a).includes(b)||socialIds("blocked",b).includes(a)));}
+function socialState(ws){
+ const id=ws.clientId;
+ sendTo(ws,{type:"social_state",following:socialIds("following",id),blocked:socialIds("blocked",id)});
 }
-function socialSend(ws){sendTo(ws,socialList(ws.clientId));}
-function isBlockedEither(a,b){return !!(a&&b&&((socialDB.blocked[a]||[]).includes(b)||(socialDB.blocked[b]||[]).includes(a)));}
-function denyBlocked(ws){sendTo(ws,{type:"access_denied",reason:"この配信には参加できません（ブロックされています）"});}
-function kickBlockedFromLive(){
+function removeBlockedViewer(){
  if(!broadcaster)return;
- clients.forEach(c=>{
-  if(c!==broadcaster&&c.liveJoined&&isBlockedEither(c.clientId,broadcaster.clientId)){
-   c.liveJoined=false;
-   sendTo(c,{type:"access_denied",reason:"この配信には参加できません（ブロックされています）"});
-  }
- });
+ clients.forEach(c=>{if(c!==broadcaster&&c.liveJoined&&blockedEither(c.clientId,broadcaster.clientId)){
+ c.liveJoined=false;sendTo(c,{type:"access_denied",reason:"ブロック関係にあるため、この配信には参加できません"});
+ }});
  sendPresence();
 }
 
-
-let broadcaster = null;
 
 let liveInfo = {
   active: false,
@@ -882,8 +871,6 @@ button {
 .comments {position:absolute;left:14px;right:88px;bottom:calc(94px + env(safe-area-inset-bottom));margin:0;z-index:5;display:flex;flex-direction:column;gap:8px}
 .comment-list {height:min(34vh,280px);min-height:100px;overflow-y:auto;overscroll-behavior:contain;padding:0;background:transparent;border-radius:0;scrollbar-width:thin;scrollbar-color:#ffffff66 transparent;mask-image:linear-gradient(to bottom,transparent 0%,#000 8%,#000 100%)}
 .comment-item {display:table;max-width:100%;margin:5px 0;padding:9px 12px;border:0;border-radius:18px;background:rgba(3,5,15,.76);color:#fff;font-size:14px;line-height:1.45;overflow-wrap:anywhere;text-shadow:0 1px 2px #000}
- .comment-user-avatar{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;width:30px;height:30px;margin-right:7px;padding:0;border:1px solid #ffffff70;border-radius:50%;background:#ffffff24;color:white;font-size:17px;cursor:pointer;touch-action:manipulation}
-.comment-user-avatar:active{background:#ffffff55}
 .comment-input {position:fixed;left:14px;right:86px;bottom:calc(18px + env(safe-area-inset-bottom));margin:0;gap:8px;z-index:8}
 .comment-input input {height:52px;border-radius:28px;padding:0 18px;background:rgba(7,10,25,.88);border:1px solid #ffffff35;font-size:15px}
 .comment-input button {width:56px;flex-shrink:0;border-radius:50%;font-size:18px}
@@ -912,12 +899,19 @@ button {
 
 /* 入室者アイコン：配信者・視聴者共通 */
 .presence-strip{position:absolute;top:max(78px,env(safe-area-inset-top) + 62px);left:14px;z-index:8;display:flex;align-items:center;gap:5px;max-width:calc(100% - 100px)}
-.presence-avatar{background-size:cover;background-position:center;background-repeat:no-repeat;width:34px;height:34px;border-radius:50%;border:2px solid #ffffff88;background:linear-gradient(135deg,#557bff,#c36aff);color:white;font-size:15px;font-weight:bold}
+.presence-avatar{width:34px;height:34px;border-radius:50%;border:2px solid #ffffff88;background:linear-gradient(135deg,#557bff,#c36aff);color:white;font-size:15px;font-weight:bold}
 .presence-more{border:1px solid #ffffff66;background:#10142dbb;color:white;border-radius:18px;padding:8px;font-size:11px}
 .presence-overlay{display:none;position:absolute;inset:0;background:#0009;z-index:20;align-items:center;justify-content:center;padding:24px}
 .presence-overlay.open{display:flex}
 .presence-dialog{background:#151a36;border:1px solid #ffffff44;border-radius:18px;padding:20px;width:min(100%,360px);max-height:70vh;overflow-y:auto}
 .presence-entry{padding:11px;border-bottom:1px solid #ffffff22}
+.presence-avatar{background-size:cover;background-position:center;overflow:hidden;cursor:pointer}
+.presence-entry{display:flex;align-items:center;gap:10px;cursor:pointer}
+.presence-profile{display:none;position:absolute;inset:0;z-index:25;background:#000a;align-items:center;justify-content:center;padding:20px}
+.presence-profile.open{display:flex}
+.presence-profile-card{width:min(100%,340px);background:#151a36;border:1px solid #ffffff55;border-radius:20px;padding:22px;text-align:center}
+.presence-profile-photo{width:88px;height:88px;border-radius:50%;background:#374075;background-size:cover;background-position:center;margin:8px auto 12px;display:flex;align-items:center;justify-content:center;font-size:38px}
+
 
 /* マイページ専用。既存画面のレイアウトは変更しない */
 #myPageScreen{position:fixed;inset:0;z-index:1500;background:#fff;color:#202020;overflow-y:auto;display:none;padding-bottom:82px;font-size:14px}
@@ -1185,12 +1179,25 @@ button {
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
-  <div id="liveViewerNotice" style="position:absolute;top:102px;left:14px;right:14px;z-index:50;color:white;font-size:12px;text-shadow:0 1px 5px #000;pointer-events:none">視聴者 0人</div>
   <div class="presence-strip" id="presenceStrip" aria-label="現在の参加者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
     <div class="presence-dialog" onclick="event.stopPropagation()">
       <div style="display:flex;justify-content:space-between;align-items:center"><strong id="presenceHeading">参加者一覧</strong><button type="button" onclick="closePresence()" style="color:white;background:transparent;border:0;font-size:24px">×</button></div>
       <div id="presenceList"></div>
+    </div>
+  </div>
+  <div class="presence-profile" id="presenceProfile" onclick="closePresenceProfile()">
+    <div class="presence-profile-card" onclick="event.stopPropagation()">
+      <button type="button" onclick="closePresenceProfile()" style="float:right;background:transparent;border:0;color:white;font-size:24px">×</button>
+      <div id="presenceProfilePhoto" class="presence-profile-photo">👤</div>
+      <h3 id="presenceProfileName"></h3>
+      <div id="presenceProfileGender" style="color:#c7c9dd"></div>
+      <p id="presenceProfileBio" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+      <div id="presenceSocialActions" style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+        <button type="button" id="presenceFollowButton" onclick="togglePresenceFollow()" style="padding:11px 15px;border:0;border-radius:20px;background:#536bff;color:white;font-weight:bold">フォロー</button>
+        <button type="button" id="presenceBlockButton" onclick="togglePresenceBlock()" style="padding:11px 15px;border:1px solid #f78;background:#4a2335;color:white;border-radius:20px">ブロック</button>
+      </div>
+      <div id="presenceSocialNotice" style="font-size:12px;margin-top:10px;color:#ffd2df"></div>
     </div>
   </div>
   <button class="panel-close" type="button" onclick="closePanel()" aria-label="閉じる">×</button>
@@ -1257,7 +1264,6 @@ button {
     <div class="mp-bio-head"><span>▤ &nbsp; 自己紹介</span><button type="button" class="mp-edit" onclick="editMyPage()">編集する</button></div>
     <div id="mpBioText" class="mp-bio-text">自己紹介はまだありません。</div>
   </div>
-  <button class="mp-item" type="button" onclick="openFollowList('blocked')"><span>🚫 &nbsp; ブロックしたユーザー</span><span>›</span></button>
   <button class="mp-item" type="button" onclick="myPageInfo('ファンランキングは準備中です')"><span>☆ &nbsp; ファンランキング</span><span>›</span></button>
   <button class="mp-item" type="button" onclick="myPageInfo('お問い合わせ機能は準備中です')"><span>✉ &nbsp; お問い合わせ・困ったときは</span><span>›</span></button>
   <input id="mpAvatarFile" type="file" accept="image/*" style="display:none" onchange="saveMyPageAvatar(this)">
@@ -1374,8 +1380,11 @@ button {
 
 let socket = null;
 
-let myId = localStorage.getItem("voiceBotaUserId");
-if (!myId) { myId = "user_" + Math.random().toString(36).substring(2,12); localStorage.setItem("voiceBotaUserId",myId); }
+let myId = (function(){
+  let id = localStorage.getItem("voiceBotaClientId");
+  if (!id) { id = "user_" + Math.random().toString(36).substring(2,12); localStorage.setItem("voiceBotaClientId", id); }
+  return id;
+})();
 
 let connected = false;
 
@@ -1384,7 +1393,6 @@ let isBroadcaster = false;
 let localStream = null;
 
 let peerConnections = {};
-let earlyIce = {};
 
 let currentUserName = "ユーザー";
 let presenceMembers = [];
@@ -1421,12 +1429,6 @@ const rtcConfig = {
    CONNECT
 ========================================================= */
 
-function getSharedAvatar(){
-  try { return localStorage.getItem("voiceBotaProfileAvatar") || ""; } catch(e) { return ""; }
-}
-function shareProfile(){
-  send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar(),bio:localStorage.getItem("voiceBotaProfileBio")||"",gender:localStorage.getItem("voiceBotaProfileGender")||""});
-}
 function connectSocket() {
 
   const protocol =
@@ -1457,8 +1459,7 @@ function connectSocket() {
         "WebSocket connected"
       );
 
-      send({type:"hello",clientId:myId,name:getMyName(),avatar:getSharedAvatar(),bio:localStorage.getItem("voiceBotaProfileBio")||"",gender:localStorage.getItem("voiceBotaProfileGender")||""});
-      requestSocial();
+      send({type:"hello",clientId:myId,profile:getMyPublicProfile()});
 
     };
 
@@ -1546,54 +1547,69 @@ function send(data) {
    MESSAGE
 ========================================================= */
 
-let socialState = {following:[],followers:[],blocked:[],users:[]};
-function requestSocial(){ send({type:"social_get"}); }
-function socialAction(action,id){
-  if(!id || id===myId)return;
-  if(action==="block" && !confirm("このユーザーをブロックしますか？"))return;
-  send({type:"social_action",action:action,target:id});
+function getMyPublicProfile(){
+  return {
+    name: localStorage.getItem("voiceBotaProfileName") || currentUserName || "ゲスト",
+    avatar: localStorage.getItem("voiceBotaProfileAvatar") || "",
+    gender: localStorage.getItem("voiceBotaProfileGender") || "未設定",
+    bio: localStorage.getItem("voiceBotaProfileBio") || ""
+  };
 }
-function openUserActions(id, displayName){
-  if(!id)return;
-  const u=presenceMembers.find(x=>x.id===id)||socialState.users.find(x=>x.id===id)||{};
-  const name=u.name||displayName||"ユーザー";
-  document.getElementById("socialQuickMenu")?.remove();
-  const overlay=document.createElement("div");overlay.id="socialQuickMenu";
-  overlay.style.cssText="position:fixed;inset:0;z-index:99999;background:#000b;display:flex;align-items:center;justify-content:center;padding:20px";
-  const panel=document.createElement("div");panel.style.cssText="width:min(90vw,350px);max-height:80vh;overflow-y:auto;background:#22213d;color:white;border-radius:18px;padding:22px;display:grid;justify-items:center;gap:12px;text-align:center";
-  const avatar=document.createElement("div");avatar.style.cssText="width:88px;height:88px;border-radius:50%;background:#6266aa center/cover;display:grid;place-items:center;font-size:38px;border:2px solid #e5d7ff";
-  if(u.avatar)avatar.style.backgroundImage="url("+JSON.stringify(u.avatar)+")";else avatar.textContent="👤";
-  panel.appendChild(avatar);
-  const heading=document.createElement("strong");heading.style.fontSize="20px";heading.textContent=name;panel.appendChild(heading);
-  const gender=document.createElement("div");gender.textContent=u.gender?"性別："+u.gender:"";panel.appendChild(gender);
-  const bio=document.createElement("div");bio.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;opacity:.9";bio.textContent=u.bio||"自己紹介はまだありません";panel.appendChild(bio);
-  function actionButton(label,action){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.style.cssText="width:100%;padding:13px;border-radius:12px;border:1px solid #b5a3df;background:#39345f;color:white;font-size:16px";btn.onclick=()=>{overlay.remove();socialAction(action,id)};panel.appendChild(btn)}
-  if(id!==myId){const blocked=socialState.blocked.includes(id),following=socialState.following.includes(id);actionButton(following?"フォロー解除":"フォローする",following?"unfollow":"follow");actionButton(blocked?"ブロック解除":"ブロックする",blocked?"unblock":"block");}
-  const close=document.createElement("button");close.textContent="閉じる";close.style.cssText="padding:12px;background:transparent;color:white;border:0";close.onclick=()=>overlay.remove();panel.appendChild(close);
-  overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};overlay.appendChild(panel);document.body.appendChild(overlay);
+function sendMyProfile(){
+  send({type:"profile_update",clientId:myId,profile:getMyPublicProfile()});
 }
-function renderSocial(){
-  document.getElementById("mpFollowing").textContent=socialState.following.length;
-  document.getElementById("mpFollowers").textContent=socialState.followers.length;
-  const dlg=document.getElementById("mpFollowDialog");
-  if(dlg && dlg.classList.contains("active"))openFollowList(dlg.dataset.kind||"following");
+function paintPresenceAvatar(el,member){
+  const photo = member.avatar || "";
+  el.textContent = photo ? "" : (member.name || "？").slice(0,1);
+  el.style.backgroundImage = photo && photo.startsWith("data:image/") ? 'url("' + photo + '")' : "";
 }
+let presenceProfileTarget = null;
+let presenceFollowing = [];
+let presenceBlocked = [];
+function updatePresenceSocialButtons(){
+ const id=presenceProfileTarget;
+ const f=document.getElementById("presenceFollowButton"),b=document.getElementById("presenceBlockButton");
+ if(!f||!b)return;
+ const own=id===myId;
+ document.getElementById("presenceSocialActions").style.display=own?"none":"flex";
+ f.textContent=presenceFollowing.includes(id)?"フォロー解除":"フォロー";
+ b.textContent=presenceBlocked.includes(id)?"ブロック解除":"ブロック";
+ f.disabled=presenceBlocked.includes(id);
+}
+function togglePresenceFollow(){if(presenceProfileTarget&&presenceProfileTarget!==myId)send({type:"social_action",action:"follow",targetId:presenceProfileTarget});}
+function togglePresenceBlock(){if(!presenceProfileTarget||presenceProfileTarget===myId)return;
+ const blocked=presenceBlocked.includes(presenceProfileTarget);
+ if(!blocked&&!confirm("このユーザーをブロックしますか？"))return;
+ send({type:"social_action",action:"block",targetId:presenceProfileTarget});
+}
+function openPresenceProfile(id){
+  const member = presenceMembers.find(function(m){return m.id === id;});
+  if(!member)return;
+  closePresence();
+  presenceProfileTarget=id;
+  document.getElementById("presenceSocialNotice").textContent="";
+  updatePresenceSocialButtons();
+  document.getElementById("presenceProfileName").textContent = member.name || "ゲスト";
+  document.getElementById("presenceProfileGender").textContent = "性別：" + (member.gender || "未設定");
+  document.getElementById("presenceProfileBio").textContent = member.bio || "自己紹介はまだありません。";
+  const photo = document.getElementById("presenceProfilePhoto");
+  photo.textContent = member.avatar ? "" : "👤";
+  photo.style.backgroundImage = member.avatar && member.avatar.startsWith("data:image/") ? 'url("' + member.avatar + '")' : "";
+  document.getElementById("presenceProfile").classList.add("open");
+}
+function closePresenceProfile(){document.getElementById("presenceProfile").classList.remove("open");}
 function renderPresence() {
   const strip = document.getElementById("presenceStrip");
   const list = document.getElementById("presenceList");
   if (!strip || !list) return;
-  strip.replaceChildren();
-  list.replaceChildren();
-  const notice=document.getElementById("liveViewerNotice");
-  if(notice)notice.textContent="視聴者 "+presenceMembers.length+"人"+(presenceMembers.length ? " ・ "+presenceMembers.slice(0,2).map(m=>m.name).join("、")+" が入室中" : "");
+  strip.replaceChildren();list.replaceChildren();
   document.getElementById("presenceHeading").textContent = "参加者一覧 (" + presenceMembers.length + "人)";
   presenceMembers.slice(0,3).forEach(function(member) {
     const button = document.createElement("button");
     button.className = "presence-avatar";
-    if(member.avatar){button.style.backgroundImage="url("+JSON.stringify(member.avatar)+")";button.style.backgroundSize="cover";button.style.backgroundPosition="center";}
-    else button.textContent = (member.name || "？").slice(0,1);
+    paintPresenceAvatar(button,member);
     button.title = member.name;
-    button.onclick = () => openUserActions(member.id,member.name);
+    button.onclick = function(){openPresenceProfile(member.id);};
     strip.appendChild(button);
   });
   if (presenceMembers.length > 3) {
@@ -1604,16 +1620,15 @@ function renderPresence() {
     strip.appendChild(more);
   }
   presenceMembers.forEach(function(member) {
-    const item = document.createElement("div");
-    item.className = "presence-entry";
-    const photo=document.createElement("span");
-    photo.style.cssText="display:inline-flex;vertical-align:middle;width:32px;height:32px;border-radius:50%;margin-right:8px;background:#6266aa;align-items:center;justify-content:center;background-size:cover;background-position:center";
-    if(member.avatar)photo.style.backgroundImage="url("+JSON.stringify(member.avatar)+")";
-    else photo.textContent="👤";
-    item.appendChild(photo);
-    item.appendChild(document.createTextNode(member.name+"　フォロー・ブロック ›"));
-    item.style.cursor="pointer";
-    item.onclick=()=>openUserActions(member.id);
+    const item = document.createElement("button");
+    item.type = "button";item.className = "presence-entry";
+    item.style.width = "100%";item.style.color = "white";item.style.background = "transparent";item.style.borderTop = "0";item.style.borderLeft = "0";item.style.borderRight = "0";
+    const avatar = document.createElement("span");avatar.className="presence-avatar";
+    avatar.style.display="inline-flex";avatar.style.alignItems="center";avatar.style.justifyContent="center";
+    paintPresenceAvatar(avatar,member);
+    const label=document.createElement("span");label.textContent=member.name || "ゲスト";
+    item.append(avatar,label);
+    item.onclick=function(){openPresenceProfile(member.id);};
     list.appendChild(item);
   });
 }
@@ -1621,35 +1636,22 @@ function openPresence() { document.getElementById("presenceOverlay").classList.a
 function closePresence() { document.getElementById("presenceOverlay").classList.remove("open"); }
 
 function handleMessage(data) {
-  if(data.type==="viewer_joined_notice"){
-    const el=document.getElementById("liveViewerNotice");
-    if(el)el.textContent=(data.name||"ゲスト")+" さんが入室しました（視聴者 "+data.count+"人）";
-    return;
+  if(data.type==="social_state"){
+    presenceFollowing=Array.isArray(data.following)?data.following:[];
+    presenceBlocked=Array.isArray(data.blocked)?data.blocked:[];
+    updatePresenceSocialButtons();return;
   }
-  if(data.type==="room_joined"){
-    const el=document.getElementById("audioText");
-    if(el)el.textContent="入室しました・音声接続中…";
-    return;
+  if(data.type==="social_notice"){
+    const el=document.getElementById("presenceSocialNotice");if(el)el.textContent=data.message||"";return;
   }
   if(data.type==="access_denied"){
-    alert(data.reason||"ブロックされているため利用できません");
-    if(typeof stopListening==="function")try{stopListening();}catch(e){}
-    if(typeof leaveLive==="function")try{leaveLive();}catch(e){}
-    return;
+    alert(data.reason||"この配信には参加できません");
+    if(typeof closePanel==="function")closePanel();return;
   }
-  if(data.type==="social_state"){
-    socialState={following:data.following||[],followers:data.followers||[],blocked:data.blocked||[],users:data.users||[]};
-    renderSocial();renderPresence();return;
-  }
+
   if (data.type === "presence_update") {
-    const oldIds=new Set(presenceMembers.map(m=>m.id));
-    presenceMembers = (Array.isArray(data.members) ? data.members : []).filter(m=>!socialState.blocked.includes(m.id));
+    presenceMembers = Array.isArray(data.members) ? data.members : [];
     renderPresence();
-    const joined=presenceMembers.filter(m=>!oldIds.has(m.id));
-    if(joined.length && isBroadcaster){
-      const el=document.getElementById("liveViewerNotice");
-      if(el)el.textContent=joined[joined.length-1].name+" さんが入室しました（視聴者 "+presenceMembers.length+"人）";
-    }
     return;
   }
 
@@ -1712,7 +1714,7 @@ function handleMessage(data) {
     data.type ===
     "viewer_joined"
   ) {
-    setPanelStatus("視聴者が入室しました・音声接続中…");
+
     createOffer(
       data.viewerId
     );
@@ -1726,8 +1728,7 @@ function handleMessage(data) {
     data.type ===
     "offer"
   ) {
-    const el=document.getElementById("audioText");
-    if(el)el.textContent="配信者の音声接続情報を受信・接続中…";
+
     receiveOffer(
       data
     );
@@ -1772,8 +1773,7 @@ function handleMessage(data) {
 
     addComment(
       data.name,
-      data.text,
-      data.userId
+      data.text
     );
 
     return;
@@ -1957,6 +1957,10 @@ async function startLive() {
     "START LIVE CLICK"
   );
 
+
+  alert(
+    "配信ボタンを押しました"
+  );
 
 
   if (!connected) {
@@ -2271,21 +2275,8 @@ function listenLive(
     liveId;
 
 
-  // 入室タップのユーザー操作中に音声再生を準備する。
-  // 一部ブラウザでは音声受信前の再生準備だけでは許可されないため、
-  // ontrackでも再度play()を呼び、拒否時のみ手動ボタンを表示する。
-  const audioButton=document.getElementById("audioButton");
-  if(audioButton)audioButton.style.display="none";
-  const remoteAudio=document.getElementById("remoteAudio");
-  if(remoteAudio){
-    remoteAudio.autoplay=true;
-    remoteAudio.playsInline=true;
-    remoteAudio.muted=false;
-    remoteAudio.volume=1;
-    const pending=remoteAudio.play();
-    if(pending && pending.catch)pending.catch(()=>{});
-  }
   openPanel();
+
 
   document.getElementById(
     "panelTitle"
@@ -2304,7 +2295,6 @@ function listenLive(
     "接続中...";
 
 
-  shareProfile();
   send({
 
     type:
@@ -2315,7 +2305,8 @@ function listenLive(
 
     liveId:
       liveId,
-    name: currentUserName
+    name: currentUserName,
+    profile: getMyPublicProfile()
 
   });
 
@@ -2346,9 +2337,9 @@ async function createOffer(
     );
 
 
-  peerConnections[viewerId] = pc;
-  pc._pendingIce=earlyIce[viewerId]||[];
-  delete earlyIce[viewerId];
+  peerConnections[
+    viewerId
+  ] = pc;
 
 
   localStream
@@ -2434,8 +2425,10 @@ async function createOffer(
 
   } catch(error) {
 
-    console.error("CREATE OFFER ERROR",error);
-    setPanelStatus("音声送信エラー: "+error.message);
+    console.error(
+      "CREATE OFFER ERROR",
+      error
+    );
 
   }
 
@@ -2460,25 +2453,11 @@ async function receiveOffer(
     );
 
 
-  peerConnections[data.from] = pc;
-  pc._pendingIce = earlyIce[data.from] || [];
-  delete earlyIce[data.from];
+  peerConnections[
+    data.from
+  ] = pc;
 
 
-  // 受信側はofferの音声トラックに応答する。不要なm-lineを追加しない。
-  pc.oniceconnectionstatechange=function(){
-    const label=document.getElementById("audioText");
-    if(label && pc.iceConnectionState!=="connected" && pc.iceConnectionState!=="completed")label.textContent="音声通信: "+pc.iceConnectionState;
-  };
-  pc.onconnectionstatechange=function(){
-    const label=document.getElementById("audioText");
-    if(label)label.textContent=pc.connectionState==="connected"?"🔊 音声接続済み":"音声接続: "+pc.connectionState;
-    if(pc.connectionState==="failed"){
-      setPanelStatus("音声接続に失敗しました。通信環境を確認してください（TURNサーバーが必要な場合があります）");
-      const status=document.getElementById("audioText");if(status)status.textContent="⚠ 音声接続失敗（TURN設定が必要な可能性）";
-      document.getElementById("audioButton").style.display="block";
-    }
-  };
   pc.ontrack =
     function(event) {
 
@@ -2493,14 +2472,17 @@ async function receiveOffer(
         );
 
 
-      if(event.streams && event.streams[0]) audio.srcObject=event.streams[0];
-      else {const stream=new MediaStream();stream.addTrack(event.track);audio.srcObject=stream;}
+      if (
+        event.streams &&
+        event.streams[0]
+      ) {
+
+        audio.srcObject =
+          event.streams[0];
+
+      }
 
 
-      audio.autoplay=true;
-      audio.playsInline=true;
-      audio.muted=false;
-      audio.volume=1;
       audio.play()
         .then(
           function() {
@@ -2578,8 +2560,6 @@ async function receiveOffer(
         data.sdp
       )
     );
-    for(const candidate of (pc._pendingIce||[])){try{await pc.addIceCandidate(candidate)}catch(e){console.warn("ICE candidate:",e)}}
-    pc._pendingIce=[];
 
 
     const answer =
@@ -2610,9 +2590,10 @@ async function receiveOffer(
 
   } catch(error) {
 
-    console.error("RECEIVE OFFER ERROR",error);
-    const el=document.getElementById("audioText");
-    if(el)el.textContent="音声受信エラー: "+error.message;
+    console.error(
+      "RECEIVE OFFER ERROR",
+      error
+    );
 
   }
 
@@ -2647,13 +2628,13 @@ async function receiveAnswer(
         data.sdp
       )
     );
-    for(const candidate of (pc._pendingIce||[])){try{await pc.addIceCandidate(candidate)}catch(e){console.warn("ICE candidate:",e)}}
-    pc._pendingIce=[];
 
   } catch(error) {
 
-    console.error("ANSWER ERROR",error);
-    setPanelStatus("音声応答エラー: "+error.message);
+    console.error(
+      "ANSWER ERROR",
+      error
+    );
 
   }
 
@@ -2675,14 +2656,12 @@ async function receiveIce(
 
 
   if (!pc) {
-    (earlyIce[data.from] ||= []).push(data.candidate);
+
     return;
+
   }
 
-  if (!pc.remoteDescription) {
-    (pc._pendingIce ||= []).push(data.candidate);
-    return;
-  }
+
   try {
 
     await pc.addIceCandidate(
@@ -2921,8 +2900,7 @@ function sendComment() {
 
 function addComment(
   name,
-  text,
-  userId
+  text
 ) {
 
   const list =
@@ -2943,26 +2921,10 @@ function addComment(
     "comment-item";
 
 
-  // コメントのユーザーアイコンからフォロー・ブロック操作を開く。
-  // 自分自身やシステム通知には操作ボタンを表示しない。
-  if (userId && userId !== myId) {
-    const avatar = document.createElement("button");
-    avatar.type = "button";
-    avatar.className = "comment-user-avatar";
-    const profileUser=socialState.users.find(x=>x.id===userId);
-    if(profileUser && profileUser.avatar){avatar.style.backgroundImage="url("+JSON.stringify(profileUser.avatar)+")";avatar.style.backgroundSize="cover";avatar.style.backgroundPosition="center";}
-    else avatar.textContent = "👤";
-    avatar.title = name + "のフォロー・ブロック";
-    avatar.setAttribute("aria-label", name + "のフォロー・ブロック");
-    avatar.onclick = function(event) {
-      event.stopPropagation();
-      openUserActions(userId,name);
-    };
-    item.appendChild(avatar);
-  }
-  const content = document.createElement("span");
-  content.textContent = name + ": " + text;
-  item.appendChild(content);
+  item.textContent =
+    name +
+    ": " +
+    text;
 
 
   list.appendChild(
@@ -3141,20 +3103,14 @@ function applyMyPageBackground() {
 }
 // フォロー一覧：サーバー連携ができるまでは架空のユーザーを表示しない
 function openFollowList(kind) {
-  const followers=kind==="followers",blocked=kind==="blocked";
-  const dlg=document.getElementById("mpFollowDialog");dlg.dataset.kind=kind;
-  document.getElementById("mpFollowTitle").textContent=blocked?"ブロック中":followers?"フォロワー":"フォロー中";
-  const container=document.getElementById("mpFollowContents");container.replaceChildren();
-  const ids=(blocked?socialState.blocked:followers?socialState.followers:socialState.following).filter(id=>blocked || socialState.users.some(u=>u.id===id));
-  if(!ids.length){container.textContent="まだユーザーはいません。";}
-  ids.forEach(id=>{
-    const u=socialState.users.find(x=>x.id===id);
-    const row=document.createElement("button");row.type="button";
-    row.style.cssText="display:block;width:100%;padding:14px;margin:5px 0;background:#ffffff18;color:white;border:1px solid #ffffff44;border-radius:12px;text-align:left";
-    row.textContent="👤 "+(u?u.name:"ユーザー")+"　›";
-    row.onclick=()=>openUserActions(id);container.appendChild(row);
-  });
-  dlg.classList.add("active");
+  const followers = kind === "followers";
+  document.getElementById("mpFollowTitle").textContent = followers ? "フォロワー" : "フォロー中";
+  const container = document.getElementById("mpFollowContents");
+  container.replaceChildren();
+  const message = document.createElement("p");
+  message.textContent = "現在、表示できるユーザーはいません。";
+  container.appendChild(message);
+  document.getElementById("mpFollowDialog").classList.add("active");
 }
 function closeFollowList() {
   const dialog = document.getElementById("mpFollowDialog");
@@ -3162,7 +3118,7 @@ function closeFollowList() {
 }
 
 function showProfile() {
-  requestSocial();
+  applyMyPageBackground();
   const name = localStorage.getItem("voiceBotaProfileName") ||
     (typeof getMyName === "function" ? getMyName() : "月光花");
   document.getElementById("mpMoonName").textContent = (name || "月光花");
@@ -3196,8 +3152,8 @@ function saveMyPageEdit() {
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
   localStorage.setItem("voiceBotaProfileBio", document.getElementById("mpBioInput").value.trim());
   closeMyPageEdit();
-  shareProfile();
   showProfile();
+  sendMyProfile();
 }
 function changeMyPageAvatar() { document.getElementById("mpAvatarFile").click(); }
 function saveMyPageAvatar(input) {
@@ -3213,9 +3169,9 @@ function saveMyPageAvatar(input) {
     const side = Math.min(img.width, img.height);
     ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,300,300);
     try {
-      localStorage.setItem("voiceBotaProfileAvatar",canvas.toDataURL("image/jpeg",0.78));
+      localStorage.setItem("voiceBotaProfileAvatar",canvas.toDataURL("image/jpeg",0.65));
       showProfile();
-      shareProfile();
+      sendMyProfile();
     } catch(e) { alert("画像を保存できませんでした。別の画像をお試しください。"); }
     URL.revokeObjectURL(url);
     input.value = "";
@@ -3468,22 +3424,36 @@ function getLiveList() {
 }
 
 
+function cleanProfile(p){
+  if(!p || typeof p !== "object")return {};
+  const avatar=typeof p.avatar === "string" && /^data:image\/(jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(p.avatar) && p.avatar.length < 190000 ? p.avatar : "";
+  return {name:String(p.name||"ゲスト").slice(0,30),avatar:avatar,gender:String(p.gender||"未設定").slice(0,20),bio:String(p.bio||"").slice(0,500)};
+}
+
 function sendPresence() {
   if (!liveInfo.active || !broadcaster) return;
   const members = [];
   clients.forEach(function(client) {
     if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
-      members.push({id:client.clientId,name:client.liveName || "ゲスト",avatar:socialDB.users[client.clientId]?.avatar||"",bio:socialDB.users[client.clientId]?.bio||"",gender:socialDB.users[client.clientId]?.gender||"",broadcaster:false});
+      const profile=client.profile || {};
+      members.push({id:client.clientId,name:profile.name || client.liveName || "ゲスト",avatar:profile.avatar || "",gender:profile.gender || "未設定",bio:profile.bio || "",broadcaster:false});
     }
   });
-  clients.forEach(c=>{
-    if(c.readyState!==WebSocket.OPEN)return;
-    sendTo(c,{type:"presence_update",members:members.filter(m=>!isBlockedEither(c.clientId,m.id))});
-  });
+  broadcast({type:"presence_update",members:members});
 }
 
 function sendLiveList() {
-  clients.forEach(c=>sendTo(c,{type:"live_list",lives:liveInfo.active&&broadcaster&&!isBlockedEither(c.clientId,broadcaster.clientId)?getLiveList():[]}));
+
+  broadcast({
+
+    type:
+      "live_list",
+
+    lives:
+      getLiveList()
+
+  });
+
 }
 
 
@@ -3511,6 +3481,7 @@ wss.on(
       false;
     ws.liveJoined = false;
     ws.liveName = "ゲスト";
+    ws.profile = {};
 
 
     console.log(
@@ -3572,32 +3543,36 @@ wss.on(
 
           }
 
-          ws.liveName=String(data.name||"ユーザー").slice(0,30);
-          socialDB.users[ws.clientId]={name:ws.liveName,bio:String(data.bio||"").slice(0,500),gender:String(data.gender||"").slice(0,30),avatar:typeof data.avatar==="string" && data.avatar.startsWith("data:image/") && data.avatar.length<900000 ? data.avatar : (socialDB.users[ws.clientId]?.avatar||"")};saveSocial();socialSend(ws);sendPresence();
+          if(data.profile && typeof data.profile === "object") ws.profile=cleanProfile(data.profile);
+          socialState(ws);
           return;
 
         }
 
-        if(data.type==="social_get"){socialSend(ws);return;}
-        if(data.type==="social_action"){
-          const id=ws.clientId,target=String(data.target||"").slice(0,80);
-          if(!target || target===id || !socialDB.users[target])return;
+        if(data.type === "social_action"){
+          const id=ws.clientId,target=String(data.targetId||"");
+          if(!id||!target||id===target||target.length>120)return;
           const action=data.action;
-          if(["follow","unfollow"].includes(action)){
-            const set=new Set(socialDB.following[id]||[]);
-            if(action==="follow" && !(socialDB.blocked[id]||[]).includes(target) && !(socialDB.blocked[target]||[]).includes(id))set.add(target);
-            else set.delete(target);
-            socialDB.following[id]=[...set];
-          }else if(["block","unblock"].includes(action)){
-            const set=new Set(socialDB.blocked[id]||[]);
-            if(action==="block"){
-              set.add(target);
-              socialDB.following[id]=(socialDB.following[id]||[]).filter(x=>x!==target);
-              socialDB.following[target]=(socialDB.following[target]||[]).filter(x=>x!==id);
-            }else set.delete(target);
-            socialDB.blocked[id]=[...set];
-          }else return;
-          saveSocial();clients.forEach(c=>{if(c.clientId)socialSend(c);});kickBlockedFromLive();return;
+          if(action!=="follow"&&action!=="block")return;
+          if(action==="follow"&&blockedEither(id,target)){
+            sendTo(ws,{type:"social_notice",message:"ブロック関係にあるためフォローできません"});return;
+          }
+          const key=action==="follow"?"following":"blocked";
+          const values=socialIds(key,id);
+          socialData[key][id]=values.includes(target)?values.filter(x=>x!==target):[...values,target];
+          if(action==="block"&&socialIds("blocked",id).includes(target)){
+            socialData.following[id]=socialIds("following",id).filter(x=>x!==target);
+            socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
+          }
+          saveSocialData();socialState(ws);
+          sendTo(ws,{type:"social_notice",message:action==="follow"?"フォロー設定を更新しました":"ブロック設定を更新しました"});
+          if(action==="block")removeBlockedViewer();
+          return;
+        }
+        if(data.type === "profile_update"){
+          ws.profile=cleanProfile(data.profile);
+          if(ws.liveJoined)sendPresence();
+          return;
         }
 
 
@@ -3786,15 +3761,13 @@ wss.on(
           }
 
 
-          if(isBlockedEither(ws.clientId,broadcaster.clientId)){denyBlocked(ws);return;}
+          if(blockedEither(ws.clientId,broadcaster.clientId)){
+            sendTo(ws,{type:"access_denied",reason:"ブロック関係にあるため、この配信には参加できません"});return;
+          }
           ws.liveJoined = true;
-          // 入室時のプロフィールを同期。旧端末・保存済みの情報も利用する
-          if(!socialDB.users[ws.clientId]) socialDB.users[ws.clientId]={name:ws.liveName||"ゲスト",avatar:"",bio:"",gender:""};
-          sendTo(ws,{type:"room_joined",viewerId:ws.clientId});
+          ws.profile = cleanProfile(data.profile || ws.profile);
           ws.liveName = String(data.name || "ゲスト").trim().slice(0,30) || "ゲスト";
           sendPresence();
-          const liveCount=[...clients].filter(c=>c!==broadcaster&&c.liveJoined&&c.readyState===WebSocket.OPEN).length;
-          sendTo(broadcaster,{type:"viewer_joined_notice",name:ws.liveName,count:liveCount});
           sendTo(
             ws,
             {
@@ -3869,8 +3842,7 @@ wss.on(
 
 
           if (
-            target && !isBlockedEither(ws.clientId,target.clientId) &&
-            !(liveInfo.active && broadcaster && isBlockedEither(ws.clientId,broadcaster.clientId))
+            target
           ) {
 
             sendTo(
@@ -3909,16 +3881,11 @@ wss.on(
           data.type ===
           "comment"
         ) {
-          if(liveInfo.active && broadcaster && (isBlockedEither(ws.clientId,broadcaster.clientId)|| (ws!==broadcaster&&!ws.liveJoined)))return;
 
-          clients.forEach(recipient=>{
-            if((socialDB.blocked[recipient.clientId]||[]).includes(ws.clientId) || (socialDB.blocked[ws.clientId]||[]).includes(recipient.clientId))return;
-            sendTo(recipient,{
+          broadcast({
 
             type:
               "comment",
-
-            userId: ws.clientId,
 
             name:
               String(
@@ -3938,7 +3905,6 @@ wss.on(
                 200
               )
 
-            });
           });
 
 
@@ -3955,7 +3921,6 @@ wss.on(
           data.type ===
           "like"
         ) {
-          if(liveInfo.active && broadcaster && (isBlockedEither(ws.clientId,broadcaster.clientId)|| (ws!==broadcaster&&!ws.liveJoined)))return;
 
           broadcast({
 

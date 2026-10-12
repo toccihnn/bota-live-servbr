@@ -899,6 +899,8 @@ button {
 #livePanel:not(.is-broadcaster) #audioButton {display:block;top:130px;left:18px;z-index:9}
 #livePanel:not(.is-broadcaster) #audioText {position:absolute;top:174px;left:18px;z-index:8;font-size:11px}
 
+/* コメント投稿者名をタップしてプロフィールを開く */
+.comment-user-link{appearance:none;border:0;background:none;padding:0;color:#a9d9ff;font:inherit;font-weight:900;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 /* 入室者アイコン：配信者・視聴者共通 */
 .presence-strip{position:absolute;top:max(78px,env(safe-area-inset-top) + 62px);left:14px;z-index:8;display:flex;align-items:center;gap:5px;max-width:calc(100% - 100px)}
 .presence-avatar{width:34px;height:34px;border-radius:50%;border:2px solid #ffffff88;background:linear-gradient(135deg,#557bff,#c36aff);color:white;font-size:15px;font-weight:bold}
@@ -1775,7 +1777,8 @@ function handleMessage(data) {
 
     addComment(
       data.name,
-      data.text
+      data.text,
+      data.clientId
     );
 
     return;
@@ -2917,7 +2920,8 @@ function sendComment() {
 
 function addComment(
   name,
-  text
+  text,
+  clientId
 ) {
 
   const list =
@@ -2938,10 +2942,19 @@ function addComment(
     "comment-item";
 
 
-  item.textContent =
-    name +
-    ": " +
-    text;
+  if (clientId && typeof clientId === "string") {
+    const nameButton = document.createElement("button");
+    nameButton.type = "button";
+    nameButton.className = "comment-user-link";
+    nameButton.textContent = name || "ゲスト";
+    nameButton.addEventListener("click", function() {
+      openPresenceProfile(clientId);
+    });
+    item.appendChild(nameButton);
+    item.appendChild(document.createTextNode(": " + (text || "")));
+  } else {
+    item.textContent = (name || "システム") + ": " + (text || "");
+  }
 
 
   list.appendChild(
@@ -3451,6 +3464,10 @@ function cleanProfile(p){
 function sendPresence() {
   if (!liveInfo.active || !broadcaster) return;
   const members = [];
+  if (broadcaster.readyState === WebSocket.OPEN) {
+    const hostProfile = broadcaster.profile || {};
+    members.push({id:broadcaster.clientId,name:hostProfile.name || liveInfo.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true});
+  }
   clients.forEach(function(client) {
     if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
       const profile=client.profile || {};
@@ -3905,14 +3922,8 @@ wss.on(
             type:
               "comment",
 
-            name:
-              String(
-                data.name ||
-                "ユーザー"
-              ).substring(
-                0,
-                30
-              ),
+            clientId: ws.clientId,
+            name: String((ws.profile && ws.profile.name) || ws.liveName || data.name || "ゲスト").substring(0,30),
 
             text:
               String(

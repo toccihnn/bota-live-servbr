@@ -1039,6 +1039,15 @@ button {
 #livePanel .comment-content{min-width:0;flex:1;overflow-wrap:anywhere}
 #livePanel .comment-user-link{display:inline-block;margin-bottom:3px;text-decoration:none}
 
+
+/* 配信者・リスナー共通：タイトルとLIVE表示を重ねず横並びにする */
+#livePanel .panel-header{position:absolute!important;top:max(15px,env(safe-area-inset-top))!important;left:14px!important;right:72px!important;display:flex!important;align-items:center!important;gap:8px!important;min-height:40px!important;z-index:8!important;pointer-events:none}
+#livePanel .panel-header .panel-live{position:static!important;flex-shrink:0!important;margin:0!important;padding:5px 9px!important;font-size:11px!important;line-height:1.3!important}
+#livePanel .live-top-title{position:static!important;display:block!important;flex:1!important;min-width:0!important;max-width:none!important;max-height:2.8em!important;overflow:hidden!important;white-space:normal!important;line-height:1.4!important;font-size:17px!important;text-shadow:0 2px 6px #000,0 0 12px #000!important;background:rgba(3,6,20,.62)!important;border-radius:10px!important;padding:6px 9px!important;pointer-events:none!important}
+#livePanel .live-host-info{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
+#livePanel .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
+#livePanel:not(.is-broadcaster) .live-host-info,#livePanel:not(.is-broadcaster) .presence-strip{top:max(80px,calc(env(safe-area-inset-top) + 65px))!important}
+
 </style>
 
 </head>
@@ -1214,9 +1223,9 @@ button {
 <div class="live-panel" id="livePanel">
   <div class="panel-header">
     <div class="panel-title" id="panelTitle">voiceボタLive</div>
+    <div class="live-top-title" id="liveTopTitle"></div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
-  <div class="live-top-title" id="liveTopTitle"></div>
   <div class="live-host-info" id="liveHostInfo" style="display:none"><button type="button" class="presence-avatar" id="liveHostAvatar" aria-label="配信者のプロフィール"></button><button type="button" id="liveHostName" class="live-host-name"></button></div>
   <div class="presence-strip" id="presenceStrip" aria-label="現在の視聴者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
@@ -2075,21 +2084,10 @@ async function startLive() {
   }
 
 
-  const name =
-    prompt(
-      "配信者名を入力してください",
-      "ぼたもち"
-    );
-
-
-  if (
-    name === null ||
-    name.trim() === ""
-  ) {
-
-    return;
-
-  }
+  // 配信者名はマイページの登録名を自動で使用する
+  const profileName = String(getMyPublicProfile().name || "").trim();
+  const name = profileName && profileName !== "ユーザー" && profileName !== "ゲスト"
+    ? profileName : (String(currentUserName || "").trim() || "配信者");
 
 
   const title =

@@ -1203,7 +1203,7 @@ button {
     
     <div class="mp-gender" id="mpGenderLabel">性別：未設定</div>
   </div>
-  <div class="mp-follow"><div><strong id="mpFollowers">0</strong><small>フォロワー</small></div><div><strong id="mpFollowing">0</strong><small>フォロー中</small></div></div>
+  <div class="mp-follow"><div><strong id="mpFollowing">0</strong><small>フォロー中</small></div><div><strong id="mpFollowers">0</strong><small>フォロワー</small></div></div>
   <button class="mp-item" type="button" onclick="changeMyPageAvatar()"><span>◉ &nbsp; アイコンを変更</span><span>›</span></button>
   <button class="mp-item" type="button" onclick="editMyPage()"><span>✎ &nbsp; プロフィール編集</span><span>›</span></button>
   <button class="mp-item" type="button" onclick="myPageInfo('コインの購入・利用履歴は準備中です')"><span>🟡 &nbsp; もっているコイン</span><span><b id="mpCoinCount">0</b> &nbsp; ›</span></button>

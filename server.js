@@ -3913,7 +3913,7 @@ wss.on(
               "comment",
 
             clientId: ws.clientId,
-            name: String((ws.profile && ws.profile.name) || ws.liveName || data.name || "ゲスト").substring(0,30),
+            name: String(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト")).substring(0,30),
 
             text:
               String(

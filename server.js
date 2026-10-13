@@ -1121,6 +1121,36 @@ button {
   pointer-events: auto;
 }
 
+
+/* Moonflower broadcast setup screen: isolated from existing pages */
+#moonLiveSetup{display:none;position:fixed;inset:0;z-index:2800;overflow-y:auto;overscroll-behavior:contain;background:radial-gradient(ellipse at 84% 9%,#59418b88,transparent 35%),radial-gradient(ellipse at 8% 68%,#392b6d66,transparent 45%),linear-gradient(160deg,#050c29,#13183d 55%,#070d2a);color:#f6f0ff;padding:0 16px 32px;font-family:inherit}
+#moonLiveSetup.open{display:block}
+#moonLiveSetup .mls-wrap{max-width:650px;margin:auto;position:relative}
+#moonLiveSetup .mls-top{display:flex;align-items:center;justify-content:space-between;padding:26px 0 14px;position:relative}
+#moonLiveSetup .mls-back{border:1px solid #c3a8fa99;background:#101b40a8;color:white;width:44px;height:44px;border-radius:50%;font-size:26px}
+#moonLiveSetup .mls-brand{font-size:12px;color:#c7b2e8;letter-spacing:1px;text-align:center}
+#moonLiveSetup h2{margin:3px 0 0;font-size:25px;text-align:center;letter-spacing:4px;font-weight:750;text-shadow:0 0 22px #c9a3ff}
+#moonLiveSetup .mls-moon{height:124px;position:relative;margin:3px 0 17px;display:flex;align-items:center;justify-content:center}
+#moonLiveSetup .mls-moon:before{content:'☾';font-family:serif;font-size:122px;color:#f4d7ff;text-shadow:0 0 18px #d8a4ff,0 0 54px #a37fff;position:absolute;left:calc(50% - 50px);top:-25px}
+#moonLiveSetup .mls-moon:after{content:'✿  ✧  ✿';font-size:24px;letter-spacing:23px;color:#c6a1fa;position:absolute;bottom:0;text-shadow:0 0 14px #9f7bff}
+#moonLiveSetup .mls-card{border:1px solid #ac8bf77a;border-radius:23px;background:linear-gradient(125deg,#263269b8,#131936b8);box-shadow:0 8px 26px #0006,inset 0 1px #ffffff25;padding:19px 17px;margin-bottom:18px;backdrop-filter:blur(10px)}
+#moonLiveSetup .mls-hero{display:flex;align-items:center;gap:14px}
+#moonLiveSetup .mls-mic{width:68px;height:68px;flex:none;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle,#7453bd,#282e73);border:1px solid #c5a3ff;box-shadow:0 0 18px #b089ff66;font-size:36px}
+#moonLiveSetup .mls-hero strong{display:block;font-size:20px;margin-bottom:6px}
+#moonLiveSetup .mls-hero small{font-size:12px;color:#c9c9ec;line-height:1.7}
+#moonLiveSetup .mls-label{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:750;margin:0 0 10px}
+#moonLiveSetup .mls-label small{font-size:11px;color:#c7bbdf;font-weight:400}
+#moonLiveSetup .mls-title{width:100%;height:55px;border:1px solid #ac96e4aa;border-radius:16px;background:#171d46;color:#fff;font-size:16px;padding:0 16px;outline:none}
+#moonLiveSetup .mls-title:focus{border-color:#efceff;box-shadow:0 0 0 2px #bd8cff44}
+#moonLiveSetup .mls-preview{height:165px;border:1px solid #d0a8f9aa;border-radius:17px;display:flex;align-items:end;justify-content:center;padding:14px;background:linear-gradient(145deg,#263d7b,#17153e);background-position:center;background-size:cover;box-shadow:inset 0 0 35px #0006}
+#moonLiveSetup .mls-preview span{background:#090b25a8;border:1px solid #ffffff55;padding:5px 18px;border-radius:25px;font-size:12px}
+#moonLiveSetup .mls-bgbuttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+#moonLiveSetup .mls-bgbuttons button{padding:12px 5px;border:1px solid #b59be18c;border-radius:14px;background:#282653;color:#fff;font-size:13px}
+#moonLiveSetup .mls-bgbuttons button:active{transform:scale(.98)}
+#moonLiveSetup .mls-note{color:#c2b9d9;font-size:11px;line-height:1.6;margin:10px 2px 0}
+#moonLiveSetup .mls-start{width:100%;min-height:62px;border:1px solid #ffe4b9;border-radius:23px;background:linear-gradient(110deg,#6a46b3,#4c3c9d 50%,#8761bc);color:#fff4d8;font-size:20px;font-weight:800;letter-spacing:2px;text-shadow:0 1px 4px #1d1742;box-shadow:0 0 20px #a47cff88,inset 0 0 0 2px #e2bff455;margin:8px 0 16px}
+#moonLiveSetup .mls-stars{position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:.6;background-image:radial-gradient(#fff 1px,transparent 2px),radial-gradient(#d8aaff 1px,transparent 2px);background-size:73px 97px,109px 83px;background-position:13px 21px,47px 13px}
+
 </style>
 
 </head>
@@ -1360,6 +1390,38 @@ button {
 </div>
 
 
+
+<!-- Moonflower stream setup; original background customization remains unchanged -->
+<section id="moonLiveSetup" aria-label="配信設定">
+  <div class="mls-stars" aria-hidden="true"></div>
+  <div class="mls-wrap">
+    <div class="mls-top">
+      <button class="mls-back" type="button" onclick="closeMoonLiveSetup()" aria-label="戻る">‹</button>
+      <div><div class="mls-brand">VoiceボタLive ✦ 月光花</div><h2>配信設定</h2></div>
+      <span style="width:44px;text-align:center;color:#e6d0ff">✧</span>
+    </div>
+    <div class="mls-moon" aria-hidden="true"></div>
+    <div class="mls-card mls-hero"><div class="mls-mic">🎙️</div><div><strong>音声ライブ</strong><small>月明かりの下、あなたの声で<br>みんなとつながろう</small></div></div>
+    <div class="mls-card">
+      <label class="mls-label" for="moonLiveTitle"><span>☾ 配信タイトル</span><small id="moonLiveTitleCount">0 / 100</small></label>
+      <input class="mls-title" id="moonLiveTitle" type="text" maxlength="100" placeholder="例：初見さん大歓迎 🌙" autocomplete="off" oninput="updateMoonLiveTitleCount()">
+    </div>
+    <div class="mls-card">
+      <div class="mls-label"><span>☾ 配信背景</span><small>今までのカスタム機能</small></div>
+      <div class="mls-preview" id="moonLiveBgPreview"><span>背景プレビュー</span></div>
+      <div class="mls-bgbuttons">
+        <button type="button" onclick="setLiveBackground('blue');refreshMoonLiveBackground()">💙 ブルー</button>
+        <button type="button" onclick="setLiveBackground('purple');refreshMoonLiveBackground()">💜 パープル</button>
+        <button type="button" onclick="setLiveBackground('pink');refreshMoonLiveBackground()">🌸 ピンク</button>
+        <button type="button" onclick="document.getElementById('backgroundFile').click()">🖼️ 好きな画像</button>
+        <button type="button" onclick="resetLiveBackground();refreshMoonLiveBackground()" style="grid-column:1/-1">↺ 背景をリセット</button>
+      </div>
+      <p class="mls-note">既存の背景カスタム機能を使用します。配信中も今までどおり変更できます。</p>
+    </div>
+    <button class="mls-start" type="button" onclick="startLive()">🎙 配信を開始する ❯</button>
+  </div>
+</section>
+
 <!-- 月光花マイページ：既存ホーム・配信画面と独立 -->
 <section id="myPageScreen" aria-label="マイページ">
   <div class="mp-head">
@@ -1452,7 +1514,7 @@ button {
   <button
     class="nav-item"
     type="button"
-    onclick="startLive()"
+    onclick="openMoonLiveSetup()"
   >
 
     <div class="nav-live">
@@ -2113,6 +2175,37 @@ function escapeHtml(
 }
 
 
+
+/* Moonflower stream setup: only the pre-stream navigation is new. */
+function openMoonLiveSetup() {
+  if (isBroadcaster) { openPanel(); return; }
+  const screen = document.getElementById('moonLiveSetup');
+  const input = document.getElementById('moonLiveTitle');
+  if (!input.value.trim()) input.value = 'VoiceボタLive 配信中';
+  updateMoonLiveTitleCount();
+  refreshMoonLiveBackground();
+  screen.classList.add('open');
+}
+function closeMoonLiveSetup() {
+  document.getElementById('moonLiveSetup').classList.remove('open');
+}
+function updateMoonLiveTitleCount() {
+  const value = document.getElementById('moonLiveTitle').value;
+  document.getElementById('moonLiveTitleCount').textContent = Array.from(value).length + ' / 100';
+}
+function refreshMoonLiveBackground() {
+  const preview = document.getElementById('moonLiveBgPreview');
+  const livePanel = document.getElementById('livePanel');
+  if (!preview || !livePanel) return;
+  preview.style.backgroundImage = livePanel.style.backgroundImage || 'linear-gradient(145deg,#263d7b,#17153e)';
+}
+window.addEventListener('load', function() {
+  const livePanel = document.getElementById('livePanel');
+  if (livePanel && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(refreshMoonLiveBackground).observe(livePanel,{attributes:true,attributeFilter:['style']});
+  }
+});
+
 /* =========================================================
    START LIVE
 ========================================================= */
@@ -2123,10 +2216,6 @@ async function startLive() {
     "START LIVE CLICK"
   );
 
-
-  alert(
-    "配信ボタンを押しました"
-  );
 
 
   if (!connected) {
@@ -2170,11 +2259,7 @@ async function startLive() {
     ? profileName : (String(currentUserName || "").trim() || "配信者");
 
 
-  const title =
-    prompt(
-      "配信タイトルを入力してください",
-      "voiceボタLive 配信中"
-    );
+  const title = document.getElementById('moonLiveTitle').value.trim();
 
 
   if (
@@ -2196,6 +2281,7 @@ async function startLive() {
   );
 
 
+  closeMoonLiveSetup();
   openPanel();
 
 

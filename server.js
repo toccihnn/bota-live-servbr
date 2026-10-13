@@ -1181,6 +1181,26 @@ button {
  color:#fff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;
  white-space:nowrap;pointer-events:none;text-shadow:0 1px 3px #000;
 }
+
+/* ホーム画像・既存レイアウトは変更せず、発見コーナーだけ追加 */
+.discovery-sections{padding-bottom:12px}
+.discover-section{margin-top:16px}
+.discover-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.discover-card{position:relative;min-height:155px;aspect-ratio:1/1;overflow:hidden;border-radius:15px;border:1px solid #ffffff24;background:linear-gradient(135deg,#35467d,#16132e);color:white;padding:0;text-align:left;display:block;width:100%}
+.discover-card-photo{position:absolute;inset:0;background-position:center;background-size:cover}
+.discover-card-shade{position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,#030514d9 100%)}
+.discover-card-body{position:absolute;bottom:9px;left:9px;right:9px;display:flex;align-items:center;gap:8px}
+.discover-card-avatar{width:34px;height:34px;border-radius:50%;background:#5668a9;border:2px solid #fff8;background-size:cover;background-position:center;display:grid;place-items:center;flex-shrink:0}
+.discover-card-name{font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.discover-card-status{font-size:10px;color:#d6ddff}
+.discover-live{position:absolute;top:9px;left:9px;border-radius:7px;background:#fb2e74;padding:4px 8px;font-size:11px;font-weight:900}
+.discover-more{display:block;margin:15px auto 5px;width:min(100%,300px);height:44px;border-radius:30px;border:1px solid #b8a7fc;background:#1a2042;color:white;font-weight:900}
+.discover-empty{grid-column:1/-1;padding:20px 12px;border-radius:14px;background:#12182e;color:#c9d1ed;text-align:center;font-size:13px}
+.discover-all-screen{display:none;position:fixed;inset:0;z-index:1800;overflow-y:auto;background:#080e25;padding:16px 14px 95px;color:white}
+.discover-all-screen.open{display:block}
+.discover-all-header{display:flex;align-items:center;gap:18px;margin-bottom:18px;font-size:20px}
+.discover-all-header button{border:0;background:#242d53;color:white;font-size:22px;border-radius:12px;width:43px;height:43px}
+@media(min-width:700px){.discover-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 
 </head>
@@ -1269,6 +1289,28 @@ button {
 
 </section>
 
+
+<div id="discoverySections" class="discovery-sections">
+  <section class="section discover-section" data-discovery="featured">
+    <div class="section-head"><div class="section-title">🌸 注目</div></div>
+    <div class="discover-grid" id="discoverFeatured"></div>
+    <button class="discover-more" onclick="openDiscoveryAll('featured')">もっと見る ❯</button>
+  </section>
+  <section class="section discover-section" data-discovery="new">
+    <div class="section-head"><div class="section-title">✨ NEW</div></div>
+    <div class="discover-grid" id="discoverNew"></div>
+    <button class="discover-more" onclick="openDiscoveryAll('new')">もっと見る ❯</button>
+  </section>
+  <section class="section discover-section" data-discovery="debut">
+    <div class="section-head"><div class="section-title">🌙 デビュー</div></div>
+    <div class="discover-grid" id="discoverDebut"></div>
+    <button class="discover-more" onclick="openDiscoveryAll('debut')">もっと見る ❯</button>
+  </section>
+</div>
+<div id="discoverAllScreen" class="discover-all-screen">
+  <div class="discover-all-header"><button onclick="closeDiscoveryAll()" aria-label="戻る">←</button><strong id="discoverAllTitle"></strong></div>
+  <div class="discover-grid" id="discoverAllGrid"></div>
+</div>
 
 <section class="section">
 
@@ -2012,6 +2054,10 @@ function handleMessage(data) {
   }
 
 
+  if(data.type==="discovery_list"){
+    discoveryData={featured:data.featured||[],new:data.new||[],debut:data.debut||[]};
+    renderDiscovery();return;
+  }
   if (data.type === "title_update") {
     activeLiveTitle = String(data.title || "配信中");
     renderLiveHeader();
@@ -2196,6 +2242,49 @@ function handleMessage(data) {
 /* =========================================================
    LIVE LIST
 ========================================================= */
+
+
+let discoveryData={featured:[],new:[],debut:[]};
+const discoveryTitles={featured:"注目",new:"NEW",debut:"デビュー"};
+function discoveryCard(user){
+ const button=document.createElement("button");button.className="discover-card";button.type="button";
+ const photo=document.createElement("div");photo.className="discover-card-photo";
+ const avatar=document.createElement("div");avatar.className="discover-card-avatar";
+ if(user.avatar && user.avatar.startsWith("data:image/")){
+   photo.style.backgroundImage='url("'+user.avatar+'")';
+   avatar.style.backgroundImage='url("'+user.avatar+'")';
+ }else avatar.textContent="🎙️";
+ const shade=document.createElement("div");shade.className="discover-card-shade";
+ const body=document.createElement("div");body.className="discover-card-body";
+ const details=document.createElement("div");details.style.minWidth="0";
+ const name=document.createElement("div");name.className="discover-card-name";name.textContent=user.name||"ユーザー";
+ const status=document.createElement("div");status.className="discover-card-status";status.textContent=user.live?"🔴 配信中":"プロフィールを見る";
+ details.append(name,status);body.append(avatar,details);button.append(photo,shade,body);
+ if(user.live){const badge=document.createElement("span");badge.className="discover-live";badge.textContent="LIVE";button.appendChild(badge)}
+ button.onclick=()=>{
+   if(user.live){closeDiscoveryAll();listenLive(user.id);return;}
+   if(!socialProfiles[user.id])socialProfiles[user.id]={name:user.name,avatar:user.avatar||""};
+   openPresenceProfile(user.id);
+ };
+ return button;
+}
+function fillDiscoveryGrid(target,items){
+ const el=document.getElementById(target);if(!el)return;el.replaceChildren();
+ if(!items.length){const empty=document.createElement("div");empty.className="discover-empty";empty.textContent="表示できるライバーはまだいません";el.appendChild(empty);return;}
+ items.forEach(user=>el.appendChild(discoveryCard(user)));
+}
+function renderDiscovery(){
+ fillDiscoveryGrid("discoverFeatured",discoveryData.featured.slice(0,6));
+ fillDiscoveryGrid("discoverNew",discoveryData.new.slice(0,6));
+ fillDiscoveryGrid("discoverDebut",discoveryData.debut.slice(0,6));
+}
+function openDiscoveryAll(kind){
+ if(!discoveryTitles[kind])return;
+ document.getElementById("discoverAllTitle").textContent=discoveryTitles[kind];
+ fillDiscoveryGrid("discoverAllGrid",discoveryData[kind]);
+ document.getElementById("discoverAllScreen").classList.add("open");
+}
+function closeDiscoveryAll(){document.getElementById("discoverAllScreen").classList.remove("open")}
 
 function renderLiveList(
   lives
@@ -4025,11 +4114,26 @@ function sendPresence() {
   });
 }
 
+function getDiscoveryList(viewerId){
+ const now=Date.now(),week=7*86400000,month=30*86400000;
+ const users=Object.entries(socialData.profiles).filter(([id,p])=>id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name)
+ .map(([id,p])=>({id,name:p.name||"ユーザー",avatar:p.avatar||"",live:!!(liveInfo.active&&liveInfo.id===id),
+ createdAt:Number(p.createdAt)||0,firstLiveAt:Number(p.firstLiveAt)||0,
+ followers:Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id)&&!blockedEither(id,other)).length}));
+ const strip=arr=>arr.map(({id,name,avatar,live})=>({id,name,avatar,live}));
+ return {featured:strip(users.slice().sort((a,b)=>Number(b.live)-Number(a.live)||b.followers-a.followers)),
+ new:strip(users.filter(u=>u.createdAt&&now-u.createdAt<=month).sort((a,b)=>b.createdAt-a.createdAt)),
+ debut:strip(users.filter(u=>u.firstLiveAt&&now-u.firstLiveAt<=week).sort((a,b)=>b.firstLiveAt-a.firstLiveAt))};
+}
+function sendDiscoveryLists(){
+ clients.forEach(ws=>{if(ws.readyState===WebSocket.OPEN)sendTo(ws,{type:"discovery_list",...getDiscoveryList(ws.clientId)})});
+}
 function sendLiveList() {
 
   clients.forEach(function(recipient){
     sendTo(recipient,{type:"live_list",lives:getLiveList(recipient.clientId)});
   });
+  sendDiscoveryLists();
 
 }
 
@@ -4122,10 +4226,11 @@ wss.on(
 
           if(data.profile && typeof data.profile === "object") {
             ws.profile=cleanProfile(data.profile);
-            if(ws.clientId){socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};saveSocialData();}
+            if(ws.clientId){socialData.profiles[ws.clientId]={...socialData.profiles[ws.clientId],name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||"",createdAt:socialData.profiles[ws.clientId]?.createdAt||Date.now()};saveSocialData();}
           }
           socialState(ws);
           sendTo(ws,{type:"live_list",lives:getLiveList(ws.clientId)});
+          sendDiscoveryLists();
           return;
 
         }
@@ -4161,6 +4266,7 @@ wss.on(
             socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
           }
           saveSocialData();
+          sendDiscoveryLists();
           // ライブ参加者が新しくフォローされたら、配信中のコメント欄に通知する。
           // フォロー解除やブロック関係の通知は送らない。
           if(isNewFollow && liveInfo.active && broadcaster){
@@ -4199,8 +4305,9 @@ wss.on(
         if(data.type === "profile_update"){
           ws.profile=cleanProfile(data.profile);
           if(ws.clientId){
-            socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};
+            socialData.profiles[ws.clientId]={...socialData.profiles[ws.clientId],name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||"",createdAt:socialData.profiles[ws.clientId]?.createdAt||Date.now()};
             saveSocialData();
+            sendDiscoveryLists();
             clients.forEach(other=>{if(other.clientId!==ws.clientId && (socialIds("following",other.clientId).includes(ws.clientId)||socialIds("following",ws.clientId).includes(other.clientId)))socialState(other);});
           }
           if(ws.liveJoined)sendPresence();
@@ -4273,7 +4380,11 @@ wss.on(
               'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))'
 
           };
-
+          if(ws.clientId){
+            const p=socialData.profiles[ws.clientId]||{};
+            socialData.profiles[ws.clientId]={...p,name:ws.profile?.name||liveInfo.name,avatar:ws.profile?.avatar||p.avatar||"",createdAt:p.createdAt||Date.now(),firstLiveAt:p.firstLiveAt||Date.now()};
+            saveSocialData();
+          }
 
           console.log(
             "LIVE START:",

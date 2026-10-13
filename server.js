@@ -4077,19 +4077,25 @@ wss.on(
             socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
           }
           saveSocialData();
-          // 配信者が新たにフォローされた場合のみ、現在のライブ参加者へ通知する。
-          // 解除・再送・配信外のフォローはコメント欄に流さない。
-          if(isNewFollow && liveInfo.active && broadcaster && target===broadcaster.clientId){
-            const p=ws.profile || socialData.profiles[id] || {};
-            const notice={type:"live_follow_notice",followerId:id,
-              followerName:limitEmojiText(p.name || "ユーザー",40),
-              followerAvatar:typeof p.avatar==="string" ? p.avatar : ""};
-            clients.forEach(other=>{
-              if(other.readyState===WebSocket.OPEN &&
-                (other===broadcaster || other.liveJoined) &&
-                !blockedEither(other.clientId,id) &&
-                !blockedEither(other.clientId,broadcaster.clientId))sendTo(other,notice);
-            });
+          // ライブ参加者が新しくフォローされたら、配信中のコメント欄に通知する。
+          // フォロー解除やブロック関係の通知は送らない。
+          if(isNewFollow && liveInfo.active && broadcaster){
+            const followedIsInLive = target===broadcaster.clientId ||
+              [...clients].some(c=>c.clientId===target && c.liveJoined);
+            const followerIsInLive = id===broadcaster.clientId || ws.liveJoined;
+            if(followedIsInLive && followerIsInLive && !blockedEither(id,target)){
+              const p=ws.profile || socialData.profiles[id] || {};
+              const notice={type:"live_follow_notice",followerId:id,
+                followerName:limitEmojiText(p.name || "ユーザー",40),
+                followerAvatar:typeof p.avatar==="string" ? p.avatar : ""};
+              clients.forEach(other=>{
+                if(other.readyState===WebSocket.OPEN &&
+                  (other===broadcaster || other.liveJoined) &&
+                  !blockedEither(other.clientId,id) &&
+                  !blockedEither(other.clientId,target) &&
+                  !blockedEither(other.clientId,broadcaster.clientId))sendTo(other,notice);
+              });
+            }
           }
           if(action==="block"){
             clients.forEach(other=>{

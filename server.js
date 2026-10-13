@@ -28,8 +28,8 @@ function socialIds(key,id){return Array.isArray(socialData[key][id])?socialData[
 function blockedEither(a,b){return !!(a&&b&&(socialIds("blocked",a).includes(b)||socialIds("blocked",b).includes(a)));}
 function socialState(ws){
  const id=ws.clientId;
- const following=socialIds("following",id);
- const followers=Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id));
+ const following=socialIds("following",id).filter(other=>!blockedEither(id,other));
+ const followers=Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id)&&!blockedEither(id,other));
  const ids=[...new Set([...following,...followers])];
  const profiles={};
  ids.forEach(userId=>{
@@ -37,12 +37,19 @@ function socialState(ws){
    const p=(online&&online.profile)||socialData.profiles[userId]||{};
    profiles[userId]={name:p.name||"ユーザー",avatar:p.avatar||""};
  });
- sendTo(ws,{type:"social_state",following,followers,blocked:socialIds("blocked",id),profiles});
+ const hidden=Object.keys(socialData.blocked).filter(other=>blockedEither(id,other));
+ sendTo(ws,{type:"social_state",following,followers,blocked:socialIds("blocked",id),hidden,profiles});
+}
+function refreshBlockVisibility(){
+ removeBlockedViewer();
+ sendLiveList();
+ clients.forEach(c=>socialState(c));
 }
 function removeBlockedViewer(){
  if(!broadcaster)return;
  clients.forEach(c=>{if(c!==broadcaster&&c.liveJoined&&blockedEither(c.clientId,broadcaster.clientId)){
  c.liveJoined=false;sendTo(c,{type:"access_denied",reason:"この配信は視聴できません"});
+ sendTo(broadcaster,{type:"viewer_removed",viewerId:c.clientId});
  }});
  sendPresence();
 }
@@ -1783,6 +1790,7 @@ function paintPresenceAvatar(el,member){
 let presenceProfileTarget = null;
 let presenceFollowing = [];
 let presenceBlocked = [];
+let presenceHidden = [];
 let presenceFollowers = [];
 let socialProfiles = {};
 function updatePresenceSocialButtons(){
@@ -1802,8 +1810,9 @@ function togglePresenceBlock(){if(!presenceProfileTarget||presenceProfileTarget=
  send({type:"social_action",action:"block",targetId:presenceProfileTarget});
 }
 function openPresenceProfile(id){
+  if (presenceBlocked.includes(id) || (Array.isArray(presenceHidden) && presenceHidden.includes(id))) return;
   const member = presenceMembers.find(function(m){return m.id === id;}) || (broadcasterProfile && broadcasterProfile.id === id ? broadcasterProfile : null) || (socialProfiles[id] ? {id:id,...socialProfiles[id]} : null);
-  if(!member)return;
+  if(!member || presenceHidden.includes(id))return;
   const profileOverlay=document.getElementById("presenceProfile");
   if(profileOverlay && profileOverlay.parentElement!==document.body)document.body.appendChild(profileOverlay);
   closePresence();
@@ -1875,6 +1884,11 @@ function handleMessage(data) {
   if(data.type==="social_state"){
     presenceFollowing=Array.isArray(data.following)?data.following:[];
     presenceBlocked=Array.isArray(data.blocked)?data.blocked:[];
+    presenceHidden=Array.isArray(data.hidden)?data.hidden:[];
+    presenceMembers=presenceMembers.filter(m=>!presenceHidden.includes(m.id));
+    if(broadcasterProfile && presenceHidden.includes(broadcasterProfile.id))broadcasterProfile=null;
+    if(presenceProfileTarget && presenceHidden.includes(presenceProfileTarget))closePresenceProfile();
+    renderPresence();renderLiveHeader();
     presenceFollowers=Array.isArray(data.followers)?data.followers:[];
     socialProfiles=data.profiles&&typeof data.profiles==="object"?data.profiles:{};
     const followingCount=document.getElementById("mpFollowing");
@@ -1886,14 +1900,19 @@ function handleMessage(data) {
   if(data.type==="social_notice"){
     const el=document.getElementById("presenceSocialNotice");if(el)el.textContent=data.message||"";return;
   }
+  if(data.type==="viewer_removed"){
+    const pc=peerConnections[data.viewerId];
+    if(pc){try{pc.close();}catch(e){} delete peerConnections[data.viewerId];}
+    return;
+  }
   if(data.type==="access_denied"){
     alert("この配信は視聴できません");
     if(typeof closePanel==="function")closePanel();return;
   }
 
   if (data.type === "presence_update") {
-    presenceMembers = Array.isArray(data.members) ? data.members : [];
-    broadcasterProfile = data.broadcasterProfile || null;
+    presenceMembers = Array.isArray(data.members) ? data.members.filter(m=>!presenceHidden.includes(m.id)) : [];
+    broadcasterProfile = data.broadcasterProfile && !presenceHidden.includes(data.broadcasterProfile.id) ? data.broadcasterProfile : null;
     activeLiveTitle=data.title || activeLiveTitle;
     renderPresence();
     renderLiveHeader();
@@ -3525,7 +3544,23 @@ function closeFollowList() {
   if (dialog) dialog.classList.remove("active");
 }
 
+function openBlockManager(){
+  if(!presenceBlocked.length){alert("ブロック中のユーザーはいません");return;}
+  const names=presenceBlocked.map((id,i)=>String(i+1)+". "+((socialProfiles[id]||{}).name||"ユーザー"));
+  const selected=prompt("解除する番号を入力してください\n"+names.join("\n"));
+  if(selected===null)return;
+  const n=Number(selected);
+  if(!Number.isInteger(n)||n<1||n>presenceBlocked.length)return;
+  if(confirm("ブロックを解除しますか？"))send({type:"social_action",action:"block",targetId:presenceBlocked[n-1]});
+}
 function showProfile() {
+  const page=document.getElementById("myPageScreen");
+  if(page&&!document.getElementById("vbBlockManagerButton")){
+    const b=document.createElement("button");b.id="vbBlockManagerButton";b.type="button";
+    b.className="mp-item";b.textContent="ブロック管理";b.onclick=openBlockManager;
+    const help=page.querySelector(".mp-help");
+    if(help)page.insertBefore(b,help);else page.appendChild(b);
+  }
   // 配信視聴中でもマイページのフォロー人数を最新の受信状態で表示
   document.getElementById("mpFollowing").textContent = String(presenceFollowing.length);
   document.getElementById("mpFollowers").textContent = String(presenceFollowers.length);
@@ -3800,8 +3835,9 @@ function broadcast(
     function(client) {
 
       if (
-        client.readyState ===
-          WebSocket.OPEN
+        client.readyState === WebSocket.OPEN &&
+        !(data.clientId && blockedEither(client.clientId,data.clientId)) &&
+        !(liveInfo.active && broadcaster && ["comment","like","background_update","title_update"].includes(data.type) && blockedEither(client.clientId,broadcaster.clientId))
       ) {
 
         client.send(
@@ -3816,10 +3852,10 @@ function broadcast(
 }
 
 
-function getLiveList() {
+function getLiveList(viewerId) {
 
   if (
-    !liveInfo.active
+    !liveInfo.active || (viewerId && blockedEither(viewerId,liveInfo.id))
   ) {
 
     return [];
@@ -3868,19 +3904,18 @@ function sendPresence() {
   });
   const hostProfile = broadcaster.profile || {};
   const host = {id:broadcaster.clientId,name:liveInfo.name || hostProfile.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true};
-  broadcast({type:"presence_update",members:members,broadcasterProfile:host,title:liveInfo.title});
+  clients.forEach(function(recipient){
+    if(recipient.readyState!==WebSocket.OPEN)return;
+    const visibleMembers=members.filter(m=>!blockedEither(recipient.clientId,m.id));
+    const visibleHost=blockedEither(recipient.clientId,host.id)?null:host;
+    sendTo(recipient,{type:"presence_update",members:visibleMembers,broadcasterProfile:visibleHost,title:visibleHost?liveInfo.title:""});
+  });
 }
 
 function sendLiveList() {
 
-  broadcast({
-
-    type:
-      "live_list",
-
-    lives:
-      getLiveList()
-
+  clients.forEach(function(recipient){
+    sendTo(recipient,{type:"live_list",lives:getLiveList(recipient.clientId)});
   });
 
 }
@@ -3927,7 +3962,7 @@ wss.on(
           "live_list",
 
         lives:
-          getLiveList()
+          getLiveList(ws.clientId)
 
       }
     );
@@ -3977,6 +4012,7 @@ wss.on(
             if(ws.clientId){socialData.profiles[ws.clientId]={name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||""};saveSocialData();}
           }
           socialState(ws);
+          sendTo(ws,{type:"live_list",lives:getLiveList(ws.clientId)});
           return;
 
         }
@@ -3996,10 +4032,19 @@ wss.on(
             socialData.following[id]=socialIds("following",id).filter(x=>x!==target);
             socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
           }
-          saveSocialData();socialState(ws);
-          clients.forEach(other=>{if(other.clientId===target)socialState(other);});
-          sendTo(ws,{type:"social_notice",message:action==="follow"?"フォロー設定を更新しました":"ブロック設定を更新しました"});
-          if(action==="block")removeBlockedViewer();
+          saveSocialData();
+          if(action==="block"){
+            clients.forEach(other=>{
+              if(other.clientId===target && other.liveJoined){
+                other.liveJoined=false;
+                sendTo(other,{type:"access_denied",reason:"この配信は視聴できません"});
+                if(broadcaster)sendTo(broadcaster,{type:"viewer_removed",viewerId:other.clientId});
+              }
+            });
+            refreshBlockVisibility();
+          }
+          else {socialState(ws);clients.forEach(other=>{if(other.clientId===target)socialState(other);});}
+          sendTo(ws,{type:"social_notice",message:action==="follow"?"フォロー設定を更新しました":"設定を更新しました"});
           return;
         }
         if(data.type === "profile_update"){
@@ -4279,9 +4324,7 @@ wss.on(
           );
 
 
-          if (
-            target
-          ) {
+          if (target && !blockedEither(ws.clientId,target.clientId) && (ws===broadcaster || target===broadcaster)) {
 
             sendTo(
               target,
@@ -4332,6 +4375,7 @@ wss.on(
           data.type ===
           "comment"
         ) {
+          if(!liveInfo.active || (ws!==broadcaster && (!ws.liveJoined || blockedEither(ws.clientId,broadcaster.clientId))))return;
 
           broadcast({
 

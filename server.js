@@ -1364,6 +1364,11 @@ button {
       <button type="button" onclick="closePresenceProfile()" style="float:right;background:transparent;border:0;color:white;font-size:24px">×</button>
       <div id="presenceProfilePhoto" class="presence-profile-photo">👤</div>
       <h3 id="presenceProfileName"></h3>
+      <div id="liveProfileCounts" style="display:flex;justify-content:center;gap:32px;margin:15px 0">
+        <button type="button" onclick="openLiveProfileFollowList('following')" style="background:transparent;border:0;color:white"><strong id="liveProfileFollowing">0</strong><div style="font-size:12px">フォロー中</div></button>
+        <button type="button" onclick="openLiveProfileFollowList('followers')" style="background:transparent;border:0;color:white"><strong id="liveProfileFollowers">0</strong><div style="font-size:12px">フォロワー</div></button>
+      </div>
+      <div id="liveProfileFollowList" style="display:none;max-height:34vh;overflow-y:auto;text-align:left"></div>
       <div id="presenceProfileGender" style="color:#c7c9dd"></div>
       <p id="presenceProfileBio" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
       <div id="presenceSocialActions" style="display:flex;gap:10px;justify-content:center;margin-top:14px">
@@ -1825,7 +1830,39 @@ function openPresenceProfile(id){
   const photo = document.getElementById("presenceProfilePhoto");
   photo.textContent = member.avatar ? "" : "👤";
   photo.style.backgroundImage = member.avatar && member.avatar.startsWith("data:image/") ? 'url("' + member.avatar + '")' : "";
+  document.getElementById("liveProfileFollowing").textContent="…";
+  document.getElementById("liveProfileFollowers").textContent="…";
+  document.getElementById("liveProfileFollowList").style.display="none";
+  send({type:"social_profile_request",targetId:id});
   document.getElementById("presenceProfile").classList.add("open");
+}
+let liveProfileSocial={following:[],followers:[],profiles:{}};
+function openLiveProfileFollowList(kind){
+ const box=document.getElementById("liveProfileFollowList");
+ if(!box)return;
+ const ids=liveProfileSocial[kind]||[];
+ box.replaceChildren();box.style.display="block";
+ const heading=document.createElement("div");heading.style.cssText="display:flex;justify-content:space-between;align-items:center;margin:8px 0 12px";
+ const label=document.createElement("strong");label.textContent=(kind==="following"?"フォロー中":"フォロワー")+"（"+ids.length+"人）";
+ const back=document.createElement("button");back.textContent="閉じる";back.style.cssText="background:#303b65;color:white;border:0;border-radius:10px;padding:7px";back.onclick=()=>{box.style.display="none"};
+ heading.append(label,back);box.appendChild(heading);
+ if(!ids.length){const empty=document.createElement("p");empty.textContent="まだユーザーはいません。";box.appendChild(empty);return;}
+ ids.forEach(id=>{
+   if(presenceHidden.includes(id)||presenceBlocked.includes(id))return;
+   const p=liveProfileSocial.profiles[id]||{};
+   const button=document.createElement("button");button.type="button";
+   button.style.cssText="display:flex;align-items:center;gap:12px;width:100%;padding:9px;border:0;border-bottom:1px solid #ffffff22;background:transparent;color:white;text-align:left";
+   const avatar=document.createElement("span");avatar.style.cssText="width:40px;height:40px;border-radius:50%;background:#394875;display:flex;align-items:center;justify-content:center;background-size:cover;background-position:center";
+   avatar.textContent=p.avatar?"":"👤";
+   if(p.avatar&&p.avatar.startsWith("data:image/"))avatar.style.backgroundImage='url("'+p.avatar+'")';
+   const name=document.createElement("span");name.textContent=p.name||"ユーザー";
+   button.append(avatar,name);button.onclick=()=>{
+     box.style.display="none";
+     if(!presenceMembers.some(m=>m.id===id))presenceMembers.push({id,name:p.name||"ユーザー",avatar:p.avatar||"",bio:p.bio||""});
+     openPresenceProfile(id);
+   };
+   box.appendChild(button);
+ });
 }
 function closePresenceProfile(){document.getElementById("presenceProfile").classList.remove("open");}
 function renderLiveHeader(){
@@ -1881,6 +1918,14 @@ function openPresence() { document.getElementById("presenceOverlay").classList.a
 function closePresence() { document.getElementById("presenceOverlay").classList.remove("open"); }
 
 function handleMessage(data) {
+  if(data.type==="social_profile_response"){
+    if(String(data.targetId)!==String(presenceProfileTarget))return;
+    liveProfileSocial={following:Array.isArray(data.following)?data.following:[],followers:Array.isArray(data.followers)?data.followers:[],profiles:data.profiles||{}};
+    document.getElementById("liveProfileFollowing").textContent=String(liveProfileSocial.following.length);
+    document.getElementById("liveProfileFollowers").textContent=String(liveProfileSocial.followers.length);
+    return;
+  }
+
   if(data.type==="social_state"){
     presenceFollowing=Array.isArray(data.following)?data.following:[];
     presenceBlocked=Array.isArray(data.blocked)?data.blocked:[];
@@ -4060,6 +4105,20 @@ wss.on(
 
         }
 
+        if(data.type === "social_profile_request"){
+          const viewer=ws.clientId,target=String(data.targetId||"");
+          if(!viewer||!target||target.length>120||blockedEither(viewer,target))return;
+          const following=socialIds("following",target).filter(id=>!blockedEither(viewer,id)&&!blockedEither(target,id));
+          const followers=Object.keys(socialData.following).filter(id=>socialIds("following",id).includes(target)&&!blockedEither(viewer,id)&&!blockedEither(target,id));
+          const profiles={};
+          for(const id of [...new Set([...following,...followers])]){
+            const online=[...clients].find(c=>c.clientId===id);
+            const p=(online&&online.profile)||socialData.profiles[id]||{};
+            profiles[id]={name:p.name||"ユーザー",avatar:p.avatar||""};
+          }
+          sendTo(ws,{type:"social_profile_response",targetId:target,following,followers,profiles});
+          return;
+        }
         if(data.type === "social_action"){
           const id=ws.clientId,target=String(data.targetId||"");
           if(!id||!target||id===target||target.length>120)return;

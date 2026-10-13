@@ -42,7 +42,7 @@ function socialState(ws){
 function removeBlockedViewer(){
  if(!broadcaster)return;
  clients.forEach(c=>{if(c!==broadcaster&&c.liveJoined&&blockedEither(c.clientId,broadcaster.clientId)){
- c.liveJoined=false;sendTo(c,{type:"access_denied",reason:"ブロック関係にあるため、この配信には参加できません"});
+ c.liveJoined=false;sendTo(c,{type:"access_denied",reason:"この配信は視聴できません"});
  }});
  sendPresence();
 }
@@ -923,7 +923,7 @@ button {
 #livePanel.is-broadcaster #likeButton,
 #livePanel.is-broadcaster #giftButton { display:none!important; }
 #livePanel:not(.is-broadcaster) #backgroundAction { display:none!important; }
-#livePanel:not(.is-broadcaster) #audioButton {display:block;top:130px;left:18px;z-index:9}
+#livePanel #audioButton {display:none!important}
 #livePanel:not(.is-broadcaster) #audioText {position:absolute;top:174px;left:18px;z-index:8;font-size:11px}
 
 #livePanel.is-broadcaster #editLiveTitleAction{display:flex!important}
@@ -1151,6 +1151,21 @@ button {
 #moonLiveSetup .mls-start{width:100%;min-height:62px;border:1px solid #ffe4b9;border-radius:23px;background:linear-gradient(110deg,#6a46b3,#4c3c9d 50%,#8761bc);color:#fff4d8;font-size:20px;font-weight:800;letter-spacing:2px;text-shadow:0 1px 4px #1d1742;box-shadow:0 0 20px #a47cff88,inset 0 0 0 2px #e2bff455;margin:8px 0 16px}
 #moonLiveSetup .mls-stars{position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:.6;background-image:radial-gradient(#fff 1px,transparent 2px),radial-gradient(#d8aaff 1px,transparent 2px);background-size:73px 97px,109px 83px;background-position:13px 21px,47px 13px}
 
+
+/* 配信背景全画面プレビュー：配信画面と同じcover/center表示 */
+#moonLiveSetup .mls-preview{width:100%;cursor:pointer;color:#fff;font:inherit}
+#moonBgFullScreen{display:none;position:fixed;inset:0;z-index:5000;background:#050510;color:#fff;overflow:hidden}
+#moonBgFullScreen.open{display:block}
+#moonBgFullScreen .moon-bg-viewport{position:absolute;inset:0;background-color:#050510;background-size:cover;background-position:center;background-repeat:no-repeat}
+#moonBgFullScreen .moon-bg-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#03051038 0%,#0305100a 42%,#03051094 100%)}
+#moonBgFullScreen .moon-bg-top{position:absolute;left:0;right:0;top:0;padding:calc(16px + env(safe-area-inset-top)) 16px 15px;display:flex;align-items:center;gap:15px;background:linear-gradient(#0305149c,transparent)}
+#moonBgFullScreen .moon-bg-top button{border:1px solid #ffffff80;border-radius:24px;padding:9px 14px;background:#0b1030bb;color:white;font-size:14px}
+#moonBgFullScreen .moon-bg-top strong{font-size:17px}
+#moonBgFullScreen .moon-bg-guide{position:absolute;left:12px;right:12px;top:43%;text-align:center;border:1px dashed #ffffffaa;border-radius:12px;padding:9px;background:#03051466;font-size:12px;pointer-events:none}
+#moonBgFullScreen .moon-bg-bottom{position:absolute;bottom:0;left:0;right:0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));display:grid;gap:13px;text-align:center;background:linear-gradient(transparent,#030514d9)}
+#moonBgFullScreen .moon-bg-bottom span{font-size:12px;color:#e0d9f8}
+#moonBgFullScreen .moon-bg-bottom button{border:1px solid #ffe4bc;border-radius:18px;padding:15px;background:linear-gradient(100deg,#5144aa,#8157bb);color:white;font-size:16px;font-weight:700}
+
 </style>
 
 </head>
@@ -1368,7 +1383,7 @@ button {
 
   <div class="audio-status"><div id="audioText">音声接続</div></div>
   <audio id="remoteAudio" autoplay playsinline></audio>
-  <button id="audioButton" class="panel-button start-button" type="button" onclick="enableAudio()" style="display:none">🔊 音声をONにする</button>
+  <button id="audioButton" class="panel-button start-button" type="button" onclick="enableAudio()" style="display:none" aria-hidden="true" tabindex="-1">🔊 音声をONにする</button>
   <div class="action-rail">
     <button id="likeButton" class="live-action" type="button" onclick="sendLike()"><span class="action-emoji">❤️</span><span>いいね</span></button>
     <button id="giftButton" class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
@@ -1408,7 +1423,7 @@ button {
     </div>
     <div class="mls-card">
       <div class="mls-label"><span>☾ 配信背景</span><small>今までのカスタム機能</small></div>
-      <div class="mls-preview" id="moonLiveBgPreview"><span>背景プレビュー</span></div>
+      <button class="mls-preview" id="moonLiveBgPreview" type="button" onclick="openMoonBgFullPreview()" aria-label="背景を全画面で確認"><span>🔍 全画面で背景を確認</span></button>
       <div class="mls-bgbuttons">
         <button type="button" onclick="setLiveBackground('blue');refreshMoonLiveBackground()">💙 ブルー</button>
         <button type="button" onclick="setLiveBackground('purple');refreshMoonLiveBackground()">💜 パープル</button>
@@ -1416,9 +1431,19 @@ button {
         <button type="button" onclick="document.getElementById('backgroundFile').click()">🖼️ 好きな画像</button>
         <button type="button" onclick="resetLiveBackground();refreshMoonLiveBackground()" style="grid-column:1/-1">↺ 背景をリセット</button>
       </div>
-      <p class="mls-note">既存の背景カスタム機能を使用します。配信中も今までどおり変更できます。</p>
+      <p class="mls-note">背景をタップすると、実際の配信画面と同じ表示範囲で確認できます。背景のカスタム機能は今までどおりです。</p>
     </div>
     <button class="mls-start" type="button" onclick="startLive()">🎙 配信を開始する ❯</button>
+  </div>
+</section>
+
+<!-- 配信背景の独立した全画面確認ページ。既存の背景設定処理は変更しません -->
+<section id="moonBgFullScreen" aria-label="背景の全画面プレビュー" role="dialog" aria-modal="true">
+  <div id="moonBgViewport" class="moon-bg-viewport">
+    <div class="moon-bg-shade"></div>
+    <div class="moon-bg-top"><button type="button" onclick="closeMoonBgFullPreview()" aria-label="配信設定に戻る">‹ 戻る</button><strong>背景プレビュー</strong></div>
+    <div class="moon-bg-guide">この範囲が配信画面に表示されます</div>
+    <div class="moon-bg-bottom"><span>配信時はコメントやアイコンが重なります</span><button type="button" onclick="closeMoonBgFullPreview()">この背景で戻る</button></div>
   </div>
 </section>
 
@@ -1862,7 +1887,7 @@ function handleMessage(data) {
     const el=document.getElementById("presenceSocialNotice");if(el)el.textContent=data.message||"";return;
   }
   if(data.type==="access_denied"){
-    alert(data.reason||"この配信には参加できません");
+    alert("この配信は視聴できません");
     if(typeof closePanel==="function")closePanel();return;
   }
 
@@ -2210,6 +2235,36 @@ window.addEventListener('load', function() {
    START LIVE
 ========================================================= */
 
+
+/* 配信背景プレビュー専用ページ。既存の背景選択・同期には干渉しません */
+function openMoonBgFullPreview() {
+  const panel=document.getElementById('livePanel');
+  const viewport=document.getElementById('moonBgViewport');
+  const page=document.getElementById('moonBgFullScreen');
+  if(!panel||!viewport||!page)return;
+  const cs=getComputedStyle(panel);
+  viewport.style.backgroundImage=cs.backgroundImage;
+  viewport.style.backgroundPosition=cs.backgroundPosition;
+  viewport.style.backgroundSize=cs.backgroundSize;
+  viewport.style.backgroundRepeat=cs.backgroundRepeat;
+  viewport.style.backgroundColor=cs.backgroundColor;
+  page.classList.add('open');
+}
+function closeMoonBgFullPreview(){
+  const page=document.getElementById('moonBgFullScreen');
+  if(page)page.classList.remove('open');
+}
+/* 自動再生が端末に制限された場合、視聴画面のタップで音声再生を再試行 */
+window.addEventListener('load',function(){
+  const panel=document.getElementById('livePanel');
+  if(!panel)return;
+  panel.addEventListener('pointerup',function(){
+    if(isBroadcaster)return;
+    const audio=document.getElementById('remoteAudio');
+    if(audio&&audio.srcObject&&audio.paused){audio.play().catch(function(){});}
+  });
+});
+
 async function startLive() {
 
   console.log(
@@ -2526,7 +2581,7 @@ function listenLive(
   remoteAudio.volume = 1;
   remoteAudio.autoplay = true;
   remoteAudio.playsInline = true;
-  document.getElementById('audioButton').style.display = 'block';
+  document.getElementById('audioButton').style.display = 'none';
 
   document.getElementById(
     "panelTitle"
@@ -2715,11 +2770,11 @@ async function receiveOffer(
       setPanelStatus('🎧 音声接続済み');
       const audio = document.getElementById('remoteAudio');
       if (audio && audio.srcObject) audio.play().catch(function(){
-        document.getElementById('audioButton').style.display = 'block';
+        document.getElementById('audioButton').style.display = 'none';
       });
     } else if (pc.iceConnectionState === 'failed') {
       setPanelStatus('音声接続に失敗しました。Wi-Fiと再入室を確認してください');
-      document.getElementById('audioButton').style.display = 'block';
+      document.getElementById('audioButton').style.display = 'none';
     }
   };
 
@@ -2783,7 +2838,7 @@ async function receiveOffer(
             document.getElementById(
               "audioText"
             ).textContent =
-              "🔊 音声ボタンを押してください";
+              "🔊 音声を再生するには画面をタップしてください";
 
           }
         );
@@ -3932,7 +3987,7 @@ wss.on(
           const action=data.action;
           if(action!=="follow"&&action!=="block")return;
           if(action==="follow"&&blockedEither(id,target)){
-            sendTo(ws,{type:"social_notice",message:"ブロック関係にあるためフォローできません"});return;
+            sendTo(ws,{type:"social_notice",message:"フォローできませんでした"});return;
           }
           const key=action==="follow"?"following":"blocked";
           const values=socialIds(key,id);
@@ -4145,7 +4200,7 @@ wss.on(
 
 
           if(blockedEither(ws.clientId,broadcaster.clientId)){
-            sendTo(ws,{type:"access_denied",reason:"ブロック関係にあるため、この配信には参加できません"});return;
+            sendTo(ws,{type:"access_denied",reason:"この配信は視聴できません"});return;
           }
           ws.liveJoined = true;
           ws.profile = cleanProfile(data.profile || ws.profile);

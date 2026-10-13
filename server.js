@@ -30,7 +30,7 @@ function socialState(ws){
  const id=ws.clientId;
  const following=socialIds("following",id).filter(other=>!blockedEither(id,other));
  const followers=Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id)&&!blockedEither(id,other));
- const ids=[...new Set([...following,...followers])];
+ const ids=[...new Set([...following,...followers,...socialIds("blocked",id)])];
  const profiles={};
  ids.forEach(userId=>{
    const online=[...clients].find(c=>c.clientId===userId);
@@ -48,7 +48,7 @@ function refreshBlockVisibility(){
 function removeBlockedViewer(){
  if(!broadcaster)return;
  clients.forEach(c=>{if(c!==broadcaster&&c.liveJoined&&blockedEither(c.clientId,broadcaster.clientId)){
- c.liveJoined=false;sendTo(c,{type:"access_denied",reason:"この配信は視聴できません"});
+ c.liveJoined=false;sendTo(c,{type:"block_live_exit"});
  sendTo(broadcaster,{type:"viewer_removed",viewerId:c.clientId});
  }});
  sendPresence();
@@ -1905,9 +1905,13 @@ function handleMessage(data) {
     if(pc){try{pc.close();}catch(e){} delete peerConnections[data.viewerId];}
     return;
   }
+  if(data.type==="block_live_exit"){
+    if(!isBroadcaster){closePanel();goHome();}
+    return;
+  }
   if(data.type==="access_denied"){
-    alert("この配信は視聴できません");
-    if(typeof closePanel==="function")closePanel();return;
+    if(!isBroadcaster){closePanel();goHome();}
+    return;
   }
 
   if (data.type === "presence_update") {
@@ -3544,14 +3548,41 @@ function closeFollowList() {
   if (dialog) dialog.classList.remove("active");
 }
 
+function closeBlockManager(){
+ const overlay=document.getElementById("vbBlockManagerOverlay");if(overlay)overlay.remove();
+}
 function openBlockManager(){
-  if(!presenceBlocked.length){alert("ブロック中のユーザーはいません");return;}
-  const names=presenceBlocked.map((id,i)=>String(i+1)+". "+((socialProfiles[id]||{}).name||"ユーザー"));
-  const selected=prompt("解除する番号を入力してください\n"+names.join("\n"));
-  if(selected===null)return;
-  const n=Number(selected);
-  if(!Number.isInteger(n)||n<1||n>presenceBlocked.length)return;
-  if(confirm("ブロックを解除しますか？"))send({type:"social_action",action:"block",targetId:presenceBlocked[n-1]});
+ closeBlockManager();
+ const overlay=document.createElement("div");overlay.id="vbBlockManagerOverlay";
+ overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:#080d23;color:#fff;overflow-y:auto;padding:20px 16px;box-sizing:border-box";
+ const header=document.createElement("div");header.style.cssText="display:flex;align-items:center;gap:16px;margin-bottom:24px";
+ const back=document.createElement("button");back.type="button";back.textContent="← 戻る";back.style.cssText="border:0;border-radius:18px;background:#303a64;color:white;padding:10px 15px";back.onclick=closeBlockManager;
+ const title=document.createElement("h2");title.textContent="ブロック管理";title.style.cssText="margin:0;font-size:21px";header.append(back,title);overlay.appendChild(header);
+ const info=document.createElement("p");info.textContent="ブロックしているユーザー";info.style.color="#b6bde3";overlay.appendChild(info);
+ if(!presenceBlocked.length){const empty=document.createElement("p");empty.textContent="ブロック中のユーザーはいません";overlay.appendChild(empty);}
+ presenceBlocked.forEach(id=>{
+  const profile=socialProfiles[id]||{};
+  const item=document.createElement("button");item.type="button";item.style.cssText="display:flex;align-items:center;gap:14px;width:100%;border:1px solid #4c527d;border-radius:18px;padding:12px;background:#1b2545;color:white;text-align:left;margin-bottom:10px";
+  const avatar=document.createElement("span");avatar.style.cssText="display:inline-flex;flex-shrink:0;align-items:center;justify-content:center;width:52px;height:52px;border-radius:50%;background:#39476e;background-size:cover;background-position:center;overflow:hidden";
+  paintPresenceAvatar(avatar,{name:profile.name||"ユーザー",avatar:profile.avatar||""});
+  const label=document.createElement("span");label.style.cssText="display:flex;flex-direction:column;gap:5px;flex:1;min-width:0";
+  const name=document.createElement("strong");name.textContent=profile.name||"ユーザー";name.style.cssText="overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+  const status=document.createElement("small");status.textContent="ブロック中・タップで解除確認";status.style.color="#aeb6d5";label.append(name,status);
+  item.append(avatar,label);item.onclick=()=>{
+   const shade=document.createElement("div");shade.style.cssText="position:fixed;inset:0;z-index:1000000;background:#000a;display:flex;align-items:center;justify-content:center;padding:18px";
+   const dialog=document.createElement("div");dialog.style.cssText="background:#202a4a;border:1px solid #6b699d;border-radius:20px;padding:22px;width:100%;max-width:340px;box-sizing:border-box;color:white";
+   const question=document.createElement("h3");question.textContent="ブロックを解除しますか？";
+   const desc=document.createElement("p");desc.textContent=(profile.name||"このユーザー")+"のブロックを解除すると、お互いのプロフィールや配信が再び表示されるようになります。";
+   const actions=document.createElement("div");actions.style.cssText="display:flex;gap:10px;margin-top:20px";
+   const no=document.createElement("button");no.type="button";no.textContent="解除しない";
+   const yes=document.createElement("button");yes.type="button";yes.textContent="解除する";
+   for(const b of [no,yes])b.style.cssText="flex:1;padding:12px 4px;border:0;border-radius:12px;background:#465275;color:white;font-size:15px";
+   yes.style.background="#7756b6";
+   no.onclick=()=>shade.remove();yes.onclick=()=>{send({type:"social_action",action:"block",targetId:id});shade.remove();closeBlockManager();};
+   actions.append(no,yes);dialog.append(question,desc,actions);shade.appendChild(dialog);overlay.appendChild(shade);
+  };overlay.appendChild(item);
+ });
+ document.body.appendChild(overlay);
 }
 function showProfile() {
   const page=document.getElementById("myPageScreen");
@@ -4035,9 +4066,9 @@ wss.on(
           saveSocialData();
           if(action==="block"){
             clients.forEach(other=>{
-              if(other.clientId===target && other.liveJoined){
+              if(other.clientId===target && other.liveJoined && broadcaster && (broadcaster.clientId===id || broadcaster.clientId===target)){
                 other.liveJoined=false;
-                sendTo(other,{type:"access_denied",reason:"この配信は視聴できません"});
+                sendTo(other,{type:"block_live_exit"});
                 if(broadcaster)sendTo(broadcaster,{type:"viewer_removed",viewerId:other.clientId});
               }
             });

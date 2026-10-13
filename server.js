@@ -2066,7 +2066,7 @@ function handleMessage(data) {
     const followerName = String(data.followerName || "ユーザー");
     const followerAvatar = typeof data.followerAvatar === "string" ? data.followerAvatar : "";
     socialProfiles[followerId] = {name:followerName, avatar:followerAvatar};
-    addComment(followerName, "🌸 フォローしました！", followerId, followerAvatar);
+    addComment(followerName, "🌸 " + followerName + "さんがライバーをフォローしました！", followerId, followerAvatar);
     return;
   }
 
@@ -4080,10 +4080,11 @@ wss.on(
           // ライブ参加者が新しくフォローされたら、配信中のコメント欄に通知する。
           // フォロー解除やブロック関係の通知は送らない。
           if(isNewFollow && liveInfo.active && broadcaster){
-            const followedIsInLive = target===broadcaster.clientId ||
-              [...clients].some(c=>c.clientId===target && c.liveJoined);
-            const followerIsInLive = id===broadcaster.clientId || ws.liveJoined;
-            if(followedIsInLive && followerIsInLive && !blockedEither(id,target)){
+            // 視聴者が現在のライバーをフォローした場合のみ通知する。
+            // ライバー自身のフォロー、視聴者同士のフォローは通知しない。
+            const viewerFollowedHost = target===broadcaster.clientId &&
+              id!==broadcaster.clientId && ws.liveJoined;
+            if(viewerFollowedHost && !blockedEither(id,target)){
               const p=ws.profile || socialData.profiles[id] || {};
               const notice={type:"live_follow_notice",followerId:id,
                 followerName:limitEmojiText(p.name || "ユーザー",40),

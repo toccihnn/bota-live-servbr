@@ -1173,6 +1173,14 @@ button {
 #moonBgFullScreen .moon-bg-bottom span{font-size:12px;color:#e0d9f8}
 #moonBgFullScreen .moon-bg-bottom button{border:1px solid #ffe4bc;border-radius:18px;padding:15px;background:linear-gradient(100deg,#5144aa,#8157bb);color:white;font-size:16px;font-weight:700}
 
+
+/* 配信者アイコンの直下に配信経過時間（秒まで）を表示 */
+#livePanel .live-host-info #liveElapsedTime{
+ position:absolute;top:42px;left:0;min-width:62px;text-align:center;
+ padding:3px 5px;border-radius:9px;background:rgba(5,8,24,.75);
+ color:#fff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;
+ white-space:nowrap;pointer-events:none;text-shadow:0 1px 3px #000;
+}
 </style>
 
 </head>
@@ -1351,7 +1359,7 @@ button {
     <div class="live-top-title" id="liveTopTitle"></div>
     <div class="panel-live">🔴 LIVE</div>
   </div>
-  <div class="live-host-info" id="liveHostInfo" style="display:none"><button type="button" class="presence-avatar" id="liveHostAvatar" aria-label="配信者のプロフィール"></button><button type="button" id="liveHostName" class="live-host-name"></button></div>
+  <div class="live-host-info" id="liveHostInfo" style="display:none"><button type="button" class="presence-avatar" id="liveHostAvatar" aria-label="配信者のプロフィール"></button><span id="liveElapsedTime" aria-label="配信時間">00:00:00</span><button type="button" id="liveHostName" class="live-host-name"></button></div>
   <div class="presence-strip" id="presenceStrip" aria-label="現在の視聴者"></div>
   <div class="presence-overlay" id="presenceOverlay" onclick="closePresence()">
     <div class="presence-dialog" onclick="event.stopPropagation()">
@@ -1879,6 +1887,19 @@ function renderLiveHeader(){
   hostName.textContent=host.name || "配信者";
   hostAvatar.onclick=hostName.onclick=function(){openPresenceProfile(host.id);};
 }
+
+let liveStartedAt = 0;
+function renderLiveElapsedTime(){
+ const el=document.getElementById("liveElapsedTime");
+ if(!el)return;
+ if(!liveStartedAt){el.textContent="00:00:00";return;}
+ const seconds=Math.max(0,Math.floor((Date.now()-liveStartedAt)/1000));
+ const h=String(Math.floor(seconds/3600)).padStart(2,"0");
+ const m=String(Math.floor(seconds%3600/60)).padStart(2,"0");
+ const sec=String(seconds%60).padStart(2,"0");
+ el.textContent=h+":"+m+":"+sec;
+}
+setInterval(renderLiveElapsedTime,1000);
 let activeLiveTitle="";
 function renderPresence() {
   const strip = document.getElementById("presenceStrip");
@@ -1963,6 +1984,8 @@ function handleMessage(data) {
     presenceMembers = Array.isArray(data.members) ? data.members.filter(m=>!presenceHidden.includes(m.id)) : [];
     broadcasterProfile = data.broadcasterProfile && !presenceHidden.includes(data.broadcasterProfile.id) ? data.broadcasterProfile : null;
     activeLiveTitle=data.title || activeLiveTitle;
+    liveStartedAt=Number(data.startedAt)||0;
+    renderLiveElapsedTime();
     renderPresence();
     renderLiveHeader();
     return;
@@ -3426,6 +3449,8 @@ function openPanel() {
 
 
 function closePanel() {
+  liveStartedAt=0;
+  renderLiveElapsedTime();
   activeLiveTitle="";
   closePresence();
   if (!isBroadcaster) {
@@ -3996,7 +4021,7 @@ function sendPresence() {
     if(recipient.readyState!==WebSocket.OPEN)return;
     const visibleMembers=members.filter(m=>!blockedEither(recipient.clientId,m.id));
     const visibleHost=blockedEither(recipient.clientId,host.id)?null:host;
-    sendTo(recipient,{type:"presence_update",members:visibleMembers,broadcasterProfile:visibleHost,title:visibleHost?liveInfo.title:""});
+    sendTo(recipient,{type:"presence_update",members:visibleMembers,broadcasterProfile:visibleHost,title:visibleHost?liveInfo.title:"",startedAt:visibleHost?liveInfo.startedAt:null});
   });
 }
 
@@ -4229,6 +4254,8 @@ wss.on(
 
             active:
               true,
+
+            startedAt: Date.now(),
 
             id:
               ws.clientId,

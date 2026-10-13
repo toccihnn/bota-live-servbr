@@ -2058,6 +2058,18 @@ function handleMessage(data) {
   }
 
 
+  if (data.type === "live_follow_notice") {
+    // フォローが成立したときだけサーバーから配信参加者に届く。
+    if (!document.getElementById("livePanel")?.classList.contains("show")) return;
+    const followerId = String(data.followerId || "");
+    if (!followerId) return;
+    const followerName = String(data.followerName || "ユーザー");
+    const followerAvatar = typeof data.followerAvatar === "string" ? data.followerAvatar : "";
+    socialProfiles[followerId] = {name:followerName, avatar:followerAvatar};
+    addComment(followerName, "🌸 フォローしました！", followerId, followerAvatar);
+    return;
+  }
+
   if (
     data.type ===
     "like"
@@ -4058,12 +4070,27 @@ wss.on(
           }
           const key=action==="follow"?"following":"blocked";
           const values=socialIds(key,id);
+          const isNewFollow=action==="follow" && !values.includes(target);
           socialData[key][id]=values.includes(target)?values.filter(x=>x!==target):[...values,target];
           if(action==="block"&&socialIds("blocked",id).includes(target)){
             socialData.following[id]=socialIds("following",id).filter(x=>x!==target);
             socialData.following[target]=socialIds("following",target).filter(x=>x!==id);
           }
           saveSocialData();
+          // 配信者が新たにフォローされた場合のみ、現在のライブ参加者へ通知する。
+          // 解除・再送・配信外のフォローはコメント欄に流さない。
+          if(isNewFollow && liveInfo.active && broadcaster && target===broadcaster.clientId){
+            const p=ws.profile || socialData.profiles[id] || {};
+            const notice={type:"live_follow_notice",followerId:id,
+              followerName:limitEmojiText(p.name || "ユーザー",40),
+              followerAvatar:typeof p.avatar==="string" ? p.avatar : ""};
+            clients.forEach(other=>{
+              if(other.readyState===WebSocket.OPEN &&
+                (other===broadcaster || other.liveJoined) &&
+                !blockedEither(other.clientId,id) &&
+                !blockedEither(other.clientId,broadcaster.clientId))sendTo(other,notice);
+            });
+          }
           if(action==="block"){
             clients.forEach(other=>{
               if(other.clientId===target && other.liveJoined && broadcaster && (broadcaster.clientId===id || broadcaster.clientId===target)){

@@ -1201,9 +1201,6 @@ button {
 .discover-all-header{display:flex;align-items:center;gap:18px;margin-bottom:18px;font-size:20px}
 .discover-all-header button{border:0;background:#242d53;color:white;font-size:22px;border-radius:12px;width:43px;height:43px}
 @media(min-width:700px){.discover-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-.bgm-panel{position:absolute;left:12px;right:12px;bottom:145px;z-index:25;padding:14px;border-radius:14px;background:#151c3cf2;color:#fff;border:1px solid #7785b8;max-height:45vh;overflow-y:auto}
-.bgm-panel button{background:#394d91;border:0;border-radius:9px;color:#fff;padding:9px 12px;font-weight:700}
-.bgm-panel input[type=file]{width:100%;font-size:12px}
 </style>
 
 </head>
@@ -1454,24 +1451,10 @@ button {
     <button id="giftButton" class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
     <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
     <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>
-    <button id="bgmAction" class="live-action" type="button" onclick="toggleBgmPanel()" style="display:none"><span class="action-emoji">🎵</span><span>BGM</span></button>
     <button id="backgroundAction" class="live-action" type="button" onclick="toggleBackgroundPanel()"><span class="action-emoji">🎨</span><span>背景</span></button>
     <button id="editLiveTitleAction" class="live-action" type="button" onclick="editLiveTitle()"><span class="action-emoji">✏️</span><span>タイトル</span></button>
   </div>
 
-  <div id="bgmPanel" class="bgm-panel" style="display:none">
-    <div style="font-weight:800;margin-bottom:8px">🎵 配信BGM</div>
-    <label for="bgmFile" style="display:block;margin-bottom:8px">スマホの音楽ファイルを選ぶ（MP3 / M4Aなど）</label>
-    <input id="bgmFile" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg" onchange="chooseBgm(event)">
-    <div id="bgmName" style="font-size:12px;overflow-wrap:anywhere;margin:8px 0">曲は未選択です</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button type="button" onclick="playBgm()">▶ 再生</button>
-      <button type="button" onclick="pauseBgm()">⏸ 停止</button>
-      <label style="flex:1;font-size:12px">音量 <input id="bgmVolume" type="range" min="0" max="100" value="25" oninput="setBgmVolume(this.value)" style="width:100%"></label>
-    </div>
-    <label style="font-size:12px"><input id="bgmLoop" type="checkbox" checked onchange="bgmAudio.loop=this.checked"> 繰り返し再生</label>
-    <div id="bgmStatus" style="font-size:12px;margin-top:6px"></div>
-  </div>
   <div class="comments">
     <div class="comment-list" id="commentList" aria-label="コメント一覧"></div>
   </div>
@@ -2474,59 +2457,6 @@ window.addEventListener('load',function(){
   });
 });
 
-/* マイクと選択したBGMを同じ音声トラックへミックス */
-let micStream=null,bgmContext=null,bgmDestination=null,bgmMicSource=null,bgmGain=null,bgmMediaSource=null,bgmObjectUrl=null;
-const bgmAudio=new Audio();
-bgmAudio.preload="auto";
-bgmAudio.loop=true;
-function bgmStatus(message){const el=document.getElementById("bgmStatus");if(el)el.textContent=message;}
-function toggleBgmPanel(){if(!isBroadcaster)return;const el=document.getElementById("bgmPanel");el.style.display=el.style.display==="none"?"block":"none";}
-function setBgmVolume(value){if(bgmGain)bgmGain.gain.value=Number(value)/100;}
-function chooseBgm(event){
- const file=event.target.files&&event.target.files[0];if(!file)return;
- if(!file.type.startsWith("audio/")&&!/\\.(mp3|m4a|wav|ogg|aac)$/i.test(file.name)){bgmStatus("音楽ファイルを選んでください");return;}
- bgmAudio.pause();
- if(bgmObjectUrl)URL.revokeObjectURL(bgmObjectUrl);
- bgmObjectUrl=URL.createObjectURL(file);bgmAudio.src=bgmObjectUrl;
- document.getElementById("bgmName").textContent=file.name;
- bgmStatus("準備できました。再生を押してください");
-}
-async function playBgm(){
- if(!isBroadcaster||!bgmContext||!bgmAudio.src){bgmStatus("先に音楽ファイルを選んでください");return;}
- try{
-  await bgmContext.resume();
-  bgmAudio.loop=document.getElementById("bgmLoop").checked;
-  await bgmAudio.play();bgmStatus("リスナーへBGM配信中");
- }catch(e){console.error("BGM playback",e);bgmStatus("再生できません。対応形式を確認してください");}
-}
-function pauseBgm(){bgmAudio.pause();bgmStatus("BGM停止中");}
-async function setupBgmMixer(){
- const AudioContextClass=window.AudioContext||window.webkitAudioContext;
- if(!AudioContextClass)return false;
- try{
-  bgmContext=new AudioContextClass();
-  bgmDestination=bgmContext.createMediaStreamDestination();
-  bgmMicSource=bgmContext.createMediaStreamSource(micStream);
-  bgmMicSource.connect(bgmDestination);
-  bgmMediaSource=bgmContext.createMediaElementSource(bgmAudio);
-  bgmGain=bgmContext.createGain();
-  bgmGain.gain.value=Number(document.getElementById("bgmVolume").value)/100;
-  bgmMediaSource.connect(bgmGain);bgmGain.connect(bgmDestination);
-  await bgmContext.resume();
-  localStream=bgmDestination.stream;
-  return true;
- }catch(error){console.warn("BGM mixer unavailable",error);localStream=micStream;return false;}
-}
-function cleanupBgm(){
- bgmAudio.pause();
- const panel=document.getElementById("bgmPanel");if(panel)panel.style.display="none";
- const button=document.getElementById("bgmAction");if(button)button.style.display="none";
- if(bgmContext){bgmContext.close().catch(()=>{});}
- bgmContext=null;bgmDestination=null;bgmMicSource=null;bgmGain=null;bgmMediaSource=null;
- if(micStream)micStream.getTracks().forEach(t=>t.stop());
- micStream=null;
- if(bgmObjectUrl){URL.revokeObjectURL(bgmObjectUrl);bgmObjectUrl=null;bgmAudio.removeAttribute("src");bgmAudio.load();}
-}
 async function startLive() {
 
   console.log(
@@ -2604,7 +2534,7 @@ async function startLive() {
 
   try {
 
-    micStream =
+    localStream =
       await navigator.mediaDevices
         .getUserMedia({
 
@@ -2617,7 +2547,17 @@ async function startLive() {
               true,
 
             autoGainControl:
-              true
+              true,
+
+            // 高音質音声を優先（非対応端末ではブラウザが無視）
+            sampleRate:
+              { ideal: 48000 },
+
+            channelCount:
+              { ideal: 1 },
+
+            sampleSize:
+              { ideal: 16 }
 
           },
 
@@ -2627,10 +2567,6 @@ async function startLive() {
         });
 
 
-    const mixerReady=await setupBgmMixer();
-    if(!mixerReady)localStream=micStream;
-    document.getElementById("bgmAction").style.display="flex";
-    bgmStatus(mixerReady?"BGMを選んで再生できます":"このブラウザではBGM混合に対応していません");
     console.log(
       "MIC OK"
     );
@@ -2779,7 +2715,6 @@ function stopLive() {
 
   localStream =
     null;
-  cleanupBgm();
 
 
   closePeers();
@@ -2928,10 +2863,23 @@ async function createOffer(
     .forEach(
       function(track) {
 
-        pc.addTrack(
+        const sender = pc.addTrack(
           track,
           localStream
         );
+        // Opusの音声ビットレートを高めに設定。未対応なら標準設定で続行。
+        if (track.kind === 'audio' && sender.getParameters && sender.setParameters) {
+          try {
+            const params = sender.getParameters();
+            if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 96000;
+            Promise.resolve(sender.setParameters(params)).catch(function(err){
+              console.warn('音質設定は標準値で続行:', err);
+            });
+          } catch(err) {
+            console.warn('音質設定は標準値で続行:', err);
+          }
+        }
 
       }
     );
@@ -3328,7 +3276,7 @@ function updateAudioAction() {
   const icon = button.querySelector(".action-emoji");
   const label = button.querySelector("span:last-child");
   if (isBroadcaster) {
-    const track = micStream && micStream.getAudioTracks()[0];
+    const track = localStream && localStream.getAudioTracks()[0];
     const muted = !!track && !track.enabled;
     icon.textContent = muted ? "🔇" : "🎙️";
     label.textContent = muted ? "ミュート中" : "マイクON";
@@ -3343,7 +3291,7 @@ function updateAudioAction() {
 
 function toggleRemoteAudio() {
   if (isBroadcaster) {
-    const track = micStream && micStream.getAudioTracks()[0];
+    const track = localStream && localStream.getAudioTracks()[0];
     if (!track || track.readyState !== "live") {
       alert("マイクが使用できません。配信を開始し直してください。");
       return;

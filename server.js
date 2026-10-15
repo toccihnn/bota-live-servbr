@@ -1312,17 +1312,17 @@ button {
 
 <div id="discoverySections" class="discovery-sections">
   <section class="section discover-section" data-discovery="featured">
-    <div class="section-head"><div class="section-title">🌸 注目</div></div>
+    <div class="section-head"><div class="section-title">注目</div></div>
     <div class="discover-grid" id="discoverFeatured"></div>
     <button class="discover-more" onclick="openDiscoveryAll('featured')">もっと見る ❯</button>
   </section>
   <section class="section discover-section" data-discovery="new">
-    <div class="section-head"><div class="section-title">✨ NEW</div></div>
+    <div class="section-head"><div class="section-title">NEW</div></div>
     <div class="discover-grid" id="discoverNew"></div>
     <button class="discover-more" onclick="openDiscoveryAll('new')">もっと見る ❯</button>
   </section>
   <section class="section discover-section" data-discovery="debut">
-    <div class="section-head"><div class="section-title">🌙 デビュー</div></div>
+    <div class="section-head"><div class="section-title">デビュー</div></div>
     <div class="discover-grid" id="discoverDebut"></div>
     <button class="discover-more" onclick="openDiscoveryAll('debut')">もっと見る ❯</button>
   </section>

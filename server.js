@@ -85,6 +85,26 @@ const HTML = String.raw`
 <title>voiceボタLive</title>
 
 <style>
+/* v39: typography only. No image, layout, or feature changes. */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&display=swap');
+:root {
+  --vb-serif-ja: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif;
+  --vb-serif-en: "Cormorant Garamond", "Noto Serif JP", serif;
+  --vb-sans: "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+/* Main interface remains readable; decorative titles get the elegant serif. */
+body { font-family: var(--vb-sans); }
+.logo, .hero-title, .section-title, .live-title,
+#discoverAllTitle, #moonLiveSetup h1, #moonLiveSetup h2,
+#moonLiveSetup .mls-title, .mypage-title, .profile-name {
+  font-family: var(--vb-serif-ja);
+  font-weight: 600;
+}
+.hero-title span { font-family: var(--vb-serif-en); }
+.section-sub, .hero-small { font-family: var(--vb-serif-en); }
+/* Preserve native emoji/Simeji input and comment rendering fixes. */
+#commentInput, #commentList .comment-item { font-family: sans-serif !important; }
+
 
 
 

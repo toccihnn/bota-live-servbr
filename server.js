@@ -1221,6 +1221,25 @@ button {
 .discover-all-header{display:flex;align-items:center;gap:18px;margin-bottom:18px;font-size:20px}
 .discover-all-header button{border:0;background:#242d53;color:white;font-size:22px;border-radius:12px;width:43px;height:43px}
 @media(min-width:700px){.discover-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* v43: 配信画面の背景にコメントと操作を重ねる。背景画像の設定は変更しない */
+#livePanel{overflow:hidden!important;padding:0!important;isolation:isolate}
+#livePanel .panel-header{position:absolute;inset:0 0 auto;z-index:9;pointer-events:none}
+#livePanel .panel-header .live-top-title{top:max(13px,env(safe-area-inset-top));left:14px;right:68px;font-size:15px}
+#livePanel .live-host-info{top:max(51px,calc(env(safe-area-inset-top) + 39px));left:12px;max-width:49%}
+#livePanel .presence-strip{top:max(51px,calc(env(safe-area-inset-top) + 39px));right:12px;max-width:46%}
+#livePanel .comments{position:absolute!important;left:12px!important;right:82px!important;bottom:calc(90px + env(safe-area-inset-bottom))!important;top:auto!important;margin:0!important;z-index:7}
+#livePanel .comment-list{height:min(33vh,275px)!important;min-height:90px!important;overflow-y:auto!important;overscroll-behavior:contain;background:transparent!important;border:0!important;padding:4px!important;scrollbar-width:thin;mask-image:linear-gradient(transparent,#000 12%,#000)}
+#livePanel .comment-item{background:rgba(5,6,15,.45);border-radius:13px;margin:3px 0;padding:6px 8px;border-bottom:0;text-shadow:0 1px 2px #000}
+#livePanel .comment-input{position:absolute!important;left:12px!important;right:78px!important;bottom:calc(19px + env(safe-area-inset-bottom))!important;top:auto!important;z-index:8;margin:0!important}
+#livePanel .comment-input input{background:rgba(8,10,20,.7)!important;border:1px solid #ffffff66!important;color:white!important}
+#livePanel .action-rail{position:absolute!important;right:9px!important;top:auto!important;bottom:calc(100px + env(safe-area-inset-bottom))!important;transform:none!important;z-index:8;max-height:53vh;overflow-y:auto;scrollbar-width:none}
+#livePanel .action-rail .live-action{flex-shrink:0}
+#livePanel .close-button{display:none!important}
+#livePanel #likeButton{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#livePanel .floating-like-heart{position:absolute;bottom:calc(190px + env(safe-area-inset-bottom));z-index:12;pointer-events:none;font-size:26px;animation:float-like-heart 1.2s ease-out forwards}
+@keyframes float-like-heart{0%{opacity:0;transform:translateY(12px) scale(.7)}18%{opacity:1}100%{opacity:0;transform:translateY(-140px) scale(1.5)}}
+#livePanel.is-broadcaster #likeButton,#livePanel.is-broadcaster #giftButton{display:none!important}
 </style>
 
 </head>
@@ -1467,7 +1486,7 @@ button {
   <audio id="remoteAudio" autoplay playsinline></audio>
   <button id="audioButton" class="panel-button start-button" type="button" onclick="enableAudio()" style="display:none" aria-hidden="true" tabindex="-1">🔊 音声をONにする</button>
   <div class="action-rail">
-    <button id="likeButton" class="live-action" type="button" onclick="sendLike()"><span class="action-emoji">❤️</span><span>いいね</span></button>
+    <button id="likeButton" class="live-action" type="button" aria-label="タップでいいね、長押しで連打"><span class="action-emoji">❤️</span><span>いいね</span></button>
     <button id="giftButton" class="live-action" type="button" onclick="showGiftNotice()"><span class="action-emoji">🎁</span><span>ギフト</span></button>
     <button class="live-action" type="button" onclick="shareLive()"><span class="action-emoji">📤</span><span>シェア</span></button>
     <button class="live-action" id="muteAction" type="button" onclick="toggleRemoteAudio()"><span class="action-emoji">🔊</span><span>音声</span></button>
@@ -2700,6 +2719,7 @@ async function startLive() {
 ========================================================= */
 
 function stopLive() {
+  stopLikeHold();
 
   if (!isBroadcaster) {
 
@@ -3254,18 +3274,66 @@ function enableAudio() {
 ========================================================= */
 
 function sendLike() {
-
-  send({
-
-    type:
-      "like",
-
-    name:
-      currentUserName
-
-  });
-
+  if(isBroadcaster || !document.getElementById("livePanel").classList.contains("show")) return;
+  send({type:"like",name:currentUserName});
+  animateMyLike();
 }
+
+/* タップ1回=1いいね / 350ms長押し後は毎秒5回。指を離すと停止 */
+let likeHoldDelay=null;
+let likeRepeatTimer=null;
+let likePressStarted=0;
+let likeLongPress=false;
+let likePointerId=null;
+function animateMyLike(){
+ const panel=document.getElementById("livePanel");
+ if(!panel || !panel.classList.contains("show"))return;
+ const heart=document.createElement("span");
+ heart.className="floating-like-heart";
+ heart.textContent=["❤️","💗","💕"][Math.floor(Math.random()*3)];
+ heart.style.right=(65+Math.random()*38)+"px";
+ panel.appendChild(heart);
+ heart.addEventListener("animationend",()=>heart.remove(),{once:true});
+}
+function stopLikeHold(){
+ if(likeHoldDelay!==null){clearTimeout(likeHoldDelay);likeHoldDelay=null;}
+ if(likeRepeatTimer!==null){clearInterval(likeRepeatTimer);likeRepeatTimer=null;}
+ likePointerId=null;
+}
+function initLikeHold(){
+ const btn=document.getElementById("likeButton");
+ if(!btn)return;
+ btn.addEventListener("pointerdown",event=>{
+  if(event.button!==0 || isBroadcaster)return;
+  stopLikeHold();
+  likePointerId=event.pointerId;
+  likeLongPress=false;
+  likePressStarted=Date.now();
+  try{btn.setPointerCapture(event.pointerId)}catch(e){}
+  likeHoldDelay=setTimeout(()=>{
+   likeHoldDelay=null;
+   likeLongPress=true;
+   sendLike();
+   likeRepeatTimer=setInterval(sendLike,200);
+  },350);
+ });
+ btn.addEventListener("pointerup",event=>{
+  if(likePointerId!==event.pointerId)return;
+  const wasLong=likeLongPress;
+  stopLikeHold();
+  if(!wasLong)sendLike();
+ });
+ btn.addEventListener("pointercancel",stopLikeHold);
+ btn.addEventListener("lostpointercapture",stopLikeHold);
+ btn.addEventListener("contextmenu",event=>event.preventDefault());
+ btn.addEventListener("click",event=>{
+  // キーボード操作によるクリックは1いいね
+  if(event.detail===0)sendLike();
+ });
+ document.addEventListener("visibilitychange",()=>{if(document.hidden)stopLikeHold()});
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initLikeHold);
+else initLikeHold();
 
 
 function toggleBackgroundPanel() {
@@ -3581,6 +3649,7 @@ function openPanel() {
 
 
 function closePanel() {
+  stopLikeHold();
   liveStartedAt=0;
   renderLiveElapsedTime();
   activeLiveTitle="";

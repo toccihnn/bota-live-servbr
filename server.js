@@ -2323,7 +2323,7 @@ function renderLiveList(
 
     list.innerHTML =
       '<div class="empty">' +
-      '現在配信中のライブはありません' +
+      'フォロー中のライバーは現在配信していません' +
       '</div>';
 
     return;
@@ -4100,7 +4100,10 @@ function broadcast(
 function getLiveList(viewerId) {
 
   if (
-    !liveInfo.active || (viewerId && blockedEither(viewerId,liveInfo.id))
+    !liveInfo.active ||
+    !viewerId ||
+    blockedEither(viewerId,liveInfo.id) ||
+    !socialIds("following",viewerId).includes(liveInfo.id)
   ) {
 
     return [];
@@ -4159,7 +4162,7 @@ function sendPresence() {
 
 function getDiscoveryList(viewerId){
  const now=Date.now(),week=7*86400000,month=30*86400000;
- const users=Object.entries(socialData.profiles).filter(([id,p])=>id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name)
+ const users=Object.entries(socialData.profiles).filter(([id,p])=>liveInfo.active&&liveInfo.id===id&&id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name)
  .map(([id,p])=>({id,name:p.name||"ユーザー",avatar:p.avatar||"",live:!!(liveInfo.active&&liveInfo.id===id),
  createdAt:Number(p.createdAt)||0,firstLiveAt:Number(p.firstLiveAt)||0,
  followers:Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id)&&!blockedEither(id,other)).length}));
@@ -4310,6 +4313,8 @@ wss.on(
           }
           saveSocialData();
           sendDiscoveryLists();
+          // フォロー・解除・ブロック直後にホームのライブ一覧も更新する
+          sendLiveList();
           // ライブ参加者が新しくフォローされたら、配信中のコメント欄に通知する。
           // フォロー解除やブロック関係の通知は送らない。
           if(isNewFollow && liveInfo.active && broadcaster){

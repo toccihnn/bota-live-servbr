@@ -1237,7 +1237,7 @@ button {
 #livePanel .action-rail .live-action{flex-shrink:0}
 #livePanel .close-button{display:none!important}
 #livePanel #likeButton{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-#livePanel .floating-like-heart{position:absolute;bottom:calc(190px + env(safe-area-inset-bottom));z-index:12;pointer-events:none;font-size:26px;animation:float-like-heart 1.2s ease-out forwards}
+#livePanel .floating-like-heart{position:absolute;z-index:100;pointer-events:none;font-size:32px;line-height:1;filter:drop-shadow(0 2px 7px #ff66aabb);animation:float-like-heart 1.2s ease-out forwards;-webkit-animation:float-like-heart 1.2s ease-out forwards}
 @keyframes float-like-heart{0%{opacity:0;transform:translateY(12px) scale(.7)}18%{opacity:1}100%{opacity:0;transform:translateY(-140px) scale(1.5)}}
 #livePanel.is-broadcaster #likeButton,#livePanel.is-broadcaster #giftButton{display:none!important}
 </style>
@@ -2228,6 +2228,7 @@ function handleMessage(data) {
     "like"
   ) {
 
+    if(data.clientId!==myId)animateMyLike();
     addComment(
       data.name || "ゲスト",
       "❤️ いいねしました",
@@ -3279,62 +3280,59 @@ function sendLike() {
   animateMyLike();
 }
 
-/* タップ1回=1いいね / 350ms長押し後は毎秒5回。指を離すと停止 */
-let likeHoldDelay=null;
-let likeRepeatTimer=null;
-let likePressStarted=0;
-let likeLongPress=false;
-let likePointerId=null;
+/* Android Chrome対応: 長押し連打とハートの視覚効果 */
+let likeHoldDelay=null,likeRepeatTimer=null,likePointerId=null,likeLongPress=false;
+let likeLastTapAt=0;
 function animateMyLike(){
  const panel=document.getElementById("livePanel");
- if(!panel || !panel.classList.contains("show"))return;
+ if(!panel||!panel.classList.contains("show"))return;
  const heart=document.createElement("span");
  heart.className="floating-like-heart";
  heart.textContent=["❤️","💗","💕"][Math.floor(Math.random()*3)];
- heart.style.right=(65+Math.random()*38)+"px";
+ heart.style.right=(72+Math.random()*40)+"px";
+ heart.style.bottom=(145+Math.random()*40)+"px";
  panel.appendChild(heart);
- heart.addEventListener("animationend",()=>heart.remove(),{once:true});
+ setTimeout(()=>heart.remove(),1600);
 }
 function stopLikeHold(){
- if(likeHoldDelay!==null){clearTimeout(likeHoldDelay);likeHoldDelay=null;}
- if(likeRepeatTimer!==null){clearInterval(likeRepeatTimer);likeRepeatTimer=null;}
- likePointerId=null;
+ clearTimeout(likeHoldDelay);clearInterval(likeRepeatTimer);
+ likeHoldDelay=null;likeRepeatTimer=null;likePointerId=null;
+}
+function beginLikeHold(e){
+ if(isBroadcaster)return;
+ if(e.pointerType==="mouse"&&e.button!==0)return;
+ e.preventDefault();
+ stopLikeHold();likeLongPress=false;likePointerId=e.pointerId;
+ const btn=document.getElementById("likeButton");
+ if(btn&&btn.setPointerCapture){try{btn.setPointerCapture(e.pointerId)}catch(err){}}
+ likeHoldDelay=setTimeout(()=>{
+  likeHoldDelay=null;likeLongPress=true;
+  sendLike();
+  likeRepeatTimer=setInterval(()=>{if(!isBroadcaster)sendLike();else stopLikeHold()},200);
+ },350);
+}
+function endLikeHold(e){
+ if(likePointerId===null||(e&&e.pointerId!==likePointerId))return;
+ const wasLong=likeLongPress;
+ stopLikeHold();
+ if(!wasLong){sendLike();likeLastTapAt=Date.now()}
 }
 function initLikeHold(){
- const btn=document.getElementById("likeButton");
- if(!btn)return;
- btn.addEventListener("pointerdown",event=>{
-  if(event.button!==0 || isBroadcaster)return;
-  stopLikeHold();
-  likePointerId=event.pointerId;
-  likeLongPress=false;
-  likePressStarted=Date.now();
-  try{btn.setPointerCapture(event.pointerId)}catch(e){}
-  likeHoldDelay=setTimeout(()=>{
-   likeHoldDelay=null;
-   likeLongPress=true;
-   sendLike();
-   likeRepeatTimer=setInterval(sendLike,200);
-  },350);
- });
- btn.addEventListener("pointerup",event=>{
-  if(likePointerId!==event.pointerId)return;
-  const wasLong=likeLongPress;
-  stopLikeHold();
-  if(!wasLong)sendLike();
- });
+ const btn=document.getElementById("likeButton");if(!btn||btn.dataset.likeBound)return;
+ btn.dataset.likeBound="1";
+ btn.addEventListener("pointerdown",beginLikeHold,{passive:false});
+ btn.addEventListener("pointerup",endLikeHold);
  btn.addEventListener("pointercancel",stopLikeHold);
- btn.addEventListener("lostpointercapture",stopLikeHold);
- btn.addEventListener("contextmenu",event=>event.preventDefault());
- btn.addEventListener("click",event=>{
-  // キーボード操作によるクリックは1いいね
-  if(event.detail===0)sendLike();
- });
+ btn.addEventListener("lostpointercapture",()=>{if(likePointerId!==null)stopLikeHold()});
+ btn.addEventListener("contextmenu",e=>e.preventDefault());
+ btn.addEventListener("dragstart",e=>e.preventDefault());
+ btn.addEventListener("click",e=>{if(e.detail===0&&Date.now()-likeLastTapAt>300)sendLike()});
+ document.addEventListener("pointerup",endLikeHold);
+ document.addEventListener("pointercancel",stopLikeHold);
  document.addEventListener("visibilitychange",()=>{if(document.hidden)stopLikeHold()});
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initLikeHold);
 else initLikeHold();
-
 
 function toggleBackgroundPanel() {
   const panel = document.getElementById("backgroundCustom");

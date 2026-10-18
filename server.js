@@ -1242,6 +1242,22 @@ button {
 #livePanel .floating-like-heart{position:absolute;z-index:100;pointer-events:none;font-size:32px;line-height:1;filter:drop-shadow(0 2px 7px #ff66aabb);animation:float-like-heart 1.2s ease-out forwards;-webkit-animation:float-like-heart 1.2s ease-out forwards}
 @keyframes float-like-heart{0%{opacity:0;transform:translateY(12px) scale(.7)}18%{opacity:1}100%{opacity:0;transform:translateY(-140px) scale(1.5)}}
 #livePanel.is-broadcaster #likeButton,#livePanel.is-broadcaster #giftButton{display:none!important}
+
+/* Search page only; existing home and live layouts remain unchanged */
+#searchPage{display:none;position:fixed;inset:0;z-index:1700;background:#0a1026;color:#fff;overflow-y:auto;padding:18px 14px 95px}
+#searchPage.active{display:block}
+.search-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;font-size:20px;font-weight:700}
+.search-back{background:#242c50;color:#fff;border:0;border-radius:12px;padding:10px 14px;font-size:20px}
+#searchKeyword{width:100%;box-sizing:border-box;background:#222c4a;border:1px solid #62709b;color:#fff;border-radius:15px;padding:15px;font-size:16px}
+#searchResults{margin-top:18px;display:flex;flex-direction:column;gap:9px}
+.search-person{display:flex;align-items:center;gap:13px;width:100%;padding:12px;background:#192440;border:1px solid #ffffff1f;border-radius:15px;color:#fff;text-align:left}
+.search-avatar-group{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:60px}
+.search-avatar{width:54px;height:54px;border-radius:50%;background:#37446b;background-size:cover;background-position:center;display:grid;place-items:center;font-size:24px}
+.search-live-label{font-size:11px;font-weight:800;color:#ff658d;line-height:1.3}
+.search-person-info{flex:1;min-width:0}
+.search-person-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-person-bio{font-size:12px;color:#aebbd5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.search-empty{padding:26px 10px;text-align:center;color:#b5c0dc}
 </style>
 
 </head>
@@ -1606,6 +1622,11 @@ button {
   </div>
 </div>
 
+<section id="searchPage" aria-label="ライバーを探す">
+ <div class="search-header"><button type="button" class="search-back" onclick="closeSearchPage()" aria-label="戻る">←</button><span>探す</span></div>
+ <input id="searchKeyword" type="search" placeholder="ライバー名・キーワードで検索" autocomplete="off" oninput="renderSearchResults()">
+ <div id="searchResults"></div>
+</section>
 <nav class="bottom-nav">
 
 
@@ -1627,7 +1648,7 @@ button {
   <button
     class="nav-item"
     type="button"
-    onclick="scrollLive()"
+    onclick="openSearchPage()"
   >
 
     <div class="nav-icon">
@@ -2095,6 +2116,11 @@ function handleMessage(data) {
   }
 
 
+  if(data.type==='search_results'){
+    searchUsers=Array.isArray(data.users)?data.users:[];
+    if(document.getElementById('searchPage').classList.contains('active'))renderSearchResults();
+    return;
+  }
   if(data.type==="discovery_list"){
     discoveryData={featured:data.featured||[],new:data.new||[],debut:data.debut||[]};
     renderDiscovery();return;
@@ -3719,6 +3745,41 @@ function goHome() {
 }
 
 
+
+let searchUsers=[];
+function openSearchPage(){
+ const page=document.getElementById('searchPage');page.classList.add('active');
+ document.getElementById('searchKeyword').value='';
+ renderSearchResults();
+ send({type:'search_request'});
+ document.getElementById('searchKeyword').focus();
+}
+function closeSearchPage(){document.getElementById('searchPage').classList.remove('active')}
+function renderSearchResults(){
+ const root=document.getElementById('searchResults');if(!root)return;
+ root.replaceChildren();
+ const keyword=document.getElementById('searchKeyword').value.trim().toLocaleLowerCase('ja');
+ const found=searchUsers.filter(u=>!keyword||[u.name,u.bio,u.title].some(v=>String(v||'').toLocaleLowerCase('ja').includes(keyword)));
+ if(!found.length){const p=document.createElement('div');p.className='search-empty';p.textContent='該当するライバーはいません';root.appendChild(p);return;}
+ found.forEach(u=>{
+  const btn=document.createElement('button');btn.type='button';btn.className='search-person';
+  const left=document.createElement('div');left.className='search-avatar-group';
+  const avatar=document.createElement('div');avatar.className='search-avatar';
+  if(u.avatar&&/^data:image\/(jpeg|png|webp);base64,/.test(u.avatar))avatar.style.backgroundImage='url("'+u.avatar+'")';else avatar.textContent='👤';
+  left.appendChild(avatar);
+  if(u.live){const live=document.createElement('span');live.className='search-live-label';live.textContent='LIVE中';left.appendChild(live);}
+  const info=document.createElement('div');info.className='search-person-info';
+  const name=document.createElement('div');name.className='search-person-name';name.textContent=u.name||'ユーザー';
+  const bio=document.createElement('div');bio.className='search-person-bio';bio.textContent=u.bio||u.title||'';
+  info.append(name,bio);btn.append(left,info);
+  btn.onclick=()=>{
+   socialProfiles[u.id]={name:u.name,avatar:u.avatar||'',bio:u.bio||''};
+   openPresenceProfile(u.id);
+  };
+  root.appendChild(btn);
+ });
+}
+
 function scrollLive() {
 
   document.getElementById(
@@ -4232,6 +4293,14 @@ function sendPresence() {
   });
 }
 
+function getSearchUsers(viewerId){
+ return Object.entries(socialData.profiles).filter(([id,p])=>id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name).map(([id,p])=>({
+  id,name:p.name||'ユーザー',avatar:p.avatar||'',bio:p.bio||'',
+  live:!!(liveInfo.active&&liveInfo.id===id),
+  title:liveInfo.active&&liveInfo.id===id?liveInfo.title||'':''
+ })).sort((a,b)=>Number(b.live)-Number(a.live)||a.name.localeCompare(b.name,'ja'));
+}
+function sendSearchUsers(ws){sendTo(ws,{type:'search_results',users:getSearchUsers(ws.clientId)});}
 function getDiscoveryList(viewerId){
  const now=Date.now(),week=7*86400000,month=30*86400000;
  const users=Object.entries(socialData.profiles).filter(([id,p])=>liveInfo.active&&liveInfo.id===id&&id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name)
@@ -4252,6 +4321,7 @@ function sendLiveList() {
     sendTo(recipient,{type:"live_list",lives:getLiveList(recipient.clientId)});
   });
   sendDiscoveryLists();
+  clients.forEach(ws=>{if(ws.readyState===WebSocket.OPEN)sendSearchUsers(ws);});
 
 }
 
@@ -4344,7 +4414,7 @@ wss.on(
 
           if(data.profile && typeof data.profile === "object") {
             ws.profile=cleanProfile(data.profile);
-            if(ws.clientId){socialData.profiles[ws.clientId]={...socialData.profiles[ws.clientId],name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||"",createdAt:socialData.profiles[ws.clientId]?.createdAt||Date.now()};saveSocialData();}
+            if(ws.clientId){socialData.profiles[ws.clientId]={...socialData.profiles[ws.clientId],name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||"",bio:ws.profile.bio||"",createdAt:socialData.profiles[ws.clientId]?.createdAt||Date.now()};saveSocialData();}
           }
           socialState(ws);
           sendTo(ws,{type:"live_list",lives:getLiveList(ws.clientId)});
@@ -4353,6 +4423,10 @@ wss.on(
 
         }
 
+        if(data.type==='search_request'){
+          sendSearchUsers(ws);
+          return;
+        }
         if(data.type === "social_profile_request"){
           const viewer=ws.clientId,target=String(data.targetId||"");
           if(!viewer||!target||target.length>120||blockedEither(viewer,target))return;
@@ -4425,9 +4499,10 @@ wss.on(
         if(data.type === "profile_update"){
           ws.profile=cleanProfile(data.profile);
           if(ws.clientId){
-            socialData.profiles[ws.clientId]={...socialData.profiles[ws.clientId],name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||"",createdAt:socialData.profiles[ws.clientId]?.createdAt||Date.now()};
+            socialData.profiles[ws.clientId]={...socialData.profiles[ws.clientId],name:ws.profile.name||"ユーザー",avatar:ws.profile.avatar||"",bio:ws.profile.bio||"",createdAt:socialData.profiles[ws.clientId]?.createdAt||Date.now()};
             saveSocialData();
             sendDiscoveryLists();
+            clients.forEach(other=>{if(other.readyState===WebSocket.OPEN)sendSearchUsers(other);});
             clients.forEach(other=>{if(other.clientId!==ws.clientId && (socialIds("following",other.clientId).includes(ws.clientId)||socialIds("following",ws.clientId).includes(other.clientId)))socialState(other);});
           }
           if(ws.liveJoined)sendPresence();

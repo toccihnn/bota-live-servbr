@@ -1287,6 +1287,26 @@ button {
 #testGiftAnimation .gift-image{display:block;width:min(50vw,200px);height:175px;object-fit:contain;margin:0 auto 10px;border-radius:14px}
 @media(min-width:640px){#testGiftSheet .test-gift-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
 
+
+/* v53: tiered gift effects, no sender name or coin value on animation */
+#testGiftAnimation{overflow:hidden;isolation:isolate}
+#testGiftAnimation .test-gift-burst{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;border:0;box-shadow:none;padding:0;animation:gift53Entrance var(--gift-duration,2.4s) ease-out both}
+#testGiftAnimation .gift-image{width:clamp(135px,45vw,290px);height:clamp(135px,45vw,290px);object-fit:contain;filter:drop-shadow(0 0 25px var(--gift-glow,#f5a5ff));animation:gift53Float 1.4s ease-in-out infinite alternate}
+#testGiftAnimation .gift-display-name{font-size:clamp(20px,6vw,35px);font-weight:900;color:#fff;text-shadow:0 0 12px var(--gift-glow,#f5a5ff),0 2px 6px #180629}
+#testGiftAnimation .gift53-spark{position:absolute;z-index:2;left:var(--x);top:var(--y);font-size:var(--sz);filter:drop-shadow(0 0 7px var(--gift-glow));animation:gift53Spark var(--dur) ease-out both;animation-delay:var(--delay);opacity:0}
+#testGiftAnimation .gift53-halo{position:absolute;inset:0;z-index:1;background:radial-gradient(ellipse at center,var(--gift-glow),transparent 62%);opacity:.28;animation:gift53Halo var(--gift-duration) ease-out both}
+#testGiftAnimation.gift53-tier-1 .gift53-halo{opacity:.08}
+#testGiftAnimation.gift53-tier-2 .gift53-halo{opacity:.16}
+#testGiftAnimation.gift53-tier-4 .gift53-halo{opacity:.42}
+#testGiftAnimation.gift53-tier-5 .gift53-halo{opacity:.52}
+#testGiftAnimation.gift53-tier-5:before{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent 0deg,#ffd46a55 16deg,transparent 34deg,transparent 70deg,#ff7de955 89deg,transparent 105deg);animation:gift53Rotate 4s linear infinite;z-index:0}
+@keyframes gift53Entrance{0%{opacity:0;transform:scale(.25) translateY(80px)}20%{opacity:1;transform:scale(1.16) translateY(0)}34%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1.15) translateY(-35px)}}
+@keyframes gift53Float{from{transform:translateY(7px) rotate(-3deg)}to{transform:translateY(-8px) rotate(3deg)}}
+@keyframes gift53Spark{0%{opacity:0;transform:translate(0,20px) scale(.2) rotate(0)}20%{opacity:1}75%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1.35) rotate(160deg)}}
+@keyframes gift53Halo{0%,100%{opacity:0}30%,70%{opacity:.35}}
+@keyframes gift53Rotate{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#testGiftAnimation .gift53-spark,#testGiftAnimation .gift53-halo,#testGiftAnimation .gift-image{animation:none!important}#testGiftAnimation .test-gift-burst{animation:none!important}}
+
 </style>
 
 </head>
@@ -3438,12 +3458,32 @@ function displayTestGift(data){
  const layer=document.getElementById("testGiftAnimation");
  if(!document.getElementById("livePanel").classList.contains("show"))return;
  clearTimeout(testGiftAnimationTimer);layer.replaceChildren();
+ const tier=g.coins>=5000?5:g.coins>=3000?4:g.coins>=800?3:g.coins>=200?2:1;
+ const duration=[0,2100,2700,3500,4400,5500][tier];
+ const glows={heart:"#ff659f",star:"#ffdc70",rose:"#ff5f91",bunny:"#ffaddf",toast:"#ffd77e",bouquet:"#ff8dc4",bear:"#f4ac6b",moon:"#ffeaa4",dream:"#c59aff",kingheart:"#ff8de9"};
+ layer.className="active gift53-tier-"+tier;
+ layer.style.setProperty("--gift-glow",glows[g.id]||"#f5a5ff");
+ layer.style.setProperty("--gift-duration",duration+"ms");
+ const halo=document.createElement("div");halo.className="gift53-halo";layer.appendChild(halo);
  const burst=document.createElement("div");burst.className="test-gift-burst";
  const icon=document.createElement("img");icon.className="gift-image";icon.src=g.image;icon.alt=g.name;
- const title=document.createElement("strong");title.textContent=(data.name||"ゲスト")+"さんから "+g.name+"！";
- const hint=document.createElement("div");hint.style.fontSize="12px";hint.style.marginTop="6px";hint.textContent="🎁 テストギフト（無料）";
- burst.append(icon,title,hint);layer.appendChild(burst);layer.classList.add("active");
- testGiftAnimationTimer=setTimeout(()=>{layer.classList.remove("active");layer.replaceChildren()},2200);
+ const title=document.createElement("strong");title.className="gift-display-name";title.textContent=g.name;
+ burst.append(icon,title);layer.appendChild(burst);
+ const particles=[0,9,17,30,48,70][tier];
+ const symbols={heart:["❤️","💕","✨"],star:["⭐","🌟","✨"],rose:["🌹","🌸","✨"],bunny:["💕","🐰","✨"],toast:["🥂","✨","⭐"],bouquet:["🌸","🌺","✨"],bear:["💕","🌟","✨"],moon:["🌙","⭐","✨"],dream:["💜","⭐","✨","💎"],kingheart:["💖","👑","💎","✨","🌟"]}[g.id]||["✨"];
+ for(let i=0;i<particles;i++){
+  const spark=document.createElement("span");spark.className="gift53-spark";
+  spark.textContent=symbols[i%symbols.length];
+  spark.style.setProperty("--x",(5+Math.random()*90)+"%");
+  spark.style.setProperty("--y",(12+Math.random()*76)+"%");
+  spark.style.setProperty("--sz",(14+Math.random()*20+tier*2)+"px");
+  spark.style.setProperty("--dx",((Math.random()-.5)*190)+"px");
+  spark.style.setProperty("--dy",(-35-Math.random()*140)+"px");
+  spark.style.setProperty("--dur",(1.2+Math.random()*1.8)+"s");
+  spark.style.setProperty("--delay",(Math.random()*(duration/1000-1.3))+"s");
+  layer.appendChild(spark);
+ }
+ testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},duration);
  addComment(data.name||"ゲスト","🎁 "+g.emoji+" "+g.name+"を贈りました（テスト）",data.clientId,data.avatar);
 }
 

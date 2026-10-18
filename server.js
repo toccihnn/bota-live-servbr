@@ -1801,6 +1801,7 @@ function connectSocket() {
       );
 
       send({type:"hello",clientId:myId,profile:getMyPublicProfile()});
+      if(document.getElementById('searchPage')?.classList.contains('active'))send({type:'search_request'});
 
     };
 
@@ -3755,13 +3756,18 @@ function scheduleSearchUpdate(){
  renderSearchResults();
  searchDebounce=setTimeout(()=>send({type:'search_request'}),220);
 }
-function handleSearchKeydown(event){
- if(event.key!=='Enter'||event.isComposing||event.keyCode===229)return;
- event.preventDefault();
+function submitSearch(){
  clearTimeout(searchDebounce);
- document.getElementById('searchKeyword').blur();
+ const input=document.getElementById('searchKeyword');
+ if(input){input.blur();}
  send({type:'search_request'});
  renderSearchResults();
+}
+function handleSearchKeydown(event){
+ if(event.key==='Enter' && !event.isComposing && event.keyCode!==229){
+  event.preventDefault();
+  submitSearch();
+ }
 }
 
 function openSearchPage(){
@@ -3778,7 +3784,7 @@ function renderSearchResults(){
  root.replaceChildren();
  const keyword=document.getElementById('searchKeyword').value.trim().toLocaleLowerCase('ja');
  const found=searchUsers.filter(u=>!keyword||[u.name,u.bio,u.title].some(v=>String(v||'').toLocaleLowerCase('ja').includes(keyword)));
- if(!found.length){const p=document.createElement('div');p.className='search-empty';p.textContent=!searchResultsReceived?'ライバー情報を読み込み中…':searchUsers.length===0?'検索できるライバーはまだ登録されていません':'該当するライバーはいません';root.appendChild(p);return;}
+ if(!found.length){const p=document.createElement('div');p.className='search-empty';p.textContent=!searchResultsReceived?'ライバー情報を読み込み中…':searchUsers.length===0?'検索対象のユーザーが見つかりません。もう1台でページを開き直してみてください':'該当するライバーはいません';root.appendChild(p);return;}
  found.forEach(u=>{
   const btn=document.createElement('button');btn.type='button';btn.className='search-person';
   const left=document.createElement('div');left.className='search-avatar-group';
@@ -4441,6 +4447,8 @@ wss.on(
           socialState(ws);
           sendTo(ws,{type:"live_list",lives:getLiveList(ws.clientId)});
           sendDiscoveryLists();
+          // v48: refresh everyone when a second device connects/updates its profile.
+          clients.forEach(other=>{if(other.readyState===WebSocket.OPEN && other.clientId && !other.clientId.startsWith("server_"))sendSearchUsers(other);});
           return;
 
         }

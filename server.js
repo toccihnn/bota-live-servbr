@@ -3783,7 +3783,17 @@ function renderSearchResults(){
  const root=document.getElementById('searchResults');if(!root)return;
  root.replaceChildren();
  const keyword=document.getElementById('searchKeyword').value.trim().toLocaleLowerCase('ja');
- const found=searchUsers.filter(u=>!keyword||[u.name,u.bio,u.title].some(v=>String(v||'').toLocaleLowerCase('ja').includes(keyword)));
+ if(!keyword){const p=document.createElement('div');p.className='search-empty';p.textContent='ライバー名・キーワードを入力して検索してください';root.appendChild(p);return;}
+ // 1文字から部分一致。全角/半角、ひらがな/カタカナの違いも吸収する。
+ const normalizeSearchText=value=>String(value||'').normalize('NFKC').toLocaleLowerCase('ja')
+  .replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-96))
+  .replace(/[\s\u3000]+/g,'');
+ const query=normalizeSearchText(keyword);
+ const found=searchUsers.filter(u=>query&&[u.name,u.bio,u.title].some(v=>normalizeSearchText(v).includes(query)))
+  .sort((a,b)=>{
+   const rank=u=>{const n=normalizeSearchText(u.name);return n===query?0:n.startsWith(query)?1:n.includes(query)?2:3;};
+   return rank(a)-rank(b)||Number(b.live)-Number(a.live)||String(a.name).localeCompare(String(b.name),'ja');
+  });
  if(!found.length){const p=document.createElement('div');p.className='search-empty';p.textContent=!searchResultsReceived?'ライバー情報を読み込み中…':searchUsers.length===0?'検索対象のユーザーが見つかりません。もう1台でページを開き直してみてください':'該当するライバーはいません';root.appendChild(p);return;}
  found.forEach(u=>{
   const btn=document.createElement('button');btn.type='button';btn.className='search-person';

@@ -1371,6 +1371,31 @@ button {
  78%{opacity:1;transform:translate(-50%,-50%) scale(1.16)}
  100%{opacity:0;transform:translate(-50%,-55%) scale(1.23)}
 }
+
+/* V63: fix off-center / clipped castle on broadcaster and viewer phones. */
+#testGiftAnimation.gift58-dream .gift61-castle{
+  position:fixed!important;
+  inset:0!important;
+  left:0!important;
+  top:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  max-width:100vw!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  padding:0!important;
+  object-fit:contain!important;
+  object-position:50% 50%!important;
+  transform-origin:50% 55%!important;
+  animation:gift63CenteredRise 8.2s cubic-bezier(.22,.61,.36,1) both!important;
+}
+@keyframes gift63CenteredRise{
+  0%{opacity:0;transform:translate3d(0,22vh,0) scale(.70)}
+  23%{opacity:.70;transform:translate3d(0,12vh,0) scale(.80)}
+  55%{opacity:1;transform:translate3d(0,0,0) scale(.94)}
+  78%{opacity:1;transform:translate3d(0,-1vh,0) scale(.98)}
+  100%{opacity:0;transform:translate3d(0,-5vh,0) scale(1)}
+}
 </style>
 
 </head>

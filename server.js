@@ -1624,7 +1624,7 @@ button {
 
 <section id="searchPage" aria-label="ライバーを探す">
  <div class="search-header"><button type="button" class="search-back" onclick="closeSearchPage()" aria-label="戻る">←</button><span>探す</span></div>
- <input id="searchKeyword" type="search" placeholder="ライバー名・キーワードで検索" autocomplete="off" oninput="renderSearchResults()">
+ <input id="searchKeyword" type="search" placeholder="ライバー名・キーワードで検索" autocomplete="off" enterkeyhint="search" oninput="scheduleSearchUpdate()" onkeydown="handleSearchKeydown(event)" oncompositionend="scheduleSearchUpdate()">
  <div id="searchResults"></div>
 </section>
 <nav class="bottom-nav">
@@ -2118,6 +2118,7 @@ function handleMessage(data) {
 
   if(data.type==='search_results'){
     searchUsers=Array.isArray(data.users)?data.users:[];
+    searchResultsReceived=true;
     if(document.getElementById('searchPage').classList.contains('active'))renderSearchResults();
     return;
   }
@@ -3747,9 +3748,26 @@ function goHome() {
 
 
 let searchUsers=[];
+let searchResultsReceived=false;
+let searchDebounce=null;
+function scheduleSearchUpdate(){
+ clearTimeout(searchDebounce);
+ renderSearchResults();
+ searchDebounce=setTimeout(()=>send({type:'search_request'}),220);
+}
+function handleSearchKeydown(event){
+ if(event.key!=='Enter'||event.isComposing||event.keyCode===229)return;
+ event.preventDefault();
+ clearTimeout(searchDebounce);
+ document.getElementById('searchKeyword').blur();
+ send({type:'search_request'});
+ renderSearchResults();
+}
+
 function openSearchPage(){
  const page=document.getElementById('searchPage');page.classList.add('active');
  document.getElementById('searchKeyword').value='';
+ searchResultsReceived=false;
  renderSearchResults();
  send({type:'search_request'});
  document.getElementById('searchKeyword').focus();
@@ -3760,7 +3778,7 @@ function renderSearchResults(){
  root.replaceChildren();
  const keyword=document.getElementById('searchKeyword').value.trim().toLocaleLowerCase('ja');
  const found=searchUsers.filter(u=>!keyword||[u.name,u.bio,u.title].some(v=>String(v||'').toLocaleLowerCase('ja').includes(keyword)));
- if(!found.length){const p=document.createElement('div');p.className='search-empty';p.textContent='該当するライバーはいません';root.appendChild(p);return;}
+ if(!found.length){const p=document.createElement('div');p.className='search-empty';p.textContent=!searchResultsReceived?'ライバー情報を読み込み中…':searchUsers.length===0?'検索できるライバーはまだ登録されていません':'該当するライバーはいません';root.appendChild(p);return;}
  found.forEach(u=>{
   const btn=document.createElement('button');btn.type='button';btn.className='search-person';
   const left=document.createElement('div');left.className='search-avatar-group';
@@ -4294,7 +4312,11 @@ function sendPresence() {
 }
 
 function getSearchUsers(viewerId){
- return Object.entries(socialData.profiles).filter(([id,p])=>id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name).map(([id,p])=>({
+ const availableProfiles={...socialData.profiles};
+ clients.forEach(c=>{if(c.clientId&&c.profile&&c.profile.name){
+  availableProfiles[c.clientId]={...(availableProfiles[c.clientId]||{}),...c.profile};
+ }});
+ return Object.entries(availableProfiles).filter(([id,p])=>id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name).map(([id,p])=>({
   id,name:p.name||'ユーザー',avatar:p.avatar||'',bio:p.bio||'',
   live:!!(liveInfo.active&&liveInfo.id===id),
   title:liveInfo.active&&liveInfo.id===id?liveInfo.title||'':''

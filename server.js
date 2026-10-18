@@ -6,6 +6,8 @@ const HOST = "0.0.0.0";
 
 let clients = new Set();
 let broadcaster = null;
+// 1配信につき、各リスナーの最初のいいね通知だけ表示する
+let liveLikeNotifiedUsers = new Set();
 const fsSocial = require("fs");
 const socialPath = require("path").join(__dirname,"voicebota_social.json");
 let socialData = {following:{},blocked:{},profiles:{}};
@@ -2229,11 +2231,14 @@ function handleMessage(data) {
   ) {
 
     if(data.clientId!==myId)animateMyLike();
-    addComment(
-      data.name || "ゲスト",
-      "❤️ いいねしました",
-      data.clientId
-    );
+    // ハートは毎回飛ばすが、コメント欄の通知は各配信につき1人1回だけ。
+    if (data.firstLikeNotice === true) {
+      addComment(
+        data.name || "ゲスト",
+        "❤️ いいねしました",
+        data.clientId
+      );
+    }
 
     return;
 
@@ -4464,6 +4469,9 @@ wss.on(
           }
 
 
+          // 新しい配信では全員が再び1回目のいいね通知を出せる
+          liveLikeNotifiedUsers.clear();
+
           broadcaster =
             ws;
 
@@ -4782,6 +4790,9 @@ wss.on(
           data.type ===
           "like"
         ) {
+          // サーバー側で判定するので、連打や再接続でも通知が増えない
+          const firstLikeNotice = !liveLikeNotifiedUsers.has(ws.clientId);
+          if (firstLikeNotice) liveLikeNotifiedUsers.add(ws.clientId);
 
           broadcast({
 
@@ -4789,6 +4800,7 @@ wss.on(
               "like",
 
             clientId: ws.clientId,
+            firstLikeNotice: firstLikeNotice,
             name:
               String(
                 ((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト") ? ws.profile.name : "") ||

@@ -2457,6 +2457,12 @@ function handleMessage(data) {
 
     closePeers();
 
+    // 配信終了通知を受けたリスナーも自動的にホームへ戻す。
+    // closePanel() がコメントと視聴者一覧も初期化する。
+    if (!isBroadcaster) {
+      closePanel();
+    }
+
     renderLiveList([]);
 
     return;

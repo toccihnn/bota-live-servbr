@@ -2306,6 +2306,9 @@ function handleMessage(data) {
     data.type ===
     "live_started"
   ) {
+    // 新しい配信では前回のコメントを表示しない
+    const commentList = document.getElementById("commentList");
+    if (commentList) commentList.replaceChildren();
 
     setPanelStatus(
       "🔴 配信中です"
@@ -2440,6 +2443,8 @@ function handleMessage(data) {
     data.type ===
     "live_stopped"
   ) {
+    const commentList = document.getElementById("commentList");
+    if (commentList) commentList.replaceChildren();
 
     setPanelStatus(
       "配信が終了しました"
@@ -3999,6 +4004,8 @@ function openPanel() {
 
 
 function closePanel() {
+  const commentList = document.getElementById("commentList");
+  if (commentList) commentList.replaceChildren();
   stopLikeHold();
   liveStartedAt=0;
   renderLiveElapsedTime();

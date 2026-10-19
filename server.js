@@ -5,6 +5,14 @@ const PORT = process.env.PORT || 10000;
 const HOST = "0.0.0.0";
 
 let clients = new Set();
+const MAX_LIVE_ROOMS = 50;
+const liveRooms = new Map();
+function roomOf(ws){return ws && ws.roomId ? liveRooms.get(ws.roomId) : null;}
+function roomParticipants(room){return [...clients].filter(c=>c===room.host || (c.liveJoined && c.roomId===room.id));}
+function sendRoom(room,data){for(const c of roomParticipants(room))if(!data.clientId || !blockedEither(c.clientId,data.clientId))sendTo(c,data);}
+function roomSummary(room){const st=room.stats;return {startedAt:st.startedAt,endedAt:Date.now(),host:st.host,visitors:[...st.visitors.values()],likes:st.likes,gifts:[...st.gifts.values()]};}
+function stopRoom(room,summary){if(!room)return;if(summary)sendTo(room.host,{type:"live_session_summary",summary:roomSummary(room)});liveRooms.delete(room.id);room.host.isBroadcaster=false;room.host.roomId=null;for(const c of roomParticipants(room)){if(c!==room.host){c.liveJoined=false;c.roomId=null;sendTo(c,{type:"live_stopped"});}}sendLiveList();}
+
 let broadcaster = null;
 // 1配信につき、各リスナーの最初のいいね通知だけ表示する
 let liveLikeNotifiedUsers = new Set();
@@ -53,13 +61,14 @@ function refreshBlockVisibility(){
  clients.forEach(c=>socialState(c));
 }
 function removeBlockedViewer(){
- if(!broadcaster)return;
- clients.forEach(c=>{if(c!==broadcaster&&c.liveJoined&&blockedEither(c.clientId,broadcaster.clientId)){
- c.liveJoined=false;sendTo(c,{type:"block_live_exit"});
- sendTo(broadcaster,{type:"viewer_removed",viewerId:c.clientId});
- }});
+ for(const room of liveRooms.values())for(const c of roomParticipants(room)){
+  if(c!==room.host&&blockedEither(c.clientId,room.host.clientId)){
+   c.liveJoined=false;c.roomId=null;sendTo(c,{type:"block_live_exit"});sendTo(room.host,{type:"viewer_removed",viewerId:c.clientId});
+  }
+ }
  sendPresence();
 }
+
 
 
 let liveInfo = {
@@ -2520,8 +2529,6 @@ function handleMessage(data) {
       closePanel();
     }
 
-    renderLiveList([]);
-
     return;
 
   }
@@ -4640,7 +4647,9 @@ const server =
               "ok",
 
             live:
-              liveInfo.active
+              liveRooms.size > 0,
+            activeRooms: liveRooms.size,
+            maxRooms: MAX_LIVE_ROOMS
 
           })
         );
@@ -4721,40 +4730,9 @@ function broadcast(
 }
 
 
-function getLiveList(viewerId) {
-
-  if (
-    !liveInfo.active ||
-    !viewerId ||
-    blockedEither(viewerId,liveInfo.id) ||
-    !socialIds("following",viewerId).includes(liveInfo.id)
-  ) {
-
-    return [];
-
-  }
-
-
-  return [
-
-    {
-
-      id:
-        liveInfo.id,
-
-      name:
-        liveInfo.name,
-
-      title:
-        liveInfo.title,
-
-      background:
-        liveInfo.background || ""
-
-    }
-
-  ];
-
+function getLiveList(viewerId){
+ return [...liveRooms.values()].filter(r=>viewerId&&!blockedEither(viewerId,r.id)&&socialIds("following",viewerId).includes(r.id))
+ .map(r=>({id:r.id,name:r.info.name,title:r.info.title,background:r.info.background}));
 }
 
 
@@ -4764,24 +4742,16 @@ function cleanProfile(p){
   return {name:limitEmojiText(p.name||"ゲスト",30),avatar:avatar,gender:String(p.gender||"未設定").slice(0,20),bio:String(p.bio||"").slice(0,500)};
 }
 
-function sendPresence() {
-  if (!liveInfo.active || !broadcaster) return;
-  const members = [];
-  // 参加者アイコンは視聴者だけ表示する（配信者は除外）
-  clients.forEach(function(client) {
-    if (client !== broadcaster && client.liveJoined && client.readyState === WebSocket.OPEN) {
-      const profile=client.profile || {};
-      members.push({id:client.clientId,name:profile.name || client.liveName || "ゲスト",avatar:profile.avatar || "",gender:profile.gender || "未設定",bio:profile.bio || "",broadcaster:false});
-    }
-  });
-  const hostProfile = broadcaster.profile || {};
-  const host = {id:broadcaster.clientId,name:liveInfo.name || hostProfile.name || "配信者",avatar:hostProfile.avatar || "",gender:hostProfile.gender || "未設定",bio:hostProfile.bio || "",broadcaster:true};
-  clients.forEach(function(recipient){
-    if(recipient.readyState!==WebSocket.OPEN)return;
-    const visibleMembers=members.filter(m=>!blockedEither(recipient.clientId,m.id));
-    const visibleHost=blockedEither(recipient.clientId,host.id)?null:host;
-    sendTo(recipient,{type:"presence_update",members:visibleMembers,broadcasterProfile:visibleHost,title:visibleHost?liveInfo.title:"",startedAt:visibleHost?liveInfo.startedAt:null});
-  });
+function sendPresence(){
+ for(const room of liveRooms.values()){
+  const hostProfile=room.host.profile||{};
+  const host={id:room.id,name:room.info.name||hostProfile.name||"配信者",avatar:hostProfile.avatar||"",gender:hostProfile.gender||"未設定",bio:hostProfile.bio||"",broadcaster:true};
+  const members=roomParticipants(room).filter(c=>c!==room.host&&c.readyState===WebSocket.OPEN).map(c=>{const p=c.profile||{};return {id:c.clientId,name:p.name||c.liveName||"ゲスト",avatar:p.avatar||"",gender:p.gender||"未設定",bio:p.bio||"",broadcaster:false};});
+  for(const recipient of roomParticipants(room)){
+   const visibleHost=blockedEither(recipient.clientId,room.id)?null:host;
+   sendTo(recipient,{type:"presence_update",members:members.filter(m=>!blockedEither(recipient.clientId,m.id)),broadcasterProfile:visibleHost,title:visibleHost?room.info.title:"",startedAt:visibleHost?room.info.startedAt:null});
+  }
+ }
 }
 
 function getSearchUsers(viewerId){
@@ -4791,15 +4761,15 @@ function getSearchUsers(viewerId){
  }});
  return Object.entries(availableProfiles).filter(([id,p])=>id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name).map(([id,p])=>({
   id,name:p.name||'ユーザー',avatar:p.avatar||'',bio:p.bio||'',
-  live:!!(liveInfo.active&&liveInfo.id===id),
-  title:liveInfo.active&&liveInfo.id===id?liveInfo.title||'':''
+  live:liveRooms.has(id),
+  title:liveRooms.get(id)?.info.title||''
  })).sort((a,b)=>Number(b.live)-Number(a.live)||a.name.localeCompare(b.name,'ja'));
 }
 function sendSearchUsers(ws){sendTo(ws,{type:'search_results',users:getSearchUsers(ws.clientId)});}
 function getDiscoveryList(viewerId){
  const now=Date.now(),week=7*86400000,month=30*86400000;
- const users=Object.entries(socialData.profiles).filter(([id,p])=>liveInfo.active&&liveInfo.id===id&&id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name)
- .map(([id,p])=>({id,name:p.name||"ユーザー",avatar:p.avatar||"",live:!!(liveInfo.active&&liveInfo.id===id),
+ const users=Object.entries(socialData.profiles).filter(([id,p])=>liveRooms.has(id)&&id!==viewerId&&!blockedEither(viewerId,id)&&p&&p.name)
+ .map(([id,p])=>({id,name:p.name||"ユーザー",avatar:p.avatar||"",live:liveRooms.has(id),
  createdAt:Number(p.createdAt)||0,firstLiveAt:Number(p.firstLiveAt)||0,
  followers:Object.keys(socialData.following).filter(other=>socialIds("following",other).includes(id)&&!blockedEither(id,other)).length}));
  const strip=arr=>arr.map(({id,name,avatar,live})=>({id,name,avatar,live}));
@@ -4960,33 +4930,20 @@ wss.on(
           sendLiveList();
           // ライブ参加者が新しくフォローされたら、配信中のコメント欄に通知する。
           // フォロー解除やブロック関係の通知は送らない。
-          if(isNewFollow && liveInfo.active && broadcaster){
-            // 視聴者が現在のライバーをフォローした場合のみ通知する。
-            // ライバー自身のフォロー、視聴者同士のフォローは通知しない。
-            const viewerFollowedHost = target===broadcaster.clientId &&
-              id!==broadcaster.clientId && ws.liveJoined;
-            if(viewerFollowedHost && !blockedEither(id,target)){
-              const p=ws.profile || socialData.profiles[id] || {};
-              const notice={type:"live_follow_notice",followerId:id,
-                followerName:limitEmojiText(p.name || "ユーザー",40),
-                followerAvatar:typeof p.avatar==="string" ? p.avatar : ""};
-              clients.forEach(other=>{
-                if(other.readyState===WebSocket.OPEN &&
-                  (other===broadcaster || other.liveJoined) &&
-                  !blockedEither(other.clientId,id) &&
-                  !blockedEither(other.clientId,target) &&
-                  !blockedEither(other.clientId,broadcaster.clientId))sendTo(other,notice);
-              });
+          if(isNewFollow){
+            const room=roomOf(ws);
+            if(room&&ws!==room.host&&target===room.id&&!blockedEither(id,target)){
+              const p=ws.profile||socialData.profiles[id]||{};
+              const notice={type:"live_follow_notice",followerId:id,followerName:limitEmojiText(p.name||"ユーザー",40),followerAvatar:p.avatar||""};
+              for(const other of roomParticipants(room))if(!blockedEither(other.clientId,id))sendTo(other,notice);
             }
           }
           if(action==="block"){
-            clients.forEach(other=>{
-              if(other.clientId===target && other.liveJoined && broadcaster && (broadcaster.clientId===id || broadcaster.clientId===target)){
-                other.liveJoined=false;
-                sendTo(other,{type:"block_live_exit"});
-                if(broadcaster)sendTo(broadcaster,{type:"viewer_removed",viewerId:other.clientId});
+            for(const room of liveRooms.values())for(const other of roomParticipants(room)){
+              if(other!==room.host&&other.clientId===target&&(room.id===id||room.id===target)){
+                other.liveJoined=false;other.roomId=null;sendTo(other,{type:"block_live_exit"});sendTo(room.host,{type:"viewer_removed",viewerId:other.clientId});
               }
-            });
+            }
             refreshBlockVisibility();
           }
           else {socialState(ws);clients.forEach(other=>{if(other.clientId===target)socialState(other);});}
@@ -5011,261 +4968,39 @@ wss.on(
            START LIVE
         ===================== */
 
-        if (
-          data.type ===
-          "start_live"
-        ) {
-
-          if (
-            broadcaster &&
-            broadcaster !== ws &&
-            broadcaster.readyState ===
-              WebSocket.OPEN
-          ) {
-
-            sendTo(
-              ws,
-              {
-
-                type:
-                  "live_start_failed",
-
-                reason:
-                  "現在ほかの配信者が配信中です"
-
-              }
-            );
-
-            return;
-
-          }
-
-
-          // 新しい配信では全員が再び1回目のいいね通知を出せる
-          liveLikeNotifiedUsers.clear();
-          liveSessionStats={startedAt:Date.now(),host:{id:ws.clientId,name:data.name||"配信者",avatar:ws.profile?.avatar||""},visitors:new Map(),likes:0,gifts:new Map()};
-
-          broadcaster =
-            ws;
-
-
-          ws.isBroadcaster =
-            true;
-
-
-          liveInfo = {
-
-            active:
-              true,
-
-            startedAt: Date.now(),
-
-            id:
-              ws.clientId,
-
-            name:
-              data.name ||
-              "Voice配信者",
-
-            title:
-              data.title ||
-              "音声ライブ配信中",
-
-            background:
-              data.background ||
-              'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))'
-
-          };
-          if(ws.clientId){
-            const p=socialData.profiles[ws.clientId]||{};
-            socialData.profiles[ws.clientId]={...p,name:ws.profile?.name||liveInfo.name,avatar:ws.profile?.avatar||p.avatar||"",createdAt:p.createdAt||Date.now(),firstLiveAt:p.firstLiveAt||Date.now()};
-            saveSocialData();
-          }
-
-          console.log(
-            "LIVE START:",
-            liveInfo.name,
-            liveInfo.title
-          );
-
-
-          sendTo(
-            ws,
-            {
-
-              type:
-                "live_started"
-
-            }
-          );
-
-
-          sendLiveList();
+        if(data.type==="start_live"){
+          if(!ws.clientId || ws.clientId.startsWith("server_")){sendTo(ws,{type:"live_start_failed",reason:"ログイン情報を確認してください"});return;}
+          if(ws.isBroadcaster||ws.liveJoined){sendTo(ws,{type:"live_start_failed",reason:"すでに配信または視聴中です"});return;}
+          if(liveRooms.has(ws.clientId)){sendTo(ws,{type:"live_start_failed",reason:"このアカウントはすでに配信中です"});return;}
+          if(liveRooms.size>=MAX_LIVE_ROOMS){sendTo(ws,{type:"live_start_failed",reason:"現在、同時配信の上限50枠に達しています"});return;}
+          const startedAt=Date.now();
+          const info={active:true,startedAt,id:ws.clientId,name:limitEmojiText(data.name||"Voice配信者",30),title:limitEmojiText(data.title||"音声ライブ配信中",100),background:String(data.background||'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))').slice(0,7500000)};
+          const stats={startedAt,host:{id:ws.clientId,name:info.name,avatar:ws.profile?.avatar||""},visitors:new Map(),likes:0,gifts:new Map()};
+          const room={id:ws.clientId,host:ws,info,stats,likeUsers:new Set()};
+          liveRooms.set(room.id,room);ws.isBroadcaster=true;ws.roomId=room.id;
+          const p=socialData.profiles[ws.clientId]||{};
+          socialData.profiles[ws.clientId]={...p,name:ws.profile?.name||info.name,avatar:ws.profile?.avatar||p.avatar||"",createdAt:p.createdAt||Date.now(),firstLiveAt:p.firstLiveAt||Date.now()};saveSocialData();
+          sendTo(ws,{type:"live_started"});sendLiveList();sendPresence();return;
+        }
+        if(data.type==="stop_live"){
+          const room=roomOf(ws);if(room&&room.host===ws)stopRoom(room,true);return;
+        }
+        if(data.type==="join_live"){
+          const room=liveRooms.get(String(data.liveId||""));
+          if(!room||room.host.readyState!==WebSocket.OPEN){sendTo(ws,{type:"live_unavailable"});return;}
+          if(ws.isBroadcaster){sendTo(ws,{type:"access_denied"});return;}
+          if(blockedEither(ws.clientId,room.id)){sendTo(ws,{type:"access_denied"});return;}
+          if(ws.liveJoined&&ws.roomId&&ws.roomId!==room.id){ws.liveJoined=false;ws.roomId=null;}
+          ws.liveJoined=true;ws.roomId=room.id;ws.profile=cleanProfile(data.profile||ws.profile);ws.liveName=limitEmojiText(String(data.name||"ゲスト").trim(),30)||"ゲスト";
+          if(ws.clientId)room.stats.visitors.set(ws.clientId,{id:ws.clientId,name:ws.profile.name||ws.liveName,avatar:ws.profile.avatar||""});
           sendPresence();
-
-
-          return;
-
+          const notice={type:"live_entry_notice",entryEventId:String(Date.now())+":"+ws.clientId,viewerId:ws.clientId,viewerName:ws.profile.name!=="ゲスト"?ws.profile.name:ws.liveName,viewerAvatar:ws.profile.avatar||""};
+          for(const recipient of roomParticipants(room))if(!blockedEither(recipient.clientId,ws.clientId))sendTo(recipient,notice);
+          sendTo(ws,{type:"background_update",background:room.info.background});
+          sendTo(room.host,{type:"viewer_joined",viewerId:ws.clientId,entryEventId:notice.entryEventId,viewerName:notice.viewerName,viewerAvatar:notice.viewerAvatar});return;
         }
-
-
-        /* =====================
-           STOP LIVE
-        ===================== */
-
-        if (
-          data.type ===
-          "stop_live"
-        ) {
-
-          if (
-            broadcaster ===
-            ws
-          ) {
-            sendTo(ws,{type:"live_session_summary",summary:liveStatsSnapshot()});
-            liveSessionStats=null;
-
-            broadcaster =
-              null;
-
-
-            ws.isBroadcaster =
-              false;
-
-
-            liveInfo = {
-
-              active:
-                false,
-
-              id:
-                null,
-
-              name:
-                "",
-
-              title:
-                ""
-
-            };
-
-
-            broadcast({
-
-              type:
-                "live_stopped"
-
-            });
-
-
-            sendLiveList();
-
-
-            console.log(
-              "LIVE STOP"
-            );
-
-          }
-
-
-          return;
-
-        }
-
-
-        /* =====================
-           JOIN LIVE
-        ===================== */
-
-        if (
-          data.type ===
-          "join_live"
-        ) {
-
-          if (
-            !liveInfo.active ||
-            !broadcaster ||
-            broadcaster.readyState !==
-              WebSocket.OPEN
-          ) {
-
-            sendTo(
-              ws,
-              {
-
-                type:
-                  "live_unavailable"
-
-              }
-            );
-
-            return;
-
-          }
-
-
-          if(blockedEither(ws.clientId,broadcaster.clientId)){
-            sendTo(ws,{type:"access_denied",reason:"この配信は視聴できません"});return;
-          }
-          ws.liveJoined = true;
-          if(liveSessionStats && ws.clientId){const p=cleanProfile(data.profile || ws.profile);liveSessionStats.visitors.set(ws.clientId,{id:ws.clientId,name:p.name||data.name||"ゲスト",avatar:p.avatar||""});}
-          ws.profile = cleanProfile(data.profile || ws.profile);
-          ws.liveName = limitEmojiText(String(data.name || "ゲスト").trim(),30) || "ゲスト";
-          sendPresence();
-          // 配信者と入室中のリスナーに、アイコン付き入室通知を送る。
-          // ブロック関係にあるユーザーへは通知しない。
-          const entryProfile = ws.profile || {};
-          const entryNotice = {
-            type: "live_entry_notice",
-            entryEventId: String(Date.now()) + ":" + ws.clientId,
-            viewerId: ws.clientId,
-            viewerName: entryProfile.name && entryProfile.name !== "ゲスト" ? entryProfile.name : ws.liveName,
-            viewerAvatar: entryProfile.avatar || ""
-          };
-          clients.forEach(function(recipient) {
-            if ((recipient === broadcaster || recipient.liveJoined) &&
-                !blockedEither(recipient.clientId, ws.clientId)) {
-              sendTo(recipient, entryNotice);
-            }
-          });
-          sendTo(
-            ws,
-            {
-              type: "background_update",
-              background: liveInfo.background || 'linear-gradient(rgba(4,5,17,.58), rgba(4,5,17,.82))'
-            }
-          );
-
-          sendTo(
-            broadcaster,
-            {
-
-              type:
-                "viewer_joined",
-
-              viewerId:
-                ws.clientId,
-              entryEventId: entryNotice.entryEventId,
-              viewerName: entryNotice.viewerName,
-              viewerAvatar: entryNotice.viewerAvatar
-
-            }
-          );
-
-
-          console.log(
-            "VIEWER JOIN:",
-            ws.clientId
-          );
-
-
-          return;
-
-        }
-
-
         if (data.type === "leave_live") {
-          ws.liveJoined = false;
+          ws.liveJoined = false;ws.roomId=null;
           sendPresence();
           return;
         }
@@ -5304,7 +5039,7 @@ wss.on(
           );
 
 
-          if (target && !blockedEither(ws.clientId,target.clientId) && (ws===broadcaster || target===broadcaster)) {
+          if (target && roomOf(ws) && roomOf(ws)===roomOf(target) && !blockedEither(ws.clientId,target.clientId) && (ws===roomOf(ws).host || target===roomOf(ws).host)) {
 
             sendTo(
               target,
@@ -5323,29 +5058,16 @@ wss.on(
            BACKGROUND UPDATE
         ===================== */
 
-        if (data.type === "title_update") {
-          if (ws === broadcaster && liveInfo.active && typeof data.title === "string") {
-            const title = limitEmojiText(data.title.trim(),100);
-            if (title) {
-              liveInfo.title = title;
-              broadcast({type:"title_update",title:title});
-              sendLiveList();
-              sendPresence();
-            }
-          }
-          return;
+        if(data.type==="title_update"){
+          const room=roomOf(ws);if(room&&room.host===ws&&typeof data.title==="string"){
+            const title=limitEmojiText(data.title.trim(),100);if(title){room.info.title=title;sendRoom(room,{type:"title_update",title});sendLiveList();sendPresence();}
+          }return;
         }
-
-        if (data.type === "background_update") {
-          if (ws === broadcaster && typeof data.background === "string") {
-            // 背景設定は長さを制限して保存・配信
-            const background = data.background.substring(0, 7500000);
-            liveInfo.background = background;
-            broadcast({ type: "background_update", background: background });
-          }
-          return;
+        if(data.type==="background_update"){
+          const room=roomOf(ws);if(room&&room.host===ws&&typeof data.background==="string"){
+            room.info.background=data.background.slice(0,7500000);sendRoom(room,{type:"background_update",background:room.info.background});
+          }return;
         }
-
 
         /* =====================
            COMMENT
@@ -5355,16 +5077,16 @@ wss.on(
           data.type ===
           "comment"
         ) {
-          if(!liveInfo.active || (ws!==broadcaster && (!ws.liveJoined || blockedEither(ws.clientId,broadcaster.clientId))))return;
+          const room=roomOf(ws);if(!room||(ws!==room.host&&(!ws.liveJoined||blockedEither(ws.clientId,room.id))))return;
 
-          broadcast({
+          sendRoom(room,{
 
             type:
               "comment",
 
             clientId: ws.clientId,
             avatar: (ws.profile && typeof ws.profile.avatar === "string") ? ws.profile.avatar : "",
-            name: limitEmojiText(ws === broadcaster ? (liveInfo.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト"),30),
+            name: limitEmojiText(ws === room.host ? (room.info.name || "配信者") : (((ws.profile && ws.profile.name && ws.profile.name !== "ゲスト" && ws.profile.name !== "ユーザー" && ws.profile.name !== "視聴者") ? ws.profile.name : "") || (ws.liveName && ws.liveName !== "ゲスト" ? ws.liveName : "") || data.name || "ゲスト"),30),
 
             text:
               limitEmojiText(data.text || "", 200)
@@ -5381,15 +5103,15 @@ wss.on(
            TEST GIFT: no currency or billing
         ===================== */
         if(data.type==="test_gift"){
-          if(!liveInfo.active || ws===broadcaster || !ws.liveJoined || blockedEither(ws.clientId,broadcaster.clientId))return;
+          const room=roomOf(ws);if(!room||ws===room.host||!ws.liveJoined||blockedEither(ws.clientId,room.id))return;
           const giftIds=["heart","star","rose","bunny","toast","bouquet","bear","moon","dream","kingheart"];
           if(!giftIds.includes(data.giftId))return;
           const now=Date.now();
           if(ws.lastTestGiftAt && now-ws.lastTestGiftAt<700)return;
           ws.lastTestGiftAt=now;
           const profile=ws.profile||{};
-          if(liveSessionStats){const key=ws.clientId+":"+data.giftId;const prev=liveSessionStats.gifts.get(key);liveSessionStats.gifts.set(key,{giftId:data.giftId,senderId:ws.clientId,name:profile.name||ws.liveName||"ゲスト",avatar:profile.avatar||"",count:(prev?.count||0)+1});}
-          broadcast({type:"test_gift",giftId:data.giftId,clientId:ws.clientId,
+          {const key=ws.clientId+":"+data.giftId;const prev=room.stats.gifts.get(key);room.stats.gifts.set(key,{giftId:data.giftId,senderId:ws.clientId,name:profile.name||ws.liveName||"ゲスト",avatar:profile.avatar||"",count:(prev?.count||0)+1});}
+          sendRoom(room,{type:"test_gift",giftId:data.giftId,clientId:ws.clientId,
             name:limitEmojiText(profile.name||ws.liveName||"ゲスト",30),
             avatar:typeof profile.avatar==="string"?profile.avatar:""});
           return;
@@ -5403,13 +5125,13 @@ wss.on(
           data.type ===
           "like"
         ) {
-          if(!liveInfo.active || ws===broadcaster || !ws.liveJoined || blockedEither(ws.clientId,broadcaster.clientId))return;
-          if(liveSessionStats)liveSessionStats.likes++;
+          const room=roomOf(ws);if(!room||ws===room.host||!ws.liveJoined||blockedEither(ws.clientId,room.id))return;
+          room.stats.likes++;
           // サーバー側で判定するので、連打や再接続でも通知が増えない
-          const firstLikeNotice = !liveLikeNotifiedUsers.has(ws.clientId);
-          if (firstLikeNotice) liveLikeNotifiedUsers.add(ws.clientId);
+          const firstLikeNotice = !room.likeUsers.has(ws.clientId);
+          if (firstLikeNotice) room.likeUsers.add(ws.clientId);
 
-          broadcast({
+          sendRoom(room,{
 
             type:
               "like",
@@ -5462,51 +5184,10 @@ wss.on(
       "close",
       function() {
 
-        clients.delete(
-          ws
-        );
+        const room=roomOf(ws);
+        clients.delete(ws);
+        if(room){if(room.host===ws)stopRoom(room,false);else{ws.liveJoined=false;ws.roomId=null;sendTo(room.host,{type:"viewer_removed",viewerId:ws.clientId});}}
         sendPresence();
-
-
-        if (
-          broadcaster ===
-          ws
-        ) {
-          liveSessionStats=null;
-
-          broadcaster =
-            null;
-
-
-          liveInfo = {
-
-            active:
-              false,
-
-            id:
-              null,
-
-            name:
-              "",
-
-            title:
-              ""
-
-          };
-
-
-          broadcast({
-
-            type:
-              "live_stopped"
-
-          });
-
-
-          sendLiveList();
-
-        }
-
 
         console.log(
           "CLIENT DISCONNECT:",

@@ -1699,7 +1699,7 @@ button {
     <div class="mls-card mls-hero"><div class="mls-mic">🎙️</div><div><strong>音声ライブ</strong><small>月明かりの下、あなたの声で<br>みんなとつながろう</small></div></div>
     <div class="mls-card">
       <label class="mls-label" for="moonLiveTitle"><span>☾ 配信タイトル</span><small id="moonLiveTitleCount">0 / 100</small></label>
-      <input class="mls-title" id="moonLiveTitle" type="text" maxlength="100" placeholder="例：初見さん大歓迎 🌙" autocomplete="off" oninput="updateMoonLiveTitleCount()">
+      <input class="mls-title" id="moonLiveTitle" type="text" enterkeyhint="done" onkeydown="if(event.key === 'Enter' && !event.isComposing && event.keyCode !== 229){event.preventDefault();this.blur();}" maxlength="100" placeholder="例：初見さん大歓迎 🌙" autocomplete="off" oninput="updateMoonLiveTitleCount()">
     </div>
     <div class="mls-card">
       <div class="mls-label"><span>☾ 配信背景</span><small>今までのカスタム機能</small></div>

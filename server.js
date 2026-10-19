@@ -1773,8 +1773,8 @@ button {
 <div class="mp-dialog-backdrop" id="mpEditDialog" onclick="closeMyPageEdit()">
   <div class="mp-dialog" onclick="event.stopPropagation()">
     <strong>プロフィールを編集</strong>
-    <label for="mpNameInput" style="display:block;margin-top:14px">表示名</label>
-    <input id="mpNameInput" type="text" inputmode="text" placeholder="表示名を入力">
+    <label for="mpNameInput" style="display:block;margin-top:14px">ニックネーム</label>
+    <input id="mpNameInput" type="text" inputmode="text" placeholder="ニックネームを入力" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
     <label for="mpGenderInput">性別</label>
     <select id="mpGenderInput"><option value="未設定">未設定</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="非公開">非公開</option></select>
     <label for="mpBioInput">自己紹介</label>
@@ -4352,7 +4352,7 @@ function emojiSafeLimit(value, max) {
 }
 function saveMyPageEdit() {
   const name = emojiSafeLimit(document.getElementById("mpNameInput").value.trim(), 30);
-  if (!name) { alert("表示名を入力してください"); return; }
+  if (!name) { alert("ニックネームを入力してください"); return; }
   localStorage.setItem("voiceBotaProfileName", name);
   localStorage.setItem("voiceBotaProfileGender", document.getElementById("mpGenderInput").value);
   localStorage.setItem("voiceBotaProfileBio", emojiSafeLimit(document.getElementById("mpBioInput").value.trim(),300));

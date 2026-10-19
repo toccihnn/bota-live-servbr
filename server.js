@@ -8,6 +8,11 @@ let clients = new Set();
 let broadcaster = null;
 // 1配信につき、各リスナーの最初のいいね通知だけ表示する
 let liveLikeNotifiedUsers = new Set();
+let liveSessionStats = null;
+function liveStatsSnapshot(){
+ if(!liveSessionStats)return null;
+ return {startedAt:liveSessionStats.startedAt,endedAt:Date.now(),host:liveSessionStats.host,visitors:[...liveSessionStats.visitors.values()],likes:liveSessionStats.likes,gifts:[...liveSessionStats.gifts.values()]};
+}
 const fsSocial = require("fs");
 const socialPath = require("path").join(__dirname,"voicebota_social.json");
 let socialData = {following:{},blocked:{},profiles:{}};
@@ -1419,6 +1424,32 @@ button {
  80%{opacity:1;transform:translate(-50%,-50%) scale(1)}
  100%{opacity:0;transform:translate(-50%,-54%) scale(1)}
 }
+
+/* 配信終了専用のUI。既存画面のCSSは変更しない */
+.vb-end-overlay{display:none;position:fixed;inset:0;z-index:8000;background:#0009;align-items:center;justify-content:center;padding:20px}
+.vb-end-overlay.open{display:flex}
+.vb-end-card{background:#fff;color:#161616;width:min(100%,360px);border-radius:18px;padding:26px 20px;text-align:center;display:flex;flex-direction:column;gap:12px}
+.vb-end-card strong{font-size:18px;margin:0 0 15px}
+.vb-end-card button{border-radius:40px;min-height:50px;font-size:17px;font-weight:800}
+.vb-end-primary{background:#222;color:white;border:2px solid #222}
+.vb-end-secondary{background:white;color:#222;border:2px solid #222}
+#vbLiveSummary{display:none;position:fixed;inset:0;z-index:8100;background:#f7f7f8;color:#171717;overflow-y:auto;padding:20px 16px calc(40px + env(safe-area-inset-bottom));text-align:center}
+#vbLiveSummary.open{display:block}
+.vb-summary-head{display:flex;justify-content:center;align-items:center;position:relative;min-height:48px;font-size:19px}
+.vb-summary-head button{position:absolute;right:2px;top:0;background:transparent;border:0;color:#34343d;font-size:30px}
+#vbSummaryHostAvatar{width:90px;height:90px;margin:25px auto 8px}
+.vb-summary-host-avatar-inner{width:90px;height:90px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden}
+.vb-summary-host-avatar-inner img,.vb-summary-mini-avatar img{width:100%;height:100%;object-fit:cover}
+#vbSummaryHostName{font-weight:800;font-size:17px}
+#vbLiveSummary>h3{margin:15px 0 25px;font-size:19px}
+.vb-summary-card{background:#fff;border-radius:18px;padding:18px;margin:12px auto;max-width:600px;text-align:left}
+.vb-summary-card h3{font-size:16px;margin:0 0 12px}
+.vb-summary-stat{display:flex;justify-content:space-between;gap:12px;padding:14px 0;align-items:center}
+.vb-summary-stat b{white-space:nowrap}
+.vb-summary-entry{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}
+.vb-summary-mini-avatar{width:38px;height:38px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.vb-summary-gift-image{width:45px;height:45px;object-fit:contain;flex-shrink:0}
+.vb-summary-home{width:min(100%,600px);padding:16px;border:0;border-radius:30px;background:#222;color:#fff;font-weight:800;font-size:16px;margin-top:18px}
 </style>
 
 </head>
@@ -1646,7 +1677,7 @@ button {
       <div id="presenceSocialNotice" style="font-size:12px;margin-top:10px;color:#ffd2df"></div>
     </div>
   </div>
-  <button class="panel-close" type="button" onclick="closePanel()" aria-label="閉じる">×</button>
+  <button class="panel-close" type="button" onclick="requestCloseLive()" aria-label="閉じる">×</button>
   <div class="panel-status" id="panelStatus">配信準備中</div>
 
   <div class="background-custom" id="backgroundCustom">
@@ -1680,7 +1711,7 @@ button {
     <input id="commentInput" type="text" inputmode="text" enterkeyhint="send" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="コメントを入力...">
     <button type="button" onclick="sendComment()" aria-label="コメント送信">➤</button>
   </div>
-  <button id="stopButton" class="panel-button stop-button" type="button" onclick="stopLive()" style="display:none">⛔ 配信を終了する</button>
+  <button id="stopButton" class="panel-button stop-button" type="button" onclick="requestCloseLive()" style="display:none">⛔ 配信を終了する</button>
   <button class="panel-button close-button" type="button" onclick="closePanel()">閉じる</button>
 </div>
 
@@ -2439,6 +2470,8 @@ function handleMessage(data) {
   }
 
 
+  if(data.type==="live_session_summary"){showLiveSummary(data.summary);return;}
+
   if (
     data.type ===
     "live_stopped"
@@ -2926,6 +2959,49 @@ async function startLive() {
    STOP LIVE
 ========================================================= */
 
+
+/* 配信終了確認・1枠の配信記録（既存画面は変更しない） */
+function requestCloseLive(){
+ if(!isBroadcaster){closePanel();return;}
+ document.getElementById('vbEndConfirm').classList.add('open');
+}
+function cancelEndLive(){document.getElementById('vbEndConfirm').classList.remove('open');}
+function confirmEndLive(){cancelEndLive();stopLive();}
+function formatSessionTime(ms){
+ const s=Math.max(0,Math.floor(ms/1000));
+ return [Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(n=>String(n).padStart(2,'0')).join(':');
+}
+function vbSafeAvatar(src,cls){
+ const wrap=document.createElement('div');wrap.className=cls;
+ if(typeof src==='string' && /^data:image\/(png|jpeg|webp|gif);base64,/i.test(src)){
+  const img=document.createElement('img');img.src=src;img.alt='';wrap.appendChild(img);
+ }else{wrap.textContent='👤';}return wrap;
+}
+function showLiveSummary(summary){
+ if(!summary)return;
+ const panel=document.getElementById('vbLiveSummary');
+ const host=summary.host||getMyPublicProfile();
+ const avatar=document.getElementById('vbSummaryHostAvatar');avatar.replaceChildren(vbSafeAvatar(host.avatar,'vb-summary-host-avatar-inner'));
+ document.getElementById('vbSummaryHostName').textContent=host.name||'ライバー';
+ document.getElementById('vbSummaryDuration').textContent=formatSessionTime((summary.endedAt||Date.now())-(summary.startedAt||Date.now()));
+ const visitors=Array.isArray(summary.visitors)?summary.visitors:[];
+ document.getElementById('vbSummaryCount').textContent=visitors.length+'人';
+ document.getElementById('vbSummaryLikes').textContent=String(summary.likes||0)+'回';
+ const gifts=Array.isArray(summary.gifts)?summary.gifts:[];
+ document.getElementById('vbSummaryGiftCount').textContent=gifts.reduce((n,g)=>n+(g.count||0),0)+'個';
+ const list=document.getElementById('vbSummaryVisitors');list.replaceChildren();
+ if(!visitors.length){list.textContent='今回の来場者はいません';}
+ visitors.forEach(v=>{const row=document.createElement('div');row.className='vb-summary-entry';row.append(vbSafeAvatar(v.avatar,'vb-summary-mini-avatar'));const name=document.createElement('span');name.textContent=v.name||'ゲスト';row.append(name);list.append(row);});
+ const giftList=document.getElementById('vbSummaryGifts');giftList.replaceChildren();
+ if(!gifts.length)giftList.textContent='今回のギフトはありません';
+ gifts.forEach(g=>{const row=document.createElement('div');row.className='vb-summary-entry';const def=typeof testGifts!=='undefined'?testGifts.find(x=>x.id===g.giftId):null;
+ if(def&&def.image){const img=document.createElement('img');img.src=def.image;img.className='vb-summary-gift-image';row.append(img);}else{const icon=document.createElement('span');icon.textContent='🎁';row.append(icon);}
+ const text=document.createElement('span');text.textContent=(def?.name||g.giftId||'ギフト')+' × '+(g.count||0)+'　'+(g.name||'ゲスト')+'さん';row.append(text);giftList.append(row);});
+ document.getElementById('livePanel').classList.remove('show');
+ panel.classList.add('open');
+}
+function closeLiveSummary(){document.getElementById('vbLiveSummary').classList.remove('open');goHome();}
+
 function stopLive() {
   stopLikeHold();
 
@@ -2994,10 +3070,7 @@ function stopLive() {
   renderLiveList([]);
 
 
-  setTimeout(
-    closePanel,
-    800
-  );
+  // 配信結果を受信するまで画面を保持する。
 
 }
 
@@ -4024,7 +4097,7 @@ function closePanel() {
   }
 
   if (isBroadcaster) {
-    stopLive();
+    requestCloseLive();
     return;
   }
 
@@ -4412,6 +4485,24 @@ window.addEventListener(
 </div>
 <div id="testGiftAnimation" aria-live="polite"></div>
 
+
+<div id="vbEndConfirm" class="vb-end-overlay" role="dialog" aria-modal="true" aria-label="配信終了の確認">
+ <div class="vb-end-card"><strong>配信を終了しますか？</strong>
+ <button type="button" class="vb-end-primary" onclick="confirmEndLive()">終了する</button>
+ <button type="button" class="vb-end-secondary" onclick="cancelEndLive()">キャンセル</button></div>
+</div>
+<section id="vbLiveSummary" aria-label="配信終了結果">
+ <header class="vb-summary-head"><strong>配信終了</strong><button type="button" onclick="closeLiveSummary()" aria-label="閉じる">×</button></header>
+ <div id="vbSummaryHostAvatar"></div><div id="vbSummaryHostName"></div><h3>配信お疲れ様でした！</h3>
+ <div class="vb-summary-card">
+ <div class="vb-summary-stat"><span>🕒 配信総時間</span><b id="vbSummaryDuration">00:00:00</b></div>
+ <div class="vb-summary-stat"><span>👥 来場リスナー数</span><b id="vbSummaryCount">0人</b></div>
+ <div class="vb-summary-stat"><span>❤️ いいね総回数</span><b id="vbSummaryLikes">0回</b></div>
+ <div class="vb-summary-stat"><span>🎁 受け取ったギフト</span><b id="vbSummaryGiftCount">0個</b></div></div>
+ <div class="vb-summary-card"><h3>遊びに来てくれたリスナー</h3><div id="vbSummaryVisitors"></div></div>
+ <div class="vb-summary-card"><h3>受け取ったギフト一覧</h3><div id="vbSummaryGifts"></div></div>
+ <button type="button" class="vb-summary-home" onclick="closeLiveSummary()">ホームへ戻る</button>
+</section>
 </body>
 </html>
 `;
@@ -4928,6 +5019,7 @@ wss.on(
 
           // 新しい配信では全員が再び1回目のいいね通知を出せる
           liveLikeNotifiedUsers.clear();
+          liveSessionStats={startedAt:Date.now(),host:{id:ws.clientId,name:data.name||"配信者",avatar:ws.profile?.avatar||""},visitors:new Map(),likes:0,gifts:new Map()};
 
           broadcaster =
             ws;
@@ -5006,6 +5098,8 @@ wss.on(
             broadcaster ===
             ws
           ) {
+            sendTo(ws,{type:"live_session_summary",summary:liveStatsSnapshot()});
+            liveSessionStats=null;
 
             broadcaster =
               null;
@@ -5090,6 +5184,7 @@ wss.on(
             sendTo(ws,{type:"access_denied",reason:"この配信は視聴できません"});return;
           }
           ws.liveJoined = true;
+          if(liveSessionStats && ws.clientId){const p=cleanProfile(data.profile || ws.profile);liveSessionStats.visitors.set(ws.clientId,{id:ws.clientId,name:p.name||data.name||"ゲスト",avatar:p.avatar||""});}
           ws.profile = cleanProfile(data.profile || ws.profile);
           ws.liveName = limitEmojiText(String(data.name || "ゲスト").trim(),30) || "ゲスト";
           sendPresence();
@@ -5250,6 +5345,7 @@ wss.on(
           if(ws.lastTestGiftAt && now-ws.lastTestGiftAt<700)return;
           ws.lastTestGiftAt=now;
           const profile=ws.profile||{};
+          if(liveSessionStats){const key=ws.clientId+":"+data.giftId;const prev=liveSessionStats.gifts.get(key);liveSessionStats.gifts.set(key,{giftId:data.giftId,senderId:ws.clientId,name:profile.name||ws.liveName||"ゲスト",avatar:profile.avatar||"",count:(prev?.count||0)+1});}
           broadcast({type:"test_gift",giftId:data.giftId,clientId:ws.clientId,
             name:limitEmojiText(profile.name||ws.liveName||"ゲスト",30),
             avatar:typeof profile.avatar==="string"?profile.avatar:""});
@@ -5264,6 +5360,8 @@ wss.on(
           data.type ===
           "like"
         ) {
+          if(!liveInfo.active || ws===broadcaster || !ws.liveJoined || blockedEither(ws.clientId,broadcaster.clientId))return;
+          if(liveSessionStats)liveSessionStats.likes++;
           // サーバー側で判定するので、連打や再接続でも通知が増えない
           const firstLikeNotice = !liveLikeNotifiedUsers.has(ws.clientId);
           if (firstLikeNotice) liveLikeNotifiedUsers.add(ws.clientId);
@@ -5331,6 +5429,7 @@ wss.on(
           broadcaster ===
           ws
         ) {
+          liveSessionStats=null;
 
           broadcaster =
             null;

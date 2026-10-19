@@ -1487,6 +1487,7 @@ button {
 #testGiftAnimation.vb-moonflower-animation .vb-mf-label{z-index:6;bottom:19%}
 
 /* Moonflower gift: full-screen high-resolution video; other gifts unchanged */
+#testGiftAnimation.vb-moonflower-video-gift::before{display:none!important;animation:none!important}
 #testGiftAnimation.vb-moonflower-video-gift{position:fixed!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;z-index:3300!important;pointer-events:none!important;background:transparent!important;overflow:hidden!important}
 #testGiftAnimation.vb-moonflower-video-gift .vb-mf-video{display:block!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;object-fit:cover!important;mix-blend-mode:screen;opacity:.96;filter:drop-shadow(0 0 20px #a77cff)}
 #testGiftAnimation.vb-moonflower-video-gift .vb-mf-video-title{position:absolute;bottom:19%;left:0;right:0;text-align:center;font-size:clamp(23px,6vw,40px);font-weight:900;color:#fff;text-shadow:0 0 14px #a65dff,0 0 25px #5228d7;animation:vb-mf-title 6s both}
@@ -3773,7 +3774,7 @@ function displayTestGift(data){
 
  if(g.id==="moonflower"){
   layer.classList.add("vb-moonflower-video-gift");
-  layer.style.setProperty("--gift-duration","11000ms");
+  layer.style.setProperty("--gift-duration","7000ms");
   const video=document.createElement("video");
   video.className="vb-mf-video";
   video.muted=true;
@@ -3787,7 +3788,7 @@ function displayTestGift(data){
   video.setAttribute("playsinline","");
   video.setAttribute("webkit-playsinline","");
   video.setAttribute("preload","auto");
-  video.src="/moonflower.mp4?v=4-20261019";
+  video.src="/moonflower.mp4?v=5-cut4-20261019";
   video.style.visibility="hidden";
   layer.appendChild(video);
   const label=document.createElement("div");
@@ -3801,7 +3802,7 @@ function displayTestGift(data){
    started=true;
    video.style.visibility="visible";
    clearTimeout(testGiftAnimationTimer);
-   testGiftAnimationTimer=setTimeout(close,11000);
+   testGiftAnimationTimer=setTimeout(close,7000);
   };
   video.addEventListener("playing",start,{once:true});
   video.addEventListener("ended",close,{once:true});
@@ -3823,7 +3824,7 @@ function displayTestGift(data){
   video.load();
   tryPlay();
   // Do not leave an invisible overlay stuck if mobile playback is blocked.
-  testGiftAnimationTimer=setTimeout(close,15000);
+  testGiftAnimationTimer=setTimeout(close,11000);
   addComment(data.name||"ゲスト","🎁 🌙 月光花・開花を贈りました（テスト）",data.clientId,data.avatar);
   return;
  }

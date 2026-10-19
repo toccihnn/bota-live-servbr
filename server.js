@@ -3777,11 +3777,11 @@ function displayTestGift(data){
   const video=document.createElement("video");
   video.className="vb-mf-video";
   video.src="/moonflower.mp4?v=3-20261019";
-  video.poster="/moonflower.png";
+  // 配信画面では静止画像を先に表示しない（ギフト一覧のPNGは維持）
   video.autoplay=true;video.muted=true;video.playsInline=true;
   video.setAttribute("playsinline","");
   video.setAttribute("webkit-playsinline","");
-  video.onerror=()=>{if(!video.isConnected)return;const img=document.createElement("img");img.src="/moonflower.png";img.className="vb-mf-video";video.replaceWith(img)};
+  video.onerror=()=>{console.warn("月光花の動画を読み込めませんでした");};
   layer.appendChild(video);
   const label=document.createElement("div");label.className="vb-mf-video-title";label.textContent="✦ 月光花・開花 ✦";layer.appendChild(label);
   video.play().catch(()=>{});

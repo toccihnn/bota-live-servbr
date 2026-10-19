@@ -3773,19 +3773,57 @@ function displayTestGift(data){
 
  if(g.id==="moonflower"){
   layer.classList.add("vb-moonflower-video-gift");
-  layer.style.setProperty("--gift-duration","10500ms");
+  layer.style.setProperty("--gift-duration","11000ms");
   const video=document.createElement("video");
   video.className="vb-mf-video";
-  video.src="/moonflower.mp4?v=3-20261019";
-  // 配信画面では静止画像を先に表示しない（ギフト一覧のPNGは維持）
-  video.autoplay=true;video.muted=true;video.playsInline=true;
+  video.muted=true;
+  video.defaultMuted=true;
+  video.autoplay=true;
+  video.playsInline=true;
+  video.preload="auto";
+  video.controls=false;
+  video.disablePictureInPicture=true;
+  video.setAttribute("muted","");
   video.setAttribute("playsinline","");
   video.setAttribute("webkit-playsinline","");
-  video.onerror=()=>{console.warn("月光花の動画を読み込めませんでした");};
+  video.setAttribute("preload","auto");
+  video.src="/moonflower.mp4?v=4-20261019";
+  video.style.visibility="hidden";
   layer.appendChild(video);
-  const label=document.createElement("div");label.className="vb-mf-video-title";label.textContent="✦ 月光花・開花 ✦";layer.appendChild(label);
-  video.play().catch(()=>{});
-  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},10500);
+  const label=document.createElement("div");
+  label.className="vb-mf-video-title";
+  label.textContent="✦ 月光花・開花 ✦";
+  layer.appendChild(label);
+  let finished=false, started=false, retries=0;
+  const close=()=>{if(finished)return;finished=true;clearTimeout(testGiftAnimationTimer);video.pause();layer.className="";layer.replaceChildren()};
+  const start=()=>{
+   if(finished||started||!video.isConnected)return;
+   started=true;
+   video.style.visibility="visible";
+   clearTimeout(testGiftAnimationTimer);
+   testGiftAnimationTimer=setTimeout(close,11000);
+  };
+  video.addEventListener("playing",start,{once:true});
+  video.addEventListener("ended",close,{once:true});
+  const tryPlay=()=>{
+   if(finished||!video.isConnected)return;
+   const result=video.play();
+   if(result&&typeof result.catch==="function")result.catch(()=>{
+    if(finished||started)return;
+    if(retries++<2)setTimeout(tryPlay,500);
+   });
+  };
+  video.addEventListener("canplay",tryPlay,{once:true});
+  video.addEventListener("error",()=>{
+   if(finished)return;
+   // No large PNG fallback: preserve the gift title if playback fails.
+   clearTimeout(testGiftAnimationTimer);
+   testGiftAnimationTimer=setTimeout(close,1800);
+  },{once:true});
+  video.load();
+  tryPlay();
+  // Do not leave an invisible overlay stuck if mobile playback is blocked.
+  testGiftAnimationTimer=setTimeout(close,15000);
   addComment(data.name||"ゲスト","🎁 🌙 月光花・開花を贈りました（テスト）",data.clientId,data.avatar);
   return;
  }

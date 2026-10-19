@@ -1461,6 +1461,17 @@ button {
 .vb-summary-mini-avatar{width:38px;height:38px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
 .vb-summary-gift-image{width:45px;height:45px;object-fit:contain;flex-shrink:0}
 .vb-summary-home{width:min(100%,600px);padding:16px;border:0;border-radius:30px;background:#222;color:#fff;font-weight:800;font-size:16px;margin-top:18px}
+
+/* ギフト画像専用演出：絵文字や大量の星を使わず、イラストを主役にする */
+#testGiftAnimation.vb-art-active{display:flex!important;position:fixed!important;inset:0!important;z-index:2200!important;align-items:center;justify-content:center;pointer-events:none;background:transparent!important;overflow:hidden;--gift-glow:#d8a4ff}
+#testGiftAnimation.vb-art-active .vb-art-haze{position:absolute;width:min(80vw,420px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(191,121,255,.22),rgba(103,97,232,.07) 50%,transparent 73%);filter:blur(14px);animation:vbArtHaze 3.5s ease-out both}
+#testGiftAnimation.vb-art-active .vb-art-main{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(76vw,350px);animation:vbArtFloat var(--vb-art-time,3.5s) cubic-bezier(.18,.75,.24,1) both}
+#testGiftAnimation.vb-art-active .vb-art-image{display:block;width:min(66vw,290px);height:auto;max-height:31vh;object-fit:contain;image-rendering:auto;filter:drop-shadow(0 0 18px rgba(199,144,255,.55)) drop-shadow(0 12px 24px rgba(0,0,0,.35));border-radius:14px}
+#testGiftAnimation.vb-art-active .vb-art-name{font-family:var(--vb-serif-ja),serif;font-size:clamp(22px,6vw,30px);font-weight:800;color:#fff;text-shadow:0 2px 9px #19082d,0 0 20px #bd80ff;text-align:center}
+#testGiftAnimation.vb-art-active .vb-art-spark{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff4dc;box-shadow:0 0 8px 3px rgba(232,189,255,.65);left:var(--sx);top:var(--sy);animation:vbArtTwinkle var(--sd) ease-in-out var(--delay) infinite alternate}
+@keyframes vbArtFloat{0%{opacity:0;transform:translateY(36px) scale(.68);filter:blur(8px)}18%{opacity:1;transform:translateY(0) scale(1.03);filter:blur(0)}35%{transform:translateY(-7px) scale(1)}72%{opacity:1;transform:translateY(-19px) scale(1.02)}100%{opacity:0;transform:translateY(-55px) scale(.95);filter:blur(5px)}}
+@keyframes vbArtHaze{0%{opacity:0;transform:scale(.6)}28%{opacity:1}100%{opacity:0;transform:scale(1.3)}}
+@keyframes vbArtTwinkle{from{opacity:.15;transform:scale(.4)}to{opacity:.85;transform:scale(1.4)}}
 </style>
 
 </head>
@@ -3799,6 +3810,33 @@ function displayTestGift(data){
  }
  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},duration);
  addComment(data.name||"ゲスト","🎁 "+g.emoji+" "+g.name+"を贈りました（テスト）",data.clientId,data.avatar);
+}
+
+
+/* ギフト送信時のイラスト演出。既存の通信・ギフト一覧・集計処理は変更しない */
+function displayTestGift(data){
+ const g=testGifts.find(x=>x.id===data.giftId);if(!g)return;
+ const layer=document.getElementById('testGiftAnimation');
+ if(!layer||!document.getElementById('livePanel').classList.contains('show'))return;
+ clearTimeout(testGiftAnimationTimer);layer.replaceChildren();
+ const duration=g.coins>=3000?4600:g.coins>=1000?3900:3200;
+ layer.className='vb-art-active';layer.style.setProperty('--vb-art-time',duration+'ms');
+ const haze=document.createElement('div');haze.className='vb-art-haze';layer.appendChild(haze);
+ const main=document.createElement('div');main.className='vb-art-main';
+ const art=document.createElement('img');art.className='vb-art-image';
+ art.src=g.fxImage||g.image||'';art.alt=g.name;
+ if(!art.src||(!g.fxImage&&!g.image)){art.style.display='none';}
+ const name=document.createElement('strong');name.className='vb-art-name';name.textContent=g.name;
+ main.append(art,name);layer.appendChild(main);
+ for(let i=0;i<12;i++){
+  const dot=document.createElement('i');dot.className='vb-art-spark';
+  dot.style.setProperty('--sx',(18+Math.random()*64)+'%');
+  dot.style.setProperty('--sy',(27+Math.random()*45)+'%');
+  dot.style.setProperty('--sd',(0.65+Math.random()*1.1)+'s');
+  dot.style.setProperty('--delay',(Math.random()*1.2)+'s');layer.appendChild(dot);
+ }
+ testGiftAnimationTimer=setTimeout(()=>{layer.className='';layer.replaceChildren()},duration);
+ addComment(data.name||'ゲスト','🎁 '+g.name+'を贈りました（テスト）',data.clientId,data.avatar);
 }
 
 async function shareLive() {

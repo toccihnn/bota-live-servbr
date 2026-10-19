@@ -2438,6 +2438,18 @@ function handleMessage(data) {
   }
 
 
+  if (data.type === "live_entry_notice") {
+    // 配信中の参加者だけに入室通知を表示する。
+    if (!document.getElementById("livePanel")?.classList.contains("show")) return;
+    const viewerId = String(data.viewerId || "");
+    if (!viewerId) return;
+    const viewerName = String(data.viewerName || "ゲスト");
+    const viewerAvatar = typeof data.viewerAvatar === "string" ? data.viewerAvatar : "";
+    socialProfiles[viewerId] = {name:viewerName, avatar:viewerAvatar};
+    addComment(viewerName, "が入室しました 🌙", viewerId, viewerAvatar);
+    return;
+  }
+
   if (data.type === "live_follow_notice") {
     // フォローが成立したときだけサーバーから配信参加者に届く。
     if (!document.getElementById("livePanel")?.classList.contains("show")) return;
@@ -5188,6 +5200,21 @@ wss.on(
           ws.profile = cleanProfile(data.profile || ws.profile);
           ws.liveName = limitEmojiText(String(data.name || "ゲスト").trim(),30) || "ゲスト";
           sendPresence();
+          // 配信者と入室中のリスナーに、アイコン付き入室通知を送る。
+          // ブロック関係にあるユーザーへは通知しない。
+          const entryProfile = ws.profile || {};
+          const entryNotice = {
+            type: "live_entry_notice",
+            viewerId: ws.clientId,
+            viewerName: entryProfile.name && entryProfile.name !== "ゲスト" ? entryProfile.name : ws.liveName,
+            viewerAvatar: entryProfile.avatar || ""
+          };
+          clients.forEach(function(recipient) {
+            if ((recipient === broadcaster || recipient.liveJoined) &&
+                !blockedEither(recipient.clientId, ws.clientId)) {
+              sendTo(recipient, entryNotice);
+            }
+          });
           sendTo(
             ws,
             {

@@ -6,6 +6,7 @@ const HOST = "0.0.0.0";
 
 let clients = new Set();
 const MAX_LIVE_ROOMS = 50;
+const SERVER_BUILD = "VoiceBotaLive-50Rooms-20261019-verify";
 const liveRooms = new Map();
 function roomOf(ws){return ws && ws.roomId ? liveRooms.get(ws.roomId) : null;}
 function roomParticipants(room){return [...clients].filter(c=>c===room.host || (c.liveJoined && c.roomId===room.id));}
@@ -4563,7 +4564,8 @@ const server =
               "text/html; charset=utf-8",
 
             "Cache-Control":
-              "no-cache"
+              "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache"
           }
         );
 
@@ -4636,7 +4638,8 @@ const server =
           200,
           {
             "Content-Type":
-              "application/json"
+              "application/json",
+            "Cache-Control": "no-store"
           }
         );
 
@@ -4649,7 +4652,8 @@ const server =
             live:
               liveRooms.size > 0,
             activeRooms: liveRooms.size,
-            maxRooms: MAX_LIVE_ROOMS
+            maxRooms: MAX_LIVE_ROOMS,
+            build: SERVER_BUILD
 
           })
         );

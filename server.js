@@ -2235,6 +2235,22 @@ function renderPresence() {
 function openPresence() { document.getElementById("presenceOverlay").classList.add("open"); }
 function closePresence() { document.getElementById("presenceOverlay").classList.remove("open"); }
 
+// 同じ入室イベントを配信者が2経路で受信しても二重表示しない。
+const liveEntrySeen = new Set();
+function showLiveEntryNotice(data) {
+  const panel = document.getElementById("livePanel");
+  if (!panel || !panel.classList.contains("show")) return;
+  const viewerId = String(data.viewerId || "");
+  if (!viewerId) return;
+  const eventId = String(data.entryEventId || "");
+  if (eventId && liveEntrySeen.has(eventId)) return;
+  if (eventId) liveEntrySeen.add(eventId);
+  const viewerName = String(data.viewerName || "ゲスト");
+  const viewerAvatar = typeof data.viewerAvatar === "string" ? data.viewerAvatar : "";
+  socialProfiles[viewerId] = {name:viewerName, avatar:viewerAvatar};
+  addComment(viewerName, "が入室しました 🌙", viewerId, viewerAvatar);
+}
+
 function handleMessage(data) {
   if(data.type==="social_profile_response"){
     if(String(data.targetId)!==String(presenceProfileTarget))return;
@@ -2340,6 +2356,7 @@ function handleMessage(data) {
     // 新しい配信では前回のコメントを表示しない
     const commentList = document.getElementById("commentList");
     if (commentList) commentList.replaceChildren();
+    liveEntrySeen.clear();
 
     setPanelStatus(
       "🔴 配信中です"
@@ -2370,6 +2387,8 @@ function handleMessage(data) {
     "viewer_joined"
   ) {
 
+    // 配信者へは専用の入室イベントでも通知し、表示漏れを防ぐ。
+    showLiveEntryNotice(data);
     createOffer(
       data.viewerId
     );
@@ -2439,14 +2458,7 @@ function handleMessage(data) {
 
 
   if (data.type === "live_entry_notice") {
-    // 配信中の参加者だけに入室通知を表示する。
-    if (!document.getElementById("livePanel")?.classList.contains("show")) return;
-    const viewerId = String(data.viewerId || "");
-    if (!viewerId) return;
-    const viewerName = String(data.viewerName || "ゲスト");
-    const viewerAvatar = typeof data.viewerAvatar === "string" ? data.viewerAvatar : "";
-    socialProfiles[viewerId] = {name:viewerName, avatar:viewerAvatar};
-    addComment(viewerName, "が入室しました 🌙", viewerId, viewerAvatar);
+    showLiveEntryNotice(data);
     return;
   }
 
@@ -5205,6 +5217,7 @@ wss.on(
           const entryProfile = ws.profile || {};
           const entryNotice = {
             type: "live_entry_notice",
+            entryEventId: String(Date.now()) + ":" + ws.clientId,
             viewerId: ws.clientId,
             viewerName: entryProfile.name && entryProfile.name !== "ゲスト" ? entryProfile.name : ws.liveName,
             viewerAvatar: entryProfile.avatar || ""
@@ -5231,7 +5244,10 @@ wss.on(
                 "viewer_joined",
 
               viewerId:
-                ws.clientId
+                ws.clientId,
+              entryEventId: entryNotice.entryEventId,
+              viewerName: entryNotice.viewerName,
+              viewerAvatar: entryNotice.viewerAvatar
 
             }
           );

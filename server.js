@@ -1476,6 +1476,15 @@ button {
 @keyframes vb-mf-spark{0%,100%{opacity:0;transform:translateY(22px) scale(.2)}40%{opacity:1;transform:translateY(-28px) scale(1.5)}}
 @keyframes vb-mf-label{0%,45%{opacity:0;transform:translateY(15px)}60%,80%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-10px)}}
 @keyframes vb-mf-scene{0%{opacity:0}8%,85%{opacity:1}100%{opacity:0}}
+
+/* Moonflower visibility fix: strong petals above any background */
+#testGiftAnimation.vb-moonflower-animation{z-index:3300!important;display:flex!important;isolation:isolate}
+#testGiftAnimation.vb-moonflower-animation .vb-mf-scene{z-index:2;opacity:1;animation:vb-mf-scene 6.5s both}
+#testGiftAnimation.vb-moonflower-animation .vb-mf-bloom{z-index:3;width:min(74vw,330px);height:min(74vw,330px);filter:drop-shadow(0 0 25px #c88cff) drop-shadow(0 0 14px #7b35ff)}
+#testGiftAnimation.vb-moonflower-animation .vb-mf-petal{width:30%;height:52%;margin-left:-15%;margin-top:-48%;transform-origin:50% 92%;background:linear-gradient(110deg,#311068 0%,#873de9 26%,#e6adff 49%,#9654ff 69%,#24064d 100%);border:2px solid #f6c8ff;box-shadow:inset 0 0 20px #f1bbff,0 0 22px #aa54ff;animation:vb-mf-open 3.3s cubic-bezier(.15,.65,.2,1) forwards;animation-delay:calc(1.1s + var(--delay))}
+#testGiftAnimation.vb-moonflower-animation .vb-mf-center{z-index:5;background:radial-gradient(circle,#fff 0%,#fff5a6 35%,#e46fff 78%);box-shadow:0 0 28px 13px #cf77ff}
+#testGiftAnimation.vb-moonflower-animation .vb-mf-moon{width:75px;height:75px;top:12%;left:75%;opacity:.7;box-shadow:0 0 30px 12px #aa91ff88}
+#testGiftAnimation.vb-moonflower-animation .vb-mf-label{z-index:6;bottom:19%}
 </style>
 
 </head>
@@ -3777,6 +3786,7 @@ function displayTestGift(data){
   const label=document.createElement("div");label.className="vb-mf-label";label.textContent="月光花 ✦ 開花";scene.appendChild(label);
   layer.appendChild(scene);
   testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},6500);
+  addComment(data.name||"ゲスト","🎁 🌙 月光花・開花を贈りました（テスト）",data.clientId,data.avatar);
   return;
  }
  if(g.id==="dream"){

@@ -3773,10 +3773,10 @@ function displayTestGift(data){
 
  if(g.id==="moonflower"){
   layer.classList.add("vb-moonflower-video-gift");
-  layer.style.setProperty("--gift-duration","6000ms");
+  layer.style.setProperty("--gift-duration","10500ms");
   const video=document.createElement("video");
   video.className="vb-mf-video";
-  video.src="/moonflower.mp4";
+  video.src="/moonflower.mp4?v=3-20261019";
   video.poster="/moonflower.png";
   video.autoplay=true;video.muted=true;video.playsInline=true;
   video.setAttribute("playsinline","");
@@ -3785,7 +3785,7 @@ function displayTestGift(data){
   layer.appendChild(video);
   const label=document.createElement("div");label.className="vb-mf-video-title";label.textContent="✦ 月光花・開花 ✦";layer.appendChild(label);
   video.play().catch(()=>{});
-  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},6000);
+  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},10500);
   addComment(data.name||"ゲスト","🎁 🌙 月光花・開花を贈りました（テスト）",data.clientId,data.avatar);
   return;
  }
@@ -4608,7 +4608,7 @@ const server =
         const file=require("path").join(__dirname,isVideo?"moonflower.mp4":"moonflower.png");
         require("fs").readFile(file,(err,data)=>{
           if(err){res.writeHead(404);res.end("Not found");return;}
-          res.writeHead(200,{"Content-Type":isVideo?"video/mp4":"image/png","Cache-Control":"public, max-age=3600"});
+          res.writeHead(200,{"Content-Type":isVideo?"video/mp4":"image/png","Cache-Control":isVideo?"no-store, max-age=0":"public, max-age=3600"});
           res.end(data);
         });
         return;

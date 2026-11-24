@@ -6,7 +6,7 @@ const HOST = "0.0.0.0";
 
 let clients = new Set();
 const MAX_LIVE_ROOMS = 50;
-const SERVER_BUILD = "VoiceBotaLive-gift-host-fix-20261124";
+const SERVER_BUILD = "VoiceBotaLive-gift-receipt-v2-20261124";
 const liveRooms = new Map();
 function roomOf(ws){return ws && ws.roomId ? liveRooms.get(ws.roomId) : null;}
 function roomParticipants(room){return [...clients].filter(c=>c===room.host || (c.liveJoined && c.roomId===room.id));}
@@ -2307,7 +2307,12 @@ function handleMessage(data) {
     return;
   }
 
-  if(data.type==="test_gift") {displayTestGift(data);return;}
+  if(data.type==="test_gift_error") {clearTimeout(giftReceiptTimer);giftReceiptTimer=null;alert(data.message);return;}
+  if(data.type==="test_gift") {
+    if(data.clientId===myId){clearTimeout(giftReceiptTimer);giftReceiptTimer=null;}
+    try{displayTestGift(data);}catch(error){console.error("Gift display failed",error);alert("ギフト表示エラー: "+error.message);}
+    return;
+  }
 
   if (data.type === "presence_update") {
     presenceMembers = Array.isArray(data.members) ? data.members.filter(m=>!presenceHidden.includes(m.id)) : [];
@@ -3669,9 +3674,12 @@ function showGiftNotice(){
  document.getElementById("testGiftSheet").classList.add("open");
 }
 function closeTestGiftSheet(){document.getElementById("testGiftSheet").classList.remove("open")}
+let giftReceiptTimer=null;
 function sendTestGift(id){
  closeTestGiftSheet();
- if(!send({type:"test_gift",giftId:id}))alert("サーバーに接続できません。もう一度試してください");
+ if(giftReceiptTimer)return;
+ if(!send({type:"test_gift",giftId:id})){alert("サーバーに接続できません。もう一度試してください");return;}
+ giftReceiptTimer=setTimeout(()=>{giftReceiptTimer=null;alert("ギフトの受信確認がありません。配信に入り直して再試行してください。");},5000);
 }
 let testGiftAnimationTimer=null;
 
@@ -3723,7 +3731,7 @@ function displayTestGift(data){
  const g=testGifts.find(x=>x.id===data.giftId);if(!g)return;
  const layer=document.getElementById("testGiftAnimation");
  const panel=document.getElementById("livePanel");
- if(!layer||!panel)return;
+ if(!layer||!panel)throw new Error("ギフト表示領域がありません");
  if(!panel.classList.contains("show")&&!isBroadcaster)return;
  // 配信者側でも必ず独立した最前面の描画レイヤーを使用する。
  if(layer.parentElement!==document.body)document.body.appendChild(layer);
@@ -3732,6 +3740,7 @@ function displayTestGift(data){
  const duration=g.coins<=50?1900:g.coins<=300?2800:g.coins<=900?3800:g.coins<=2000?4800:g.coins<=3500?5800:7500;
  const glows={heart:"#ff659f",star:"#ffdc70",rose:"#ff5f91",bunny:"#ffaddf",toast:"#ffd77e",bouquet:"#ff8dc4",bear:"#f4ac6b",moon:"#ffeaa4",dream:"#c59aff",kingheart:"#ff8de9"};
  layer.className="active gift53-tier-"+tier;
+ layer.style.cssText="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:7000;pointer-events:none;background:transparent;";
  layer.style.setProperty("--gift-glow",glows[g.id]||"#f5a5ff");
  layer.style.setProperty("--gift-duration",duration+"ms");
 
@@ -3781,20 +3790,20 @@ function displayTestGift(data){
   }
   layer.appendChild(finale);
 
-  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},8200);
+  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.style.display="none";layer.replaceChildren()},8200);
   addComment(data.name||"ゲスト","🎁 "+g.emoji+" "+g.name+"を贈りました（テスト）",data.clientId,data.avatar);
   return;
  }
  const halo=document.createElement("div");halo.className="gift53-halo";layer.appendChild(halo);
  const burst=document.createElement("div");burst.className="test-gift-burst";
- const icon=document.createElement("img");icon.className="gift-image";icon.src=g.fxImage||g.image;icon.alt=g.name;
+ const icon=document.createElement("img");icon.className="gift-image";icon.src=g.fxImage||g.image;icon.alt=g.name;icon.onerror=()=>{const fallback=document.createElement("span");fallback.textContent=g.emoji||"🎁";fallback.style.fontSize="100px";icon.replaceWith(fallback);};
  const title=document.createElement("strong");title.className="gift-display-name";title.textContent=g.name;
  burst.append(icon);layer.appendChild(burst);
  const particles=[0,9,17,30,48,70][tier];
  const symbols={heart:["❤️","💕","✨"],star:["⭐","🌟","✨"],rose:["🌹","🌸","✨"],bunny:["💕","🐰","✨"],toast:["🥂","✨","⭐"],bouquet:["🌸","🌺","✨"],bear:["💕","🌟","✨"],moon:["🌙","⭐","✨"],dream:["💜","⭐","✨","💎"],kingheart:["💖","👑","💎","✨","🌟"]}[g.id]||["✨"];
  for(let i=0;i<particles;i++){
   const spark=document.createElement("span");spark.className="gift53-spark";
-  spark.textContent=(symbols||["✦","✧","✨"])[i%3];
+  spark.textContent=symbols[i%symbols.length];
   spark.style.setProperty("--x",(5+Math.random()*90)+"%");
   spark.style.setProperty("--y",(12+Math.random()*76)+"%");
   spark.style.setProperty("--sz",(14+Math.random()*20+tier*2)+"px");
@@ -3804,7 +3813,7 @@ function displayTestGift(data){
   spark.style.setProperty("--delay",(Math.random()*(duration/1000-1.3))+"s");
   layer.appendChild(spark);
  }
- testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},duration);
+ testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.style.display="none";layer.replaceChildren()},duration);
  addComment(data.name||"ゲスト","🎁 "+g.emoji+" "+g.name+"を贈りました（テスト）",data.clientId,data.avatar);
 }
 
@@ -5134,11 +5143,11 @@ wss.on(
            TEST GIFT: no currency or billing
         ===================== */
         if(data.type==="test_gift"){
-          const room=roomOf(ws);if(!room||ws===room.host||!ws.liveJoined||blockedEither(ws.clientId,room.id))return;
+          const room=roomOf(ws);if(!room||ws===room.host||!ws.liveJoined||blockedEither(ws.clientId,room.id)){sendTo(ws,{type:"test_gift_error",message:"ギフトを送信できません。配信に入り直してください。"});return;}
           const giftIds=["g01", "g02", "g03", "g04", "g05", "g06", "g07", "g08", "g09", "g10", "g11", "g12", "g13", "g14", "g15", "g16", "g17", "g18", "g19", "g20", "g21", "g22", "g23", "g24", "g25", "g26", "g27", "g28", "g29", "g30", "g31", "g32", "g33", "g34", "g35", "g36", "g37", "g38", "g39", "g40", "g41", "g42", "g43", "g44", "g45", "g46", "g47", "g48", "g49", "g50", "g51", "g52", "g53", "g54", "g55", "g56", "g57", "g58", "g59", "g60", "g61", "g62", "g63", "g64", "g65", "g66", "g67", "g68", "g69", "g70", "g71", "g72", "g73"];
-          if(!giftIds.includes(data.giftId))return;
+          if(!giftIds.includes(data.giftId)){sendTo(ws,{type:"test_gift_error",message:"ギフト情報が一致しません。ページを更新してください。"});return;}
           const now=Date.now();
-          if(ws.lastTestGiftAt && now-ws.lastTestGiftAt<700)return;
+          if(ws.lastTestGiftAt && now-ws.lastTestGiftAt<700){sendTo(ws,{type:"test_gift_error",message:"少し待ってから送信してください。"});return;}
           ws.lastTestGiftAt=now;
           const profile=ws.profile||{};
           {const key=ws.clientId+":"+data.giftId;const prev=room.stats.gifts.get(key);room.stats.gifts.set(key,{giftId:data.giftId,senderId:ws.clientId,name:profile.name||ws.liveName||"ゲスト",avatar:profile.avatar||"",count:(prev?.count||0)+1});}

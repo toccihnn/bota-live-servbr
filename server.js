@@ -6,7 +6,7 @@ const HOST = "0.0.0.0";
 
 let clients = new Set();
 const MAX_LIVE_ROOMS = 50;
-const SERVER_BUILD = "VoiceBotaLive-50Rooms-20261019-verify";
+const SERVER_BUILD = "VoiceBotaLive-gift-host-fix-20261124";
 const liveRooms = new Map();
 function roomOf(ws){return ws && ws.roomId ? liveRooms.get(ws.roomId) : null;}
 function roomParticipants(room){return [...clients].filter(c=>c===room.host || (c.liveJoined && c.roomId===room.id));}
@@ -1283,7 +1283,7 @@ button {
 .test-gift-choice span{font-size:34px}
 .test-gift-choice small{color:#b9e6ff}
 #testGiftAnimation{position:fixed;inset:0;z-index:3300;pointer-events:none;display:none;align-items:center;justify-content:center}
-#testGiftAnimation.active{display:flex}
+#testGiftAnimation.active{display:flex!important;z-index:7000;pointer-events:none}
 .test-gift-burst{background:#100e2bdc;border:1px solid #ffffff55;box-shadow:0 0 60px #d17aff88;border-radius:24px;padding:26px 34px;text-align:center;color:white;animation:testGiftPop 2.2s ease-out both;max-width:90vw}
 .test-gift-burst .gift-emoji{font-size:82px;display:block}
 @keyframes testGiftPop{0%{opacity:0;transform:scale(.35)}20%{opacity:1;transform:scale(1.15)}35%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-70px) scale(1.15)}}
@@ -3722,7 +3722,11 @@ function startGift64Fireworks(canvas){
 function displayTestGift(data){
  const g=testGifts.find(x=>x.id===data.giftId);if(!g)return;
  const layer=document.getElementById("testGiftAnimation");
- if(!document.getElementById("livePanel").classList.contains("show"))return;
+ const panel=document.getElementById("livePanel");
+ if(!layer||!panel)return;
+ if(!panel.classList.contains("show")&&!isBroadcaster)return;
+ // 配信者側でも必ず独立した最前面の描画レイヤーを使用する。
+ if(layer.parentElement!==document.body)document.body.appendChild(layer);
  clearTimeout(testGiftAnimationTimer);layer.replaceChildren();
  const tier=g.coins>=4000?5:g.coins>=2500?4:g.coins>=400?3:g.coins>=100?2:1;
  const duration=g.coins<=50?1900:g.coins<=300?2800:g.coins<=900?3800:g.coins<=2000?4800:g.coins<=3500?5800:7500;
@@ -5138,9 +5142,14 @@ wss.on(
           ws.lastTestGiftAt=now;
           const profile=ws.profile||{};
           {const key=ws.clientId+":"+data.giftId;const prev=room.stats.gifts.get(key);room.stats.gifts.set(key,{giftId:data.giftId,senderId:ws.clientId,name:profile.name||ws.liveName||"ゲスト",avatar:profile.avatar||"",count:(prev?.count||0)+1});}
-          sendRoom(room,{type:"test_gift",giftId:data.giftId,clientId:ws.clientId,
+          const giftEvent={type:"test_gift",giftId:data.giftId,clientId:ws.clientId,roomId:room.id,
             name:limitEmojiText(profile.name||ws.liveName||"ゲスト",30),
-            avatar:typeof profile.avatar==="string"?profile.avatar:""});
+            avatar:typeof profile.avatar==="string"?profile.avatar:""};
+          // 配信者へ明示的に送信し、視聴者へも一度ずつ送信する。
+          if(!blockedEither(room.host.clientId,ws.clientId))sendTo(room.host,giftEvent);
+          for(const recipient of roomParticipants(room)){
+            if(recipient!==room.host&&!blockedEither(recipient.clientId,ws.clientId))sendTo(recipient,giftEvent);
+          }
           return;
         }
 

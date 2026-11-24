@@ -86,6 +86,10 @@ let liveInfo = {
 
 
 const giftFileCandidates = {"heart": ["heart.png"], "star": ["star.png"], "rose": ["rose.png"], "bunny": ["bunny.png"], "toast": ["toast.png"], "bouquet": ["bouquet.png"], "bear": ["bear.png"], "moon": ["moon.png", "月光を抱く月の女神.png"], "dream": ["dream.png"], "kingheart": ["kingheart.png"], "time_castle": ["time_castle.png", "g69.png"], "g01": ["g01.png"], "g02": ["g02.png"], "g03": ["g03.png"], "g04": ["g04.png"], "g05": ["g05.png"], "g06": ["g06.png"], "g07": ["g07.png"], "g08": ["g08.png"], "g09": ["g09.png"], "g10": ["g10.png"], "g11": ["g11.png"], "g12": ["g12.png"], "g13": ["g13.png"], "g14": ["g14.png"], "g15": ["g15.png"], "g16": ["g16.png"], "g17": ["g17.png"], "g18": ["g18.png"], "g19": ["g19.png"], "g20": ["g20.png"], "g21": ["g21.png"], "g22": ["g22.png"], "g23": ["g23.png"], "g24": ["g24.png"], "g25": ["g25.png"], "g26": ["g26.png"], "g27": ["g27.png"], "g28": ["g28.png"], "g29": ["g29.png"], "g30": ["g30.png"], "g31": ["g31.png"], "g32": ["g32.png"], "g33": ["g33.png"], "g34": ["g34.png"], "g35": ["g35.png"], "g36": ["g36.png"], "g37": ["g37.png"], "g38": ["g38.png"], "g39": ["g39.png"], "g40": ["g40.png"], "g41": ["g41.png"], "g42": ["g42.png"], "g43": ["g43.png"], "g44": ["g44.png"], "g45": ["g45.png"], "g46": ["g46.png"], "g47": ["g47.png"], "g48": ["g48.png"], "g49": ["g49.png"], "g50": ["g50.png"], "g51": ["g51.png"], "g52": ["g52.png"], "g53": ["g53.png"], "g54": ["g54.png"], "g55": ["g55.png"], "g56": ["g56.png"], "g57": ["g57.png"], "g58": ["g58.png"], "g59": ["g59.png"], "g60": ["g60.png"], "g61": ["g61.png"], "g62": ["g62.png"], "g63": ["g63.png"], "g64": ["g64.png"], "g65": ["g65.png"], "g66": ["g66.png"], "g67": ["g67.png"], "g68": ["angel.png", "g68.png"], "g70": ["gold_dragon.png", "g70.png"], "g71": ["galaxy.png", "g71.png"], "g72": ["moon_goddess.png", "g72.png", "月光を抱く月の女神.png"], "g73": ["cosmic_whale.png", "g73.png"]};
+// Prefer animated GIF assets, with existing PNG assets as fallback.
+for(const [id,names] of Object.entries(giftFileCandidates)){
+  giftFileCandidates[id]=[...new Set([...names.map(name=>name.replace(/\.png$/i,".gif")),...names])];
+}
 const giftAssets = {};
 const giftRoot = require("path").join(__dirname,"public","gifts");
 for(const [id,names] of Object.entries(giftFileCandidates)){for(const name of names){try{if(require("fs").statSync(require("path").join(giftRoot,name)).isFile()){giftAssets[id]="/gifts/"+encodeURIComponent(name);break;}}catch(e){}}}
@@ -4626,7 +4630,7 @@ const server =
         let name;try{name=decodeURIComponent(url.slice(7).split("?")[0]);}catch(e){res.writeHead(400);res.end();return;}
         if(!allowedGiftFiles.has(name)){res.writeHead(404);res.end();return;}
         const stream=require("fs").createReadStream(require("path").join(giftRoot,name));
-        stream.once("open",()=>{res.writeHead(200,{"Content-Type":"image/png","Cache-Control":"no-cache"});stream.pipe(res);});
+        stream.once("open",()=>{res.writeHead(200,{"Content-Type":name.endsWith(".gif")?"image/gif":"image/png","Cache-Control":"no-cache"});stream.pipe(res);});
         stream.once("error",()=>{if(!res.headersSent){res.writeHead(404);res.end();}else res.destroy();});
         return;
       }

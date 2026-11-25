@@ -6,7 +6,7 @@ const HOST = "0.0.0.0";
 
 let clients = new Set();
 const MAX_LIVE_ROOMS = 50;
-const SERVER_BUILD = "VoiceBotaLive-50Rooms-20261019-verify";
+const SERVER_BUILD = "VoiceBotaLive-GiftSize-V3";
 const liveRooms = new Map();
 function roomOf(ws){return ws && ws.roomId ? liveRooms.get(ws.roomId) : null;}
 function roomParticipants(room){return [...clients].filter(c=>c===room.host || (c.liveJoined && c.roomId===room.id));}
@@ -1483,7 +1483,7 @@ button {
 @keyframes vbCastleComet{0%{opacity:0;transform:translate(0,0) rotate(20deg)}20%{opacity:1}100%{opacity:0;transform:translate(140vw,35vh) rotate(20deg)}}
 
 #testGiftAnimation.vb-clean-whale{background:transparent!important}
-#testGiftAnimation.vb-clean-whale .vb-clean-whale-img{display:block;width:min(82vw,650px);height:auto;max-height:72vh;object-fit:contain;animation:vbCleanWhale var(--gift-duration,5500ms) ease-in-out both}
+#testGiftAnimation.vb-clean-whale .vb-clean-whale-img{display:block!important;width:98vw!important;max-width:none!important;height:auto!important;max-height:80vh!important;object-fit:contain!important;flex:none!important;animation:vbCleanWhale var(--gift-duration,5500ms) ease-in-out both}
 @keyframes vbCleanWhale{0%{opacity:0;transform:scale(.92)} 15%,82%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){#testGiftAnimation.vb-clean-whale .vb-clean-whale-img{animation:none}}
 </style>
@@ -3768,6 +3768,13 @@ function displayTestGift(data){
  layer.style.setProperty("--gift-glow",glows[g.id]||"#f5a5ff");
  layer.style.setProperty("--gift-duration",duration+"ms");
 
+ if(g.id!=="dream" && (giftAssets[g.id] || g.coins>=3000 || g.id==="time_castle")){
+  layer.className="active vb-clean-whale";
+  const img=document.createElement("img");img.className="vb-clean-whale-img";img.src=g.fxImage||g.image;img.alt=g.name;layer.appendChild(img);
+  testGiftAnimationTimer=setTimeout(()=>{layer.className="";layer.replaceChildren()},duration);
+  addComment(data.name||"ゲスト","🎁 "+g.emoji+" "+g.name+"を贈りました（テスト）",data.clientId,data.avatar);
+  return;
+ }
  if(g.id==="g73"){
   layer.className="active vb-clean-whale";
   const img=document.createElement("img");img.className="vb-clean-whale-img";img.src=g.fxImage||g.image;img.alt=g.name;layer.appendChild(img);
